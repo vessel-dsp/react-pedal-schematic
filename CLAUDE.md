@@ -4,7 +4,7 @@ Guidance for Claude Code and other coding agents working in this repository.
 
 ## Project
 
-`circuit-preview-editor` is a web circuit editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and wiring diagrams. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
+`circuit-preview-editor` is a web circuit editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
 
 The library is consumer-agnostic. Any web application can embed it through a typed API; the library itself ships no opinions about how the host renders results or what downstream tooling consumes them.
 
@@ -16,7 +16,7 @@ Target formats:
 - later KiCad schematic/netlist formats;
 - later tscircuit / Circuit JSON interop for PCB and web preview workflows.
 
-The library is not a real-time audio engine, not a SPICE simulator, and not a PCB fabrication tool. It produces reliable circuit documents and compatible schematic/wiring previews that other applications can consume.
+The library is not a real-time audio engine, not a SPICE simulator, not a wiring-diagram tool, and not a PCB fabrication tool. It produces reliable circuit documents and compatible schematic previews that other applications can consume.
 
 ## Distribution
 
@@ -65,12 +65,9 @@ For each component the library tracks: terminal layout, rotation/flip behavior, 
 
 ## Pedal Symbol Strategy
 
-The editor has two compatible visual modes backed by the same normalized circuit document:
+The editor supports schematic preview as its visual surface: abstract electrical symbols, redrawn in a clean common pedal-schematic convention and backed by the normalized circuit document.
 
-- **Schematic view**: abstract electrical symbols, redrawn in a clean common pedal-schematic convention.
-- **Wiring diagram view**: physical pedal wiring symbols — jack lugs, pot lugs, 3PDT lug grids, LED legs, DC jack/battery connections, board pads, and offboard wires.
-
-Both views must preserve the same electrical connectivity. A view may change the graphic and physical affordances, but it must not silently add, remove, or rename electrical terminals.
+Wiring diagrams are out of scope. Do not add physical pedal-wiring symbols, lug-grid layouts, board-pad graphics, offboard wire endpoints, or a separate wiring-view renderer unless the product scope is explicitly reopened.
 
 Symbol work is fixture-driven. Before broad redraw work, collect a component/symbol inventory from the bundled guitar-pedal schematics and use it as the acceptance target. The current pedal fixture corpus mostly needs:
 
@@ -83,9 +80,9 @@ Symbol work is fixture-driven. Before broad redraw work, collect a component/sym
 - SPDT and 3PDT/footswitch-style switches;
 - label, named wire, port/test point metadata.
 
-Wah-style filters are not a single schematic symbol. Represent them as normal components — inductor, pot, capacitors, resistors, transistor stages — and optionally annotate the related components with role metadata such as `role: "wah-filter"` or `mechanical: "treadle"` for wiring and inspection surfaces.
+Wah-style filters are not a single schematic symbol. Represent them as normal components — inductor, pot, capacitors, resistors, transistor stages — and optionally annotate the related components with role metadata such as `role: "wah-filter"` for inspection surfaces.
 
-Do not base the project symbol plan on downloaded generic EDA symbol packs. A KiCad reference-pack attempt was removed because it was not a good enough match for common guitar-pedal schematic and wiring notation. Prefer a small hand-redrawn, pedal-focused symbol set derived from observed pedal fixtures, common published pedal schematics, and an explicit project-native style guide. Terminal geometry comes from the component catalog/source format mapping, not from copied symbol artwork.
+Do not base the project symbol plan on downloaded generic EDA symbol packs. A KiCad reference-pack attempt was removed because it was not a good enough match for common guitar-pedal schematic notation. Prefer a small hand-redrawn, pedal-focused symbol set derived from observed pedal fixtures, common published pedal schematics, and an explicit project-native style guide. Terminal geometry comes from the component catalog/source format mapping, not from copied symbol artwork.
 
 ## Format Strategy
 
@@ -169,9 +166,9 @@ Preferred module boundaries:
 - `src/formats/ltspice/*`: `.asc` parser, symbol catalog, terminal mapping, fixture tests.
 - `src/formats/spice/*`: `.cir` / `.net` lexer/parser, serializer, directive preservation, fixture tests.
 - `src/model/*`: normalized circuit document model, component/terminal/wire/node types, validation.
-- `src/components/*`: pedal/audio component catalog — terminal maps, property schemas, taper curves, and schematic/wiring symbol metadata.
+- `src/components/*`: pedal/audio component catalog — terminal maps, property schemas, taper curves, and schematic symbol metadata.
 - `src/editor/*`: editor commands such as add, move, rotate, flip, connect, delete, rename, edit property.
-- `src/preview/*`: SVG schematic preview, wiring diagram preview, fixture-driven symbol inventory, tscircuit preview/export, auto-layout for netlists.
+- `src/preview/*`: SVG schematic preview, fixture-driven symbol inventory, tscircuit preview/export, auto-layout for netlists.
 - `src/ui/*`: optional React component subpath. Ships UI primitives that render the model (canvas, palette, inspector). These must not depend on shadcn/ui or any specific design system — consumers bring their own styling.
 - `src/index.ts`: public headless API — formats, model, editor, component catalog.
 - `src/ui/index.tsx`: public React component API.
@@ -196,9 +193,7 @@ The playground imports the library through a Vite path alias (`circuit-preview-e
 - Use a dense, practical circuit-tool layout.
 - Do not use React Flow as the canonical circuit editor.
 - Use a custom SVG or canvas schematic surface backed by the normalized circuit model.
-- Support two compatible visual surfaces: schematic view for abstract electrical diagrams and wiring view for physical pedal wiring. Both views must render from the same normalized circuit document and connectivity model.
 - The current generic boxed component renderer is a temporary inspection renderer. The future schematic view should use common schematic symbols without generic boxes for supported components, while still keeping selection affordances and clear unsupported-component markers.
-- The wiring view should use physical pedal symbols for offboard wiring: 1/4" jacks, pot lugs, 3PDT lug grids, LEDs, DC jacks/batteries, board pads, and wire endpoints.
 - Start with selection, inspector, import/export, warnings, and preview before adding advanced editing.
 - Keep unsupported components visible and explicitly marked.
 - Editing must not silently change circuit behavior.
@@ -310,7 +305,7 @@ Tasks:
 - [x] Build `.schx` serializer (`src/formats/schx/serializer.ts`). Emits well-formed XML with proper entity escaping, reconstructs the LiveSPICE `_Type` via the catalog when `sourceTypeName` is missing, and round-trips `Name`/`Description`/`PartNumber` plus all extra root attributes.
 - [x] Preserve positions, rotations, flips, raw attributes, wires, named wires, and labels. Negative LiveSPICE rotations (e.g. `-1`) normalize to `0..3`. Unparseable quantity values (e.g. `Impedance="∞ Ω"`) fall back to string storage so they round-trip verbatim.
 - [x] Map `.schx` element types to the audio component catalog (`src/formats/schx/catalog.ts`) — 36 entries covering passives, semis (incl. canonical `BipolarJunctionTransistor`), tubes, op-amps, transformers, switches/SPDT/SP3T/SP4T, sources, ground/rail, jacks (Input/Speaker), labels, named wires.
-- [x] Add fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures. Op-amp / diode clipper / tube triode fixtures pending — add as Phase 5 wiring needs them.
+- [x] Add fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures.
 
 Success criteria:
 
@@ -354,14 +349,11 @@ Success criteria:
 - A pedal-style LTspice `.asc` (input/output jacks, ground, R/C/L, diode/BJT) imports with correct components, wires, and electrical nodes.
 - Unknown LTspice symbols surface as `unsupported` with `sourceTypeName` preserved, never silently dropped.
 
-### Phase 5: Preview Surfaces
+### Phase 5: Preview Surface
 
-Goal: make imported pedal circuits understandable before full editing exists, with two compatible visual surfaces:
+Goal: make imported pedal circuits understandable before full editing exists, with a schematic preview surface:
 
 - **Schematic**: common pedal/electronics abstract circuit symbols for electrical reasoning.
-- **Wiring diagram**: physical pedal/offboard wiring symbols for build-oriented reasoning.
-
-Both surfaces render from the same normalized document and must preserve identical connectivity.
 
 Tasks:
 
@@ -375,13 +367,11 @@ Tasks:
 - [x] **Wire splitting at T-junctions** (`src/model/wires.ts`, `splitWiresAtJunctions`). Called by every parser (`parseSchx`, `parseLtspiceAsc`) after wire collection. Any wire whose middle is touched by another wire's endpoint is split into shorter segments at the junction point. Result: every electrical junction is at a real wire endpoint, so when a component is dragged only the segments that actually touch its terminals move, and the junction stays put. Original `passive-divider` has 10 wires → 13 after splitting (one split on the horizontal R1→O1 trunk, two splits on the ground rail).
 - [x] **Runtime wire splitting at terminal positions** (`src/preview/renderable-wires.ts`, `buildRenderableWires`). On every render, `SchematicView` re-derives the displayed wire set by additionally splitting wires wherever a component terminal lands on a wire body — including positions that are only reached after a drag. This is what keeps a terminal-on-wire-middle case (e.g. drag a component so its pin lands on a trunk) visually and electrically T-junction-correct without committing extra wires to the model.
 - [x] **Inferred junction dots** (`src/preview/junctions.ts`). In addition to wire-endpoint T- and Y/X-junctions, `findJunctions` now flags any *component terminal* that lands on the middle of a wire — so editor-induced junctions render a dot the moment the user drops a component onto a wire.
-- [x] **SVG symbol library refactor** (`src/preview/symbols/`). Per-kind symbol artwork now lives as standalone `.svg` files (`resistor.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `capacitor.svg`, `capacitor-electrolytic.svg`, `diode.svg`, `diode-zener.svg`, `led.svg`, `jfet-n.svg`, `jfet-p.svg`, `mosfet-n.svg`, `mosfet-p.svg`, `triode.svg`, `pentode.svg`, `tube-diode.svg`, `transformer.svg`, `opamp.svg`, `ic-block.svg`, `optocoupler.svg`, `photoresistor.svg`, `potentiometer.svg`, `variable-resistor.svg`, `switch-spst.svg`, `switch-spdt.svg`, `switch-3pdt.svg`, `switch-toggle.svg`, `switch-rotary.svg`, `relay.svg`, `inductor.svg`, `battery.svg`, `voltage-source.svg`, `current-source.svg`, `rail.svg`, `ground.svg`, `jack-input.svg`, `jack-output.svg`, `port.svg`, `named-wire.svg`, `label.svg`, `unsupported.svg`). `svg-content.ts` exposes them as inlineable `<g>` markup so the renderer can place them into the schematic surface alongside the box frame. Inline `Primitive[]` shapes in `src/preview/symbols.ts` are still used by the boxed inspection view; the SVG files are the source of truth for the future schematic and wiring views.
+- [x] **SVG symbol library refactor** (`src/preview/symbols/`). Per-kind symbol artwork now lives as standalone `.svg` files (`resistor.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `capacitor.svg`, `capacitor-electrolytic.svg`, `diode.svg`, `diode-zener.svg`, `led.svg`, `jfet-n.svg`, `jfet-p.svg`, `mosfet-n.svg`, `mosfet-p.svg`, `triode.svg`, `pentode.svg`, `tube-diode.svg`, `transformer.svg`, `opamp.svg`, `ic-block.svg`, `optocoupler.svg`, `photoresistor.svg`, `potentiometer.svg`, `variable-resistor.svg`, `switch-spst.svg`, `switch-spdt.svg`, `switch-3pdt.svg`, `switch-toggle.svg`, `switch-rotary.svg`, `relay.svg`, `inductor.svg`, `battery.svg`, `voltage-source.svg`, `current-source.svg`, `rail.svg`, `ground.svg`, `jack-input.svg`, `jack-output.svg`, `port.svg`, `named-wire.svg`, `label.svg`, `unsupported.svg`). `svg-content.ts` exposes them as inlineable `<g>` markup so the renderer can place them into the schematic surface alongside the box frame. Inline `Primitive[]` shapes in `src/preview/symbols.ts` are still used by the boxed inspection view; the SVG files are the source of truth for the schematic preview surface.
 - [x] First-pass LTspice input/output jack rendering and LED support are now driven by the SVG library and the `led` `ComponentKind`.
-- [ ] Add a fixture-driven **guitar-pedal symbol inventory** report/test. It should scan bundled pedal fixtures, count observed source component types/kinds, and fail when an observed pedal symbol lacks both a schematic-view plan and a wiring-view plan.
+- [ ] Add a fixture-driven **guitar-pedal symbol inventory** report/test. It should scan bundled pedal fixtures, count observed source component types/kinds, and fail when an observed pedal symbol lacks a schematic-view plan.
 - [ ] Replace the temporary generic boxed schematic glyphs for supported pedal components with a hand-redrawn project-native schematic symbol set. Start from the observed pedal inventory and common guitar-pedal schematics: R, C, electrolytic C, inductor, diode, LED, BJT, JFET, MOSFET, op-amp, potentiometer, variable resistor, input/output jack, rail, ground, battery/DC source, SPDT/3PDT/footswitch, label/named wire/test point.
-- [ ] Add a separate wiring-diagram symbol provider for physical pedal components: 1/4" TS jack tip/sleeve lugs, potentiometer 3-lug row, 3PDT 3x3 lug grid, LED legs, DC jack/battery, board pads, and offboard wire endpoints.
-- [ ] Add a symbol view abstraction so supported components can resolve different graphics for `schematic` vs `wiring` while sharing the same terminal names and connectivity.
-- [ ] Treat wah filters as a recognized subcircuit/role annotation, not as a monolithic component. Keep the schematic as inductor + pot + R/C/transistor network; wiring view may show the wah pot as a treadle/mechanical pot.
+- [ ] Treat wah filters as a recognized subcircuit/role annotation, not as a monolithic component. Keep the schematic as inductor + pot + R/C/transistor network.
 - [ ] Add simple auto-layout preview for netlist-only imports — waits for Phase 4 `.cir` parser.
 - [ ] Add tscircuit preview/export adapter for the subset of the catalog that maps cleanly.
 - [ ] Expand op-amp / diode-clipper / tube-triode fixtures so the playground exercises every catalog branch.
@@ -390,8 +380,7 @@ Success criteria:
 
 - `.schx` circuits render using their source geometry.
 - `.cir` circuits render with deterministic generated layout.
-- Every observed guitar-pedal fixture symbol has an explicit schematic symbol strategy and wiring symbol strategy.
-- Schematic and wiring views remain connectivity-compatible: changing view mode must not change component ids, terminal names, or resolved electrical nodes.
+- Every observed guitar-pedal fixture symbol has an explicit schematic symbol strategy.
 - tscircuit preview is clearly labeled as a preview/export target and skips unmapped components with warnings.
 - The deployed GH Pages playground shows working previews of all bundled fixtures.
 

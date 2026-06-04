@@ -11,7 +11,6 @@ Authoring rules for the project's hand-drawn schematic glyphs. Symbols live as s
 
 - One SVG per symbol, kebab-cased file name: `resistor.svg`, `capacitor-electrolytic.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `jfet-n.svg`, `mosfet-p.svg`, `opamp.svg`, `jack-input.svg`, `footswitch-3pdt.svg`, `unsupported.svg`.
 - Variants of the same `ComponentKind` (NPN vs PNP, input vs output jack, SPDT vs 3PDT) are SEPARATE files, selected at render time via `sourceTypeName`.
-- Wiring-view symbols (physical pedal lugs, jack tip/sleeve, 3PDT lug grid) live under a sibling `src/preview/symbols/wiring/` folder once that mode lands. Do not mix wiring glyphs with schematic glyphs.
 - Do not import EDA symbol packs. Hand-redraw from common guitar-pedal schematic conventions and from the bundled fixtures, in the style described below.
 
 ## Canvas And Coordinate System
@@ -159,7 +158,7 @@ For any new kind, look up `src/formats/schx/catalog.ts` first and copy the termi
 - **SPST switch**: two contact dots on the same axis, a slanted lever line between them in the OPEN position.
 - **SPDT switch**: single pole on the left, two throws on the right — lever drawn in the "up" throw position. Two filled dots for throws, one for the pole.
 - **3PDT footswitch**: three stacked SPDT poles aligned vertically, with a dashed vertical line connecting the three levers (ganged actuation).
-- **Toggle switch**: same as SPDT visually, no extra detail in schematic view (wiring view adds the bat handle).
+- **Toggle switch**: same as SPDT visually, no extra physical hardware detail.
 - **Rotary switch**: circular envelope with N evenly spaced throws and a single pole arrow indicating the selected throw.
 
 ### Sources / Power
@@ -171,13 +170,11 @@ For any new kind, look up `src/formats/schx/catalog.ts` first and copy the termi
 - **Voltage source**: `circle r="7"` with `<text>+</text>` and `<text>-</text>` inside or with a `V` glyph centered.
 - **Current source**: `circle r="7"` with a single arrow inside pointing in the conventional current direction (top to bottom).
 
-### Wiring / Jacks (Schematic View)
+### Jacks
 
 For schematic view, jacks are drawn abstractly:
 - **Input jack**: small rounded rectangle on the left side of the origin with two short leads. Label "INPUT" in 6 px text.
 - **Output jack**: same but labeled "OUTPUT".
-
-(Detailed lug-level pedal-wiring symbols belong under `src/preview/symbols/wiring/` once the wiring view ships.)
 
 ### View-Only / Diagnostics
 
