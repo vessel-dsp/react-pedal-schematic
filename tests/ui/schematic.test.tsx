@@ -123,3 +123,34 @@ describe('SchematicView rendering — LTspice I/O jacks', () => {
         expect(markup).toMatch(/<rect[^>]*height="14"/);
     });
 });
+
+describe('SchematicView rendering — note labels', () => {
+    test('renders long multiline note text in a wrapped textbox', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'NOTE1',
+                kind: 'label',
+                name: 'NOTE1',
+                origin: { x: 40, y: 60 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: {
+                    Text: 'NOTE: Use the following commands to switch between time and frequency domain simulations.\nGAIN SIM:\n.step param Rgain list 1k 2k 5k 10k 20k 50k 100k',
+                },
+                sourceTypeName: 'ltspice:TEXT',
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+        const renderedLines = markup.match(/data-label-line="true"/g) ?? [];
+
+        expect(markup).toContain('data-label-textbox="true"');
+        expect(renderedLines.length).toBeGreaterThanOrEqual(4);
+        expect(markup).toContain('>NOTE: Use the following commands to switch between</tspan>');
+        expect(markup).toContain('>time and frequency domain simulations.</tspan>');
+        expect(markup).toContain('>GAIN SIM:</tspan>');
+        expect(markup).toContain('>.step param Rgain list 1k 2k 5k 10k 20k 50k 100k</tspan>');
+    });
+});

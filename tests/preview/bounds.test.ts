@@ -48,6 +48,29 @@ describe('computeDocumentBounds', () => {
         expect(b.maxY).toBeGreaterThanOrEqual(105);
     });
 
+    test('expands to include wrapped note label textboxes', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'NOTE1',
+                kind: 'label',
+                name: 'NOTE1',
+                origin: { x: 40, y: 60 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: {
+                    Text: 'NOTE: Use the following commands to switch between time and frequency domain simulations.\nGAIN SIM:\n.step param Rgain list 1k 2k 5k 10k 20k 50k 100k',
+                },
+                sourceTypeName: 'ltspice:TEXT',
+            }],
+        };
+
+        const b = computeDocumentBounds(doc, 10);
+        expect(b.maxX).toBeGreaterThanOrEqual(356);
+        expect(b.maxY).toBeGreaterThanOrEqual(138);
+    });
+
     test('viewBoxString formats minX minY width height', () => {
         const s = viewBoxString({ minX: -10, minY: -20, maxX: 30, maxY: 40, width: 40, height: 60 });
         expect(s).toBe('-10 -20 40 60');

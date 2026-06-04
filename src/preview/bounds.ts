@@ -1,4 +1,5 @@
-import type { CircuitDocument, Point } from '../model/types';
+import type { CircuitDocument, Point, PropertyValue } from '../model/types';
+import { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from './label-layout';
 
 export type Bounds = Readonly<{
     minX: number;
@@ -17,6 +18,17 @@ export function computeDocumentBounds(doc: CircuitDocument, padding: number = DE
 
     for (const component of doc.components) {
         points.push(component.origin);
+        if (component.kind === 'label') {
+            const text = stringValue(component.properties.Text) ?? component.name;
+            const subtext = stringValue(component.properties.Subtext);
+            if (shouldRenderLabelTextBox(text, subtext)) {
+                const box = computeLabelTextBoxLayout(text, subtext);
+                points.push({
+                    x: component.origin.x + box.width,
+                    y: component.origin.y + box.height,
+                });
+            }
+        }
         for (const terminal of component.terminals) {
             points.push(terminal.position);
         }
@@ -65,4 +77,14 @@ export function computeDocumentBounds(doc: CircuitDocument, padding: number = DE
 
 export function viewBoxString(bounds: Bounds): string {
     return `${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`;
+}
+
+function stringValue(value: PropertyValue | undefined): string | null {
+    if (value === undefined) {
+        return null;
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return value.raw;
 }

@@ -14,6 +14,7 @@ import { computeComponentBox } from '../preview/box-layout';
 import { computeDocumentBounds, type Bounds, viewBoxString } from '../preview/bounds';
 import { colorForKind } from '../preview/colors';
 import { findJunctions } from '../preview/junctions';
+import { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from '../preview/label-layout';
 import { buildRenderableWires } from '../preview/renderable-wires';
 import { orthogonalPath, pointsToSvg } from '../preview/routing';
 import { findSnap } from '../preview/snap';
@@ -606,6 +607,9 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
 function LabelGlyph({ component, selected }: { component: Component; selected: boolean }): ReactElement {
     const text = stringValue(component.properties.Text) ?? component.name;
     const subtext = stringValue(component.properties.Subtext);
+    if (shouldRenderLabelTextBox(text, subtext)) {
+        return <LabelTextBox origin={component.origin} text={text} subtext={subtext} selected={selected} />;
+    }
     return (
         <g>
             {selected && (
@@ -635,6 +639,57 @@ function LabelGlyph({ component, selected }: { component: Component; selected: b
                     {subtext}
                 </HaloText>
             )}
+        </g>
+    );
+}
+
+function LabelTextBox(props: {
+    origin: Point;
+    text: string;
+    subtext: string | null;
+    selected: boolean;
+}): ReactElement {
+    const layout = computeLabelTextBoxLayout(props.text, props.subtext);
+    const textX = props.origin.x + layout.paddingX;
+    const textY = props.origin.y + layout.paddingY + layout.fontSize;
+
+    return (
+        <g>
+            <rect
+                data-label-textbox="true"
+                x={props.origin.x}
+                y={props.origin.y}
+                width={layout.width}
+                height={layout.height}
+                rx={4}
+                fill="var(--cpe-bg, white)"
+                fillOpacity={0.9}
+                stroke="currentColor"
+                strokeWidth={props.selected ? 1.5 : 0.8}
+                strokeOpacity={props.selected ? 0.75 : 0.22}
+            />
+            <text
+                x={textX}
+                y={textY}
+                fill="currentColor"
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+                fontSize={layout.fontSize}
+                fontWeight={500}
+                textAnchor="start"
+                opacity={0.82}
+                pointerEvents="none"
+            >
+                {layout.lines.map((line, index) => (
+                    <tspan
+                        key={`${index}-${line}`}
+                        data-label-line="true"
+                        x={textX}
+                        dy={index === 0 ? 0 : layout.lineHeight}
+                    >
+                        {line.length === 0 ? ' ' : line}
+                    </tspan>
+                ))}
+            </text>
         </g>
     );
 }
