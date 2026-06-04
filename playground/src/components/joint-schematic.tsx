@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type ReactElement } from 'react';
 import { dia, shapes } from '@joint/core';
-import type { CircuitDocument } from 'react-pedal-schematic';
+import type { CircuitDocument } from '@vessel-dsp/react-pedal-schematic';
 import {
     buildJointDiagramModel,
     movedOriginForNodePosition,

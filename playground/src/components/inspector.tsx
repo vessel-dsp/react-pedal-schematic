@@ -3,26 +3,28 @@ import type {
     Component,
     DocumentCommand,
     PropertyValue,
-} from 'react-pedal-schematic';
+} from '@vessel-dsp/react-pedal-schematic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export type InspectorProps = Readonly<{
     component: Component | null;
     dispatch: (command: DocumentCommand) => void;
     editMode: boolean;
+    className?: string | undefined;
 }>;
 
 export function Inspector(props: InspectorProps): React.ReactElement {
-    const { component, dispatch, editMode } = props;
+    const { component, dispatch, editMode, className } = props;
 
     if (component === null) {
         return (
-            <Card className="h-full">
+            <Card className={cn('h-full', className)}>
                 <CardHeader>
                     <CardTitle className="text-base">Inspector</CardTitle>
                 </CardHeader>
@@ -34,7 +36,7 @@ export function Inspector(props: InspectorProps): React.ReactElement {
     }
 
     return (
-        <Card className="h-full">
+        <Card className={cn('h-full', className)}>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2">
                     <CardTitle className="text-base">{component.id}</CardTitle>

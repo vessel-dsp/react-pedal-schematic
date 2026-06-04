@@ -1,26 +1,28 @@
-# react-pedal-schematic
+# @vessel-dsp/react-pedal-schematic
 
 React circuit-schematic tooling for guitar pedals and nearby audio electronics. The library renders a stylable SVG schematic preview, and also includes format-aware parsing, validation, inspection, light editing, and export helpers.
 
 The project is pedal-first, but the model and fixtures also cover nearby audio-circuit schematics such as amp stages, tone filters, and utility circuits.
 
+![@vessel-dsp/react-pedal-schematic playground showing the symbol library, schematic canvas, and inspector](./docs/images/playground-schematic-editor.png)
+
 ## Install
 
 ```bash
-npm install react-pedal-schematic
+npm install @vessel-dsp/react-pedal-schematic
 ```
 
 React apps can import the UI component and document helpers from the package root:
 
 ```ts
-import { parseCircuitDocument, validateDocument } from 'react-pedal-schematic';
-import { SchematicView } from 'react-pedal-schematic';
+import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
 ```
 
 Headless consumers can avoid the React entrypoint:
 
 ```ts
-import { parseCircuitDocument, validateDocument } from 'react-pedal-schematic/core';
+import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic/core';
 ```
 
 ## Supported Inputs
@@ -32,7 +34,7 @@ import { parseCircuitDocument, validateDocument } from 'react-pedal-schematic/co
 Use the dispatcher for consumer integrations:
 
 ```ts
-import { parseCircuitDocument } from 'react-pedal-schematic/core';
+import { parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
 
 const document = parseCircuitDocument(sourceText, {
     filename: 'pedal.asc',
@@ -43,8 +45,8 @@ const document = parseCircuitDocument(sourceText, {
 
 ```tsx
 import { useState } from 'react';
-import { SchematicView, type WireFlowMode } from 'react-pedal-schematic';
-import type { CircuitDocument } from 'react-pedal-schematic/core';
+import { SchematicView, type WireFlowMode } from '@vessel-dsp/react-pedal-schematic';
+import type { CircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
 
 export function CircuitPreview(props: { document: CircuitDocument }) {
     const [wireFlow, setWireFlow] = useState<WireFlowMode>('none');

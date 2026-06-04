@@ -1,10 +1,10 @@
 # Integration Notes
 
-`react-pedal-schematic` has three public import surfaces:
+`@vessel-dsp/react-pedal-schematic` has three public import surfaces:
 
-- `react-pedal-schematic`: React UI surface plus the core helpers most React apps need.
-- `react-pedal-schematic/core`: headless parsing, validation, editing, netlist, and export helpers.
-- `react-pedal-schematic/ui`: React UI compatibility subpath.
+- `@vessel-dsp/react-pedal-schematic`: React UI surface plus the core helpers most React apps need.
+- `@vessel-dsp/react-pedal-schematic/core`: headless parsing, validation, editing, netlist, and export helpers.
+- `@vessel-dsp/react-pedal-schematic/ui`: React UI compatibility subpath.
 
 The headless `/core` entrypoint does not depend on React. Use it in workers, server-side import pipelines, tests, or build tools.
 
@@ -15,7 +15,7 @@ import {
     parseCircuitDocument,
     validateDocument,
     toNetlistView,
-} from 'react-pedal-schematic/core';
+} from '@vessel-dsp/react-pedal-schematic/core';
 
 const document = parseCircuitDocument(sourceText, {
     filename: 'example.asc',
@@ -30,7 +30,7 @@ Pass a `filename` when possible. The dispatcher uses the extension to choose `.s
 ## Render A Schematic
 
 ```tsx
-import { SchematicView } from 'react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
 
 export function Preview({ document }) {
     return (
@@ -92,4 +92,4 @@ For interactive editor integrations, pass the callback props:
 />
 ```
 
-Use editor commands from `react-pedal-schematic/core` to keep document changes explicit and undoable in non-React contexts.
+Use editor commands from `@vessel-dsp/react-pedal-schematic/core` to keep document changes explicit and undoable in non-React contexts.

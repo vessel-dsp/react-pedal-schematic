@@ -1,6 +1,7 @@
 import { useRef, useState, type DragEvent } from 'react';
-import { colorForKind, symbolFor, type ComponentKind } from 'react-pedal-schematic';
+import { colorForKind, symbolFor, type ComponentKind } from '@vessel-dsp/react-pedal-schematic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export type PaletteItem = Readonly<{
     id: string;
@@ -20,6 +21,11 @@ export const PALETTE_DATA_TYPE = 'application/x-cpe-symbol';
 export type PalettePayload = Readonly<{
     kind: ComponentKind;
     sourceTypeName: string | null;
+}>;
+
+export type SymbolPaletteProps = Readonly<{
+    className?: string | undefined;
+    contentClassName?: string | undefined;
 }>;
 
 export function readPalettePayload(event: DragEvent | globalThis.DragEvent): PalettePayload | null {
@@ -135,7 +141,8 @@ const PALETTE_GROUPS: readonly PaletteGroup[] = [
     },
 ];
 
-export function SymbolPalette(): React.ReactElement {
+export function SymbolPalette(props: SymbolPaletteProps = {}): React.ReactElement {
+    const { className, contentClassName } = props;
     const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(
         () => new Set(['passives', 'semiconductors']),
     );
@@ -153,14 +160,14 @@ export function SymbolPalette(): React.ReactElement {
     }
 
     return (
-        <Card className="h-fit max-h-[calc(100vh-12rem)] overflow-hidden lg:sticky lg:top-4">
+        <Card className={cn('h-fit max-h-[calc(100vh-12rem)] overflow-hidden lg:sticky lg:top-4', className)}>
             <CardHeader className="pb-3">
                 <CardTitle className="text-base">Symbol library</CardTitle>
                 <p className="text-xs text-muted-foreground">Drag a symbol onto the canvas.</p>
             </CardHeader>
             <CardContent
                 data-symbol-library-scroll="true"
-                className="max-h-[calc(100vh-18rem)] space-y-2 overflow-y-auto pb-4 pr-3"
+                className={cn('max-h-[calc(100vh-18rem)] space-y-2 overflow-y-auto pb-4 pr-3', contentClassName)}
             >
                 {PALETTE_GROUPS.map((group) => (
                     <PaletteGroupSection

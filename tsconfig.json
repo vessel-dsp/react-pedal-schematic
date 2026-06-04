@@ -22,9 +22,9 @@
         "baseUrl": ".",
         "paths": {
             "@/*": ["playground/src/*"],
-            "react-pedal-schematic": ["src/ui/index.tsx"],
-            "react-pedal-schematic/core": ["src/index.ts"],
-            "react-pedal-schematic/ui": ["src/ui/index.tsx"]
+            "@vessel-dsp/react-pedal-schematic": ["src/ui/index.tsx"],
+            "@vessel-dsp/react-pedal-schematic/core": ["src/index.ts"],
+            "@vessel-dsp/react-pedal-schematic/ui": ["src/ui/index.tsx"]
         }
     },
     "include": [

@@ -1,5 +1,5 @@
 {
-    "name": "react-pedal-schematic",
+    "name": "@vessel-dsp/react-pedal-schematic",
     "version": "0.1.0",
     "description": "React schematic editor library for guitar pedal circuits with LiveSPICE, LTspice, and SPICE import helpers.",
     "type": "module",
@@ -29,6 +29,7 @@
         "dist",
         "README.md",
         "DOCUMENT.md",
+        "docs/images",
         "examples"
     ],
     "keywords": [

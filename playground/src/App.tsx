@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from 'react';
+import { createContext, useContext, useMemo, useReducer, useState, type ReactNode } from 'react';
 import {
     applyEditorCommand,
     canRedo,
@@ -17,8 +17,8 @@ import {
     type Point,
     type ValidationIssue,
     type Warning,
-} from 'react-pedal-schematic';
-import { SchematicView } from 'react-pedal-schematic/ui';
+} from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,19 +35,22 @@ import { Badge } from '@/components/ui/badge';
 import { FIXTURES, FIXTURE_GROUPS, findFixture } from '@/lib/fixtures';
 import { Inspector } from '@/components/inspector';
 import { SymbolPalette, readPalettePayload } from '@/components/symbol-palette';
+import { cn } from '@/lib/utils';
 import canvasDotBg from '@/assets/canvas-dot-bg.png';
 
 type EditorReducer = (state: EditorState, command: EditorCommand) => EditorState;
+export type SelectedSchematicComponent = EditorState['document']['components'][number] | null;
+type SelectedComponent = SelectedSchematicComponent;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
 const reactDependencyExample = `{
   "dependencies": {
-    "@vessel-dsp/reaact-pedal-schematic": "github:indiejoseph/react-pedal-schematic"
+    "@vessel-dsp/react-pedal-schematic": "github:indiejoseph/react-pedal-schematic"
   }
 }`;
 
-const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/reaact-pedal-schematic';
-import { SchematicView } from '@vessel-dsp/reaact-pedal-schematic/ui';
+const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
 
 export function CircuitPreview(props: { source: string; filename: string }) {
   const document = parseCircuitDocument(props.source, { filename: props.filename });
@@ -122,8 +125,24 @@ type PlaygroundShellProps = Readonly<{
     document: EditorState['document'];
     view: NetlistView;
     issues: readonly ValidationIssue[];
-    selectedComponent: ReturnType<typeof findComponent>;
+    selectedComponent: SelectedComponent;
 }>;
+
+type SchematicWorkspaceContextValue = Readonly<{
+    editorState: EditorState;
+    dispatch: React.Dispatch<EditorCommand>;
+    selectedComponent: SelectedComponent;
+}>;
+
+const SchematicWorkspaceContext = createContext<SchematicWorkspaceContextValue | null>(null);
+
+export function useSchematicWorkspace(): SchematicWorkspaceContextValue {
+    const value = useContext(SchematicWorkspaceContext);
+    if (value === null) {
+        throw new Error('Schematic workspace panels must be rendered inside <SchematicWorkspace>.');
+    }
+    return value;
+}
 
 export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement {
     const { fixture, onFixtureChange, fixtureId, editorState, dispatch, document, view, issues, selectedComponent } = props;
@@ -135,8 +154,8 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
         <div className="min-h-screen bg-background text-foreground">
             <header className="border-b border-border">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                    <div>
-                        <h1 className="text-lg font-semibold tracking-tight">react-pedal-schematic</h1>
+                    <div className="min-w-0">
+                        <h1 className="break-words text-lg font-semibold tracking-tight">@vessel-dsp/react-pedal-schematic</h1>
                         <p className="text-sm text-muted-foreground">
                             Web circuit editor library for audio electronics — playground &amp; docs.
                         </p>
@@ -199,19 +218,11 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                     </TabsList>
 
                     <TabsContent value="schematic" className="m-0">
-                        <div className="grid gap-4 lg:grid-cols-[240px_1fr_320px]">
-                            <SymbolPalette />
-                            <SchematicCard
-                                editorState={editorState}
-                                dispatch={dispatch}
-                                selectedComponent={selectedComponent}
-                            />
-                            <Inspector
-                                component={selectedComponent}
-                                dispatch={(cmd) => dispatch(cmd)}
-                                editMode={true}
-                            />
-                        </div>
+                        <SchematicWorkspace
+                            editorState={editorState}
+                            dispatch={dispatch}
+                            selectedComponent={selectedComponent}
+                        />
                     </TabsContent>
 
                     <TabsContent value="integration" className="m-0" forceMount>
@@ -271,7 +282,7 @@ function IntegrationDocs(): React.ReactElement {
                         <h3 className="text-sm font-medium">Current dependency</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Use <span className="font-mono">github:indiejoseph/react-pedal-schematic</span> as the
-                            source until <span className="font-mono">@vessel-dsp/reaact-pedal-schematic</span> is
+                            source until <span className="font-mono">@vessel-dsp/react-pedal-schematic</span> is
                             available on npm.
                         </p>
                     </div>
@@ -349,22 +360,100 @@ function sourceYaml(
     });
 }
 
-function findComponent(state: EditorState): EditorState['document']['components'][number] | null {
+function findComponent(state: EditorState): SelectedComponent {
     if (state.selectedId === null) {
         return null;
     }
     return state.document.components.find((c) => c.id === state.selectedId) ?? null;
 }
 
+export type SchematicWorkspaceProps = Readonly<{
+    editorState: EditorState;
+    dispatch: React.Dispatch<EditorCommand>;
+    selectedComponent: SelectedComponent;
+    className?: string | undefined;
+    children?: ReactNode | undefined;
+}>;
+
+export function SchematicWorkspace(props: SchematicWorkspaceProps): React.ReactElement {
+    const { editorState, dispatch, selectedComponent, className, children } = props;
+    const value = useMemo<SchematicWorkspaceContextValue>(
+        () => ({ editorState, dispatch, selectedComponent }),
+        [editorState, dispatch, selectedComponent],
+    );
+
+    return (
+        <SchematicWorkspaceContext.Provider value={value}>
+            <div
+                data-schematic-workspace="true"
+                className={cn('grid gap-4 lg:grid-cols-[240px_1fr_320px]', className)}
+            >
+                {children ?? (
+                    <>
+                        <SchematicLeftPanel />
+                        <SchematicCanvasPanel />
+                        <SchematicRightPanel />
+                    </>
+                )}
+            </div>
+        </SchematicWorkspaceContext.Provider>
+    );
+}
+
+export type SchematicLeftPanelProps = Readonly<{
+    className?: string | undefined;
+    contentClassName?: string | undefined;
+}>;
+
+export function SchematicLeftPanel(props: SchematicLeftPanelProps): React.ReactElement {
+    return <SymbolPalette className={props.className} contentClassName={props.contentClassName} />;
+}
+
+export type SchematicCanvasPanelProps = Readonly<{
+    className?: string | undefined;
+    canvasClassName?: string | undefined;
+}>;
+
+export function SchematicCanvasPanel(props: SchematicCanvasPanelProps): React.ReactElement {
+    const { editorState, dispatch, selectedComponent } = useSchematicWorkspace();
+    return (
+        <SchematicCard
+            editorState={editorState}
+            dispatch={dispatch}
+            selectedComponent={selectedComponent}
+            className={props.className}
+            canvasClassName={props.canvasClassName}
+        />
+    );
+}
+
+export type SchematicRightPanelProps = Readonly<{
+    className?: string | undefined;
+}>;
+
+export function SchematicRightPanel(props: SchematicRightPanelProps): React.ReactElement {
+    const { selectedComponent, dispatch } = useSchematicWorkspace();
+    return (
+        <Inspector
+            component={selectedComponent}
+            dispatch={(cmd) => dispatch(cmd)}
+            editMode={true}
+            className={props.className}
+        />
+    );
+}
+
 export function SchematicCard(props: {
     editorState: EditorState;
     dispatch: React.Dispatch<EditorCommand>;
-    selectedComponent: ReturnType<typeof findComponent>;
+    selectedComponent: SelectedComponent;
+    className?: string | undefined;
+    canvasClassName?: string | undefined;
 }): React.ReactElement {
-    const { editorState, dispatch, selectedComponent } = props;
+    const { editorState, dispatch, selectedComponent, className, canvasClassName } = props;
     const [wireFlow, setWireFlow] = useState(false);
     return (
-        <Card>
+        <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base">Edit canvas</CardTitle>
                 <div className="flex items-center gap-2">
@@ -415,7 +504,10 @@ export function SchematicCard(props: {
             <CardContent className="p-2 sm:p-4">
                 <SchematicView
                     document={editorState.document}
-                    className="block h-140 w-full rounded-md border border-border bg-card text-foreground [--cpe-bg:var(--card)]"
+                    className={cn(
+                        'block h-140 w-full rounded-md border border-border bg-card text-foreground [--cpe-bg:var(--card)]',
+                        canvasClassName,
+                    )}
                     style={{
                         backgroundImage: `url(${canvasDotBg})`,
                         backgroundRepeat: 'repeat',

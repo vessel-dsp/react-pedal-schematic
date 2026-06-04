@@ -4,12 +4,12 @@ import {
     UI_VERSION,
     VERSION,
     parseCircuitDocument,
-} from 'react-pedal-schematic';
+} from '@vessel-dsp/react-pedal-schematic';
 import {
     VERSION as CORE_VERSION,
     parseCircuitDocument as parseCoreCircuitDocument,
-} from 'react-pedal-schematic/core';
-import { SchematicView as SchematicViewSubpath } from 'react-pedal-schematic/ui';
+} from '@vessel-dsp/react-pedal-schematic/core';
+import { SchematicView as SchematicViewSubpath } from '@vessel-dsp/react-pedal-schematic/ui';
 import { rewriteRelativeEsmSpecifiers } from '../scripts/fix-dist-imports';
 
 type JsonRecord = Readonly<Record<string, unknown>>;
@@ -50,7 +50,7 @@ describe('npm package contract', () => {
     test('is publishable under the React package name', async () => {
         const pkg = await readPackageJson();
 
-        expect(pkg.name).toBe('react-pedal-schematic');
+        expect(pkg.name).toBe('@vessel-dsp/react-pedal-schematic');
         expect(pkg.private).not.toBe(true);
         expect(pkg.type).toBe('module');
         expect(pkg.version).toBe(VERSION);

@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "react-pedal-schematic",
+      "name": "@vessel-dsp/react-pedal-schematic",
       "devDependencies": {
         "@joint/core": "4.2.4",
         "@tailwindcss/vite": "^4.3.0",

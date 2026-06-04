@@ -9,8 +9,15 @@ import {
     validateDocument,
     type CircuitDocument,
     type EditorCommand,
-} from 'react-pedal-schematic';
-import { PlaygroundShell, SchematicCard } from '../../playground/src/App';
+} from '@vessel-dsp/react-pedal-schematic';
+import {
+    PlaygroundShell,
+    SchematicCanvasPanel,
+    SchematicCard,
+    SchematicLeftPanel,
+    SchematicRightPanel,
+    SchematicWorkspace,
+} from '../../playground/src/App';
 
 const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';
 
@@ -156,7 +163,7 @@ describe('playground Schematic tab', () => {
 
         expect(markup).toContain('trigger-integration');
         expect(markup).toContain('React integration');
-        expect(markup).toContain('@vessel-dsp/reaact-pedal-schematic');
+        expect(markup).toContain('@vessel-dsp/react-pedal-schematic');
         expect(markup).toContain('github:indiejoseph/react-pedal-schematic');
         expect(markup).toContain('SchematicView');
         expect(markup).toContain('parseCircuitDocument');
@@ -210,5 +217,35 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('unknown-ltspice-symbol');
         expect(markup).not.toContain('unsupported-component');
         expect(markup).not.toContain('skipped from netlist');
+    });
+
+    test('exposes context-backed standalone schematic panels with custom class names', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const dispatch = (_command: EditorCommand): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(
+                SchematicWorkspace,
+                {
+                    editorState,
+                    dispatch,
+                    selectedComponent: null,
+                    className: 'custom-workspace',
+                },
+                createElement(SchematicRightPanel, { className: 'right-slot' }),
+                createElement(SchematicCanvasPanel, { className: 'canvas-slot', canvasClassName: 'canvas-view' }),
+                createElement(SchematicLeftPanel, { className: 'left-slot', contentClassName: 'left-scroll-slot' }),
+            ),
+        );
+
+        expect(markup).toContain('data-schematic-workspace="true"');
+        expect(markup).toContain('custom-workspace');
+        expect(markup).toContain('right-slot');
+        expect(markup).toContain('canvas-slot');
+        expect(markup).toContain('canvas-view');
+        expect(markup).toContain('left-slot');
+        expect(markup).toContain('left-scroll-slot');
+        expect(markup.indexOf('Inspector')).toBeLessThan(markup.indexOf('Edit canvas'));
+        expect(markup.indexOf('Edit canvas')).toBeLessThan(markup.indexOf('Symbol library'));
     });
 });

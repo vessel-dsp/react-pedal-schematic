@@ -3,8 +3,8 @@ import {
     parseCircuitDocument,
     validateDocument,
     type CircuitDocument,
-} from 'react-pedal-schematic';
-import { SchematicView, type WireFlowMode } from 'react-pedal-schematic/ui';
+} from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView, type WireFlowMode } from '@vessel-dsp/react-pedal-schematic/ui';
 
 type CircuitPreviewProps = Readonly<{
     sourceText: string;

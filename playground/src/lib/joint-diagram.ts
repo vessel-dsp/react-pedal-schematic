@@ -1,4 +1,4 @@
-import type { CircuitDocument, Component, Point, Wire } from 'react-pedal-schematic';
+import type { CircuitDocument, Component, Point, Wire } from '@vessel-dsp/react-pedal-schematic';
 
 export type JointDiagramPort = Readonly<{
     id: string;

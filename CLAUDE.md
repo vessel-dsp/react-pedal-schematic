@@ -4,7 +4,7 @@ Guidance for Claude Code and other coding agents working in this repository.
 
 ## Project
 
-`react-pedal-schematic` is a React schematic editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
+`@vessel-dsp/react-pedal-schematic` is a React schematic editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
 
 The library is consumer-agnostic. Any web application can embed it through a typed API; the library itself ships no opinions about how the host renders results or what downstream tooling consumes them.
 
@@ -23,7 +23,7 @@ The library is not a real-time audio engine, not a SPICE simulator, not a wiring
 
 The repo has two distinct deliverables that build from the same source tree:
 
-- **Library** → npm as `react-pedal-schematic`. Lives under `src/`. The package root is the React-friendly surface from `src/ui/index.tsx` plus core helper re-exports; `react-pedal-schematic/core` maps to the headless `src/index.ts`; `react-pedal-schematic/ui` remains a UI compatibility subpath. The library does not bundle a UI component framework; consumers bring their own styling.
+- **Library** → npm as `@vessel-dsp/react-pedal-schematic`. Lives under `src/`. The package root is the React-friendly surface from `src/ui/index.tsx` plus core helper re-exports; `@vessel-dsp/react-pedal-schematic/core` maps to the headless `src/index.ts`; `@vessel-dsp/react-pedal-schematic/ui` remains a UI compatibility subpath. The library does not bundle a UI component framework; consumers bring their own styling.
 - **Playground + docs site** → GitHub Pages. Lives under `playground/`. A Vite + React + Tailwind v4 + shadcn/ui SPA that imports the library directly from `src/` for development, demonstrates every supported format and component, and serves the reference documentation. Hosted at the project's GitHub Pages URL via a GitHub Actions deploy workflow.
 
 The playground is the canonical demo and visual test surface. New features land in the library first, then get exercised in the playground.
@@ -52,7 +52,7 @@ source file (.schx / .cir / etc.)
 
 ## Intermediary Interchange Format
 
-The project needs a one-way intermediary YAML export so `.schx`, `.asc`, `.cir`, `.net`, and future formats can be inspected through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Prefer a neutral versioned schema id such as `circuit-interchange/v1` or `react-pedal-schematic/interchange/v1` until the final product name is settled.
+The project needs a one-way intermediary YAML export so `.schx`, `.asc`, `.cir`, `.net`, and future formats can be inspected through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Keep using a neutral versioned schema id such as `circuit-interchange/v1`.
 
 The in-memory source of truth remains `CircuitDocument`; the intermediary YAML is a serialized, LLM-friendly wrapper around that model plus source metadata. It should be easy for humans and LLMs to read, diff, inspect, and discuss.
 
@@ -271,7 +271,7 @@ Keep parsing and transformation code independent of React. The headless entrypoi
 - `playground/src/index.css`: Tailwind v4 entry + theme tokens.
 - `playground/src/pages/*`: playground views (import circuit, inspect, preview) and docs pages.
 
-The playground imports the library through Vite path aliases (`react-pedal-schematic`, `react-pedal-schematic/core`, `react-pedal-schematic/ui`) so changes to `src/` are picked up live during development.
+The playground imports the library through Vite path aliases (`@vessel-dsp/react-pedal-schematic`, `@vessel-dsp/react-pedal-schematic/core`, `@vessel-dsp/react-pedal-schematic/ui`) so changes to `src/` are picked up live during development.
 
 ## UI Rules
 
@@ -331,7 +331,7 @@ Playground tasks:
 
 - [x] Install Vite + React + Tailwind v4 + shadcn/ui prerequisites.
 - [x] Create `playground/` (Vite root) with `index.html`, `src/main.tsx`, `src/App.tsx`, `src/index.css`.
-- [x] Add `vite.config.ts` with React + Tailwind plugins, `react-pedal-schematic` / `react-pedal-schematic/core` / `react-pedal-schematic/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
+- [x] Add `vite.config.ts` with React + Tailwind plugins, `@vessel-dsp/react-pedal-schematic` / `@vessel-dsp/react-pedal-schematic/core` / `@vessel-dsp/react-pedal-schematic/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
 - [x] Add `components.json` and a Tailwind v4 + shadcn token CSS (`playground/src/index.css`); `cn()` helper at `playground/src/lib/utils.ts`.
 - [x] Single shared `tsconfig.json` covers library + tests + playground via `paths` aliases; build config stays in `tsconfig.build.json`.
 - [x] Add scripts: `bun run dev`, `bun run build:playground`, `bun run preview`.
@@ -532,14 +532,14 @@ Goal: publish a clean, typed, consumer-friendly library that other web apps can 
 
 Tasks:
 
-- [x] Lock the public surface as package root `react-pedal-schematic` (React UI + core helper re-exports), `react-pedal-schematic/core` (headless parsers/model/editor/preview helpers), and `react-pedal-schematic/ui` (React UI compatibility subpath).
+- [x] Lock the public surface as package root `@vessel-dsp/react-pedal-schematic` (React UI + core helper re-exports), `@vessel-dsp/react-pedal-schematic/core` (headless parsers/model/editor/preview helpers), and `@vessel-dsp/react-pedal-schematic/ui` (React UI compatibility subpath).
 - [x] Verify the headless entrypoint has no React dependency through `tests/smoke.test.ts`.
 - [x] Produce ESM + type declaration build output suitable for npm publishing via `tsconfig.build.json`.
 - [x] Declare `react` / `react-dom` as peer dependencies for the React UI surface.
-- [x] Add npm publish readiness metadata: public package name `react-pedal-schematic`, `files`, `main`/`module`/`types`, export map, `publishConfig`, `prepack`, and `pack:dry-run`.
+- [x] Add npm publish readiness metadata: public package name `@vessel-dsp/react-pedal-schematic`, `files`, `main`/`module`/`types`, export map, `publishConfig`, `prepack`, and `pack:dry-run`.
 
 Success criteria:
 
-- A web app can install the library and use the headless API through `react-pedal-schematic/core` without React in its bundle.
-- A React web app can import `SchematicView` and common helpers from `react-pedal-schematic`, or keep using the `react-pedal-schematic/ui` subpath.
+- A web app can install the library and use the headless API through `@vessel-dsp/react-pedal-schematic/core` without React in its bundle.
+- A React web app can import `SchematicView` and common helpers from `@vessel-dsp/react-pedal-schematic`, or keep using the `@vessel-dsp/react-pedal-schematic/ui` subpath.
 - The build output is reproducible, typechecked, tested, and packable with `npm pack --dry-run`.
