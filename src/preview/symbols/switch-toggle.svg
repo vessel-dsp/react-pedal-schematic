@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: switch (toggle — panel-mount, SPST visual with handle indicator)
+    terminals: a (SVG 0,-20), b (SVG 0,20)
+  -->
+  <g stroke-width="0.95">
+    <line x1="0" y1="-20" x2="0" y2="-5"/>
+    <line x1="0" y1="5" x2="0" y2="20"/>
+  </g>
+  <circle cx="0" cy="-5" r="1.5"/>
+  <circle cx="0" cy="5" r="1.5"/>
+  <line x1="0" y1="-5" x2="-6" y2="2"/>
+  <circle cx="-6" cy="2" r="2.5"/>
+</svg>

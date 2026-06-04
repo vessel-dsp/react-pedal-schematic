@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: bjt (PNP variant)
+    terminals: collector (SVG 0,-20), base (SVG -20,0), emitter (SVG 10,20)
+    Arrow points INWARD (emitter -> base) to distinguish PNP from NPN.
+  -->
+  <g stroke-width="0.95">
+    <line x1="-20" y1="0" x2="-6" y2="0"/>
+    <line x1="4" y1="-7" x2="0" y2="-20"/>
+    <line x1="4" y1="7" x2="10" y2="20"/>
+  </g>
+  <circle cx="0" cy="0" r="11"/>
+  <line x1="-6" y1="-5" x2="-6" y2="5"/>
+  <line x1="-6" y1="-3" x2="4" y2="-7"/>
+  <line x1="-6" y1="3" x2="4" y2="7"/>
+  <path d="M -6 3 L -1.7 3.1 L -3.2 5.9 Z" fill="currentColor" stroke="none"/>
+</svg>

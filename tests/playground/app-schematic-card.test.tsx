@@ -1,0 +1,78 @@
+import { describe, expect, test } from 'bun:test';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+    createEditorState,
+    parseSchx,
+    toNetlistView,
+    validateDocument,
+    type EditorCommand,
+} from 'circuit-preview-editor';
+import { PlaygroundShell, SchematicCard } from '../../playground/src/App';
+
+const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';
+
+describe('playground Schematic tab', () => {
+    test('does not expose the JointJS experiment as a playground tab', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'empty',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).not.toContain('JointJS');
+    });
+
+    test('uses the library schematic SVG renderer', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const dispatch = (_command: EditorCommand): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(SchematicCard, {
+                editorState,
+                dispatch,
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('aria-label="Schematic preview"');
+    });
+
+    test('renders the symbol library palette in the schematic tab', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'empty',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('Symbol library');
+        expect(markup).toContain('Passives');
+        expect(markup).toContain('Semiconductors');
+    });
+});

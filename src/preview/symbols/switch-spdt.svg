@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: switch (SPDT — uses BJT_TERMINALS in the catalog)
+    terminals: pole/base (SVG -20,0), throw1/collector (SVG 0,-20), throw2/emitter (SVG 10,20)
+    Lever shown selecting the upper throw.
+  -->
+  <g stroke-width="0.95">
+    <line x1="-20" y1="0" x2="-7" y2="0"/>
+    <line x1="3" y1="-10" x2="0" y2="-20"/>
+    <line x1="3" y1="10" x2="10" y2="20"/>
+  </g>
+  <circle cx="-5" cy="0" r="1.5"/>
+  <circle cx="3" cy="-10" r="1.5"/>
+  <circle cx="3" cy="10" r="1.5"/>
+  <line x1="-5" y1="0" x2="2" y2="-9"/>
+</svg>

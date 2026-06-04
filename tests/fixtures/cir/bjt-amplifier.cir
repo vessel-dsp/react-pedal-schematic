@@ -1,0 +1,12 @@
+.TITLE Single-transistor common-emitter
+* Audio-band BJT booster with bias network
+V1 vcc 0 9
+RB1 vcc base 1Meg
+RB2 base 0 220k
+RC vcc collector 10k
+RE emitter 0 390
+CIN in base 100n
+COUT collector out 100n
+Q1 collector base emitter 2N3904
+.MODEL 2N3904 NPN (IS=1e-14 BF=200 BR=1)
+.END

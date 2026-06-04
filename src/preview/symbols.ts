@@ -1,0 +1,160 @@
+import type { ComponentKind } from '../model/types';
+import { SYMBOL_CONTENT, type SymbolContent } from './symbols/svg-content';
+
+export type SymbolDef = SymbolContent;
+
+const FALLBACK_KEY = 'unsupported';
+
+function lookup(key: string): SymbolDef {
+    const def = SYMBOL_CONTENT[key];
+    if (def === undefined) {
+        return SYMBOL_CONTENT[FALLBACK_KEY] as SymbolDef;
+    }
+    return def;
+}
+
+export function symbolFor(kind: ComponentKind, sourceTypeName: string | null = null): SymbolDef {
+    return lookup(resolveKey(kind, sourceTypeName));
+}
+
+function resolveKey(kind: ComponentKind, sourceTypeName: string | null): string {
+    switch (kind) {
+        case 'bjt':
+            return resolveBjt(sourceTypeName);
+        case 'jfet':
+            return resolveJfet(sourceTypeName);
+        case 'mosfet':
+            return resolveMosfet(sourceTypeName);
+        case 'jack':
+            return resolveJack(sourceTypeName);
+        case 'switch':
+            return resolveSwitch(sourceTypeName);
+        case 'variable-resistor':
+            return 'variable-resistor';
+        case 'tube-diode':
+            return 'tube-diode';
+        case 'voltage-source':
+            return 'voltage-source';
+        case 'current-source':
+            return 'current-source';
+        case 'named-wire':
+            return 'named-wire';
+        default:
+            return kind;
+    }
+}
+
+const NPN_SHORT_TYPES = new Set(['NpnBjt']);
+const PNP_SHORT_TYPES = new Set(['PnpBjt']);
+
+function resolveBjt(sourceTypeName: string | null): string {
+    const short = shortName(sourceTypeName);
+    if (short !== null && PNP_SHORT_TYPES.has(short)) {
+        return 'bjt-pnp';
+    }
+    if (short !== null && NPN_SHORT_TYPES.has(short)) {
+        return 'bjt-npn';
+    }
+    return 'bjt-npn';
+}
+
+const N_JFET_SHORT_TYPES = new Set(['NjfJfet']);
+const P_JFET_SHORT_TYPES = new Set(['PjfJfet']);
+
+function resolveJfet(sourceTypeName: string | null): string {
+    const short = shortName(sourceTypeName);
+    if (short !== null && P_JFET_SHORT_TYPES.has(short)) {
+        return 'jfet-p';
+    }
+    if (short !== null && N_JFET_SHORT_TYPES.has(short)) {
+        return 'jfet-n';
+    }
+    return 'jfet-n';
+}
+
+const N_MOSFET_SHORT_TYPES = new Set(['NMosfet']);
+const P_MOSFET_SHORT_TYPES = new Set(['PMosfet']);
+
+function resolveMosfet(sourceTypeName: string | null): string {
+    const short = shortName(sourceTypeName);
+    if (short !== null && P_MOSFET_SHORT_TYPES.has(short)) {
+        return 'mosfet-p';
+    }
+    if (short !== null && N_MOSFET_SHORT_TYPES.has(short)) {
+        return 'mosfet-n';
+    }
+    return 'mosfet-n';
+}
+
+const OUTPUT_JACK_SHORT_TYPES = new Set(['Speaker', 'OutputJack']);
+
+function resolveJack(sourceTypeName: string | null): string {
+    const short = shortName(sourceTypeName);
+    if (short !== null && OUTPUT_JACK_SHORT_TYPES.has(short)) {
+        return 'jack-output';
+    }
+    return 'jack-input';
+}
+
+function resolveSwitch(sourceTypeName: string | null): string {
+    const short = shortName(sourceTypeName);
+    if (short === null) {
+        return 'switch-spst';
+    }
+    switch (short.toUpperCase()) {
+        case 'SPDT':
+        case 'SP3T':
+        case 'SP4T':
+            return 'switch-spdt';
+        case '3PDT':
+            return 'switch-3pdt';
+        case 'TOGGLE':
+            return 'switch-toggle';
+        case 'ROTARY':
+            return 'switch-rotary';
+        default:
+            return 'switch-spst';
+    }
+}
+
+function shortName(fullType: string | null): string | null {
+    if (fullType === null) {
+        return null;
+    }
+    const match = fullType.match(/Circuit\.(?:Components\.)?([A-Za-z0-9_]+)/);
+    if (match?.[1] !== undefined) {
+        return match[1];
+    }
+    const ltspiceMatch = fullType.match(/^ltspice:([A-Za-z0-9_]+)/);
+    return ltspiceMatch?.[1] ?? fullType;
+}
+
+export const COMPONENT_KINDS: readonly ComponentKind[] = [
+    'resistor',
+    'capacitor',
+    'inductor',
+    'diode',
+    'led',
+    'bjt',
+    'jfet',
+    'mosfet',
+    'opamp',
+    'triode',
+    'pentode',
+    'tube-diode',
+    'transformer',
+    'potentiometer',
+    'variable-resistor',
+    'switch',
+    'optocoupler',
+    'voltage-source',
+    'current-source',
+    'battery',
+    'ground',
+    'rail',
+    'jack',
+    'label',
+    'named-wire',
+    'port',
+    'unsupported',
+];

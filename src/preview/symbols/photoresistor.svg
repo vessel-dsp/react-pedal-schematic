@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: photoresistor (LDR)
+    terminals: a (SVG 0,-20), b (SVG 0,20)
+    Light arrows point INTO the body (upper-right → resistor).
+  -->
+  <g stroke-width="0.95">
+    <line x1="0" y1="-20" x2="0" y2="-10"/>
+    <line x1="0" y1="10" x2="0" y2="20"/>
+  </g>
+  <polyline points="0,-10 -5,-8 5,-4 -5,0 5,4 -5,8 0,10"/>
+  <circle cx="0" cy="0" r="14"/>
+  <line x1="20" y1="-20" x2="14" y2="-14"/>
+  <line x1="14" y1="-14" x2="17" y2="-15"/>
+  <line x1="14" y1="-14" x2="15" y2="-17"/>
+  <line x1="22" y1="-12" x2="16" y2="-6"/>
+  <line x1="16" y1="-6" x2="19" y2="-7"/>
+  <line x1="16" y1="-6" x2="17" y2="-9"/>
+</svg>

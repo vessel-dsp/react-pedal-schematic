@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: named-wire
+    terminals: t (SVG 0,0)
+    Small marker circle + short outbound stroke toward the wire's name label.
+  -->
+  <g stroke-width="0.95">
+    <line x1="3" y1="0" x2="12" y2="0"/>
+  </g>
+  <circle cx="0" cy="0" r="3"/>
+</svg>

@@ -1,0 +1,6 @@
+.TITLE RC low-pass
+* First-order RC filter, audible cutoff
+V1 1 0 9
+R1 1 2 10k
+C1 2 0 4.7u
+.END

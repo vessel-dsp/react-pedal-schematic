@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: unsupported (fallback glyph for source types that have no model mapping yet)
+    terminals: depends on parser — usually 0 or 1
+  -->
+  <circle cx="0" cy="0" r="9" stroke-dasharray="3 2"/>
+  <text x="0" y="3" font-size="10" font-family="ui-sans-serif, system-ui, sans-serif" fill="currentColor" stroke="none" text-anchor="middle">?</text>
+</svg>

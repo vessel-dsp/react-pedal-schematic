@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: current-source
+    terminals: + (SVG 0,-20), - (SVG 0,20)
+    Arrow points toward + terminal (top) — direction of conventional current flow.
+  -->
+  <g stroke-width="0.95">
+    <line x1="0" y1="-20" x2="0" y2="-9"/>
+    <line x1="0" y1="9" x2="0" y2="20"/>
+  </g>
+  <circle cx="0" cy="0" r="9"/>
+  <line x1="0" y1="5" x2="0" y2="-2"/>
+  <path d="M 0 -5 L -3 0 L 3 0 Z" fill="currentColor" stroke="none"/>
+</svg>

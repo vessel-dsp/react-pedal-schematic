@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: relay (electromechanical, SPDT contact)
+    terminals: coil+ (SVG -20,-10), coil- (SVG -20,10), pole (SVG 20,0), throw1 (SVG 20,-13), throw2 (SVG 20,13)
+    Coil on the left, contact group on the right, mechanical coupling shown as dashed line.
+  -->
+  <g stroke-width="0.95">
+    <line x1="-20" y1="-10" x2="-12" y2="-10"/>
+    <line x1="-20" y1="10" x2="-12" y2="10"/>
+    <line x1="6" y1="0" x2="20" y2="0"/>
+    <line x1="13" y1="-13" x2="20" y2="-13"/>
+    <line x1="13" y1="13" x2="20" y2="13"/>
+  </g>
+  <path d="M -12 -10 A 3 2.5 0 0 1 -12 -5 A 3 2.5 0 0 1 -12 0 A 3 2.5 0 0 1 -12 5 A 3 2.5 0 0 1 -12 10"/>
+  <circle cx="6" cy="0" r="1.5"/>
+  <circle cx="13" cy="-13" r="1.5"/>
+  <circle cx="13" cy="13" r="1.5"/>
+  <line x1="6" y1="0" x2="12" y2="-12"/>
+  <line x1="-9" y1="0" x2="6" y2="0" stroke-dasharray="2 2"/>
+</svg>

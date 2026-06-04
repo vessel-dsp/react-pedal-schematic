@@ -1,0 +1,442 @@
+# CLAUDE.md
+
+Guidance for Claude Code and other coding agents working in this repository.
+
+## Project
+
+`circuit-preview-editor` is a web circuit editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and wiring diagrams. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
+
+The library is consumer-agnostic. Any web application can embed it through a typed API; the library itself ships no opinions about how the host renders results or what downstream tooling consumes them.
+
+Target formats:
+
+- LiveSPICE `.schx` schematic XML (primary, graphical);
+- LTspice `.asc` schematic (graphical, SYMBOL/WIRE/FLAG/IOPIN/TEXT);
+- SPICE-style `.cir` / `.net` netlists (connectivity);
+- later KiCad schematic/netlist formats;
+- later tscircuit / Circuit JSON interop for PCB and web preview workflows.
+
+The library is not a real-time audio engine, not a SPICE simulator, and not a PCB fabrication tool. It produces reliable circuit documents and compatible schematic/wiring previews that other applications can consume.
+
+## Distribution
+
+The repo has two distinct deliverables that build from the same source tree:
+
+- **Library** → npm. Lives under `src/`. The published surface is `src/index.ts` (headless) and `src/ui/index.tsx` (optional React subpath). The library does not bundle a UI component framework; consumers bring their own styling.
+- **Playground + docs site** → GitHub Pages. Lives under `playground/`. A Vite + React + Tailwind v4 + shadcn/ui SPA that imports the library directly from `src/` for development, demonstrates every supported format and component, and serves the reference documentation. Hosted at the project's GitHub Pages URL via a GitHub Actions deploy workflow.
+
+The playground is the canonical demo and visual test surface. New features land in the library first, then get exercised in the playground.
+
+## Scope Boundaries
+
+Keep the first version small:
+
+- Do import, parse, validate, preview, inspect, edit, and export audio circuit documents.
+- Do not implement real-time audio DSP, signal simulation, or solver code.
+- Do not implement a full SPICE solver in V1.
+- Do not promise exact LiveSPICE, LTspice, KiCad, or tscircuit compatibility unless tested against fixtures.
+- Do not use a generic graph editor as the canonical document model.
+- Do not make tscircuit the source of truth. Use it as a preview/export target where it fits.
+
+The canonical state is a library-owned circuit document model:
+
+```text
+source file (.schx / .cir / etc.)
+  -> parsed source-specific AST
+  -> normalized circuit document model
+  -> editor operations
+  -> preview/export adapters
+```
+
+## Audio-Domain Component Coverage
+
+The component model and symbol library prioritize parts that show up in real audio schematics. Treat the following as first-class, not "specialty":
+
+- **Passives**: resistors, capacitors (electrolytic / film / ceramic distinctions), inductors, potentiometers (audio/log + linear tapers), trimpots, variable resistors.
+- **Semiconductors**: diodes (clipping, signal, Zener, LED), BJTs (general-purpose, low-noise), JFETs, MOSFETs, photoresistors / vactrols / optocouplers.
+- **Tubes**: triodes (12AX7, 12AU7, etc.), pentodes, rectifier tubes, tube diodes.
+- **ICs**: op-amps (single / dual / quad packages), audio op-amps (TL07x, NE5532, OPAxxx), comparators, voltage regulators, OTAs, BBDs, switched-cap chips, DSP/codec ICs marked as opaque.
+- **Magnetics**: audio transformers (input/output/interstage), chokes, gyrators where used.
+- **Mechanical / IO**: input/output jacks (TS, TRS, XLR), footswitches (SPST/SPDT/3PDT/4PDT — true bypass patterns matter), toggle switches, rotary switches, relays.
+- **Sources / references**: voltage rails, ground variants (signal/chassis), batteries, power supplies, bias references.
+- **View-only metadata**: labels, named wires, ports, test points, diagnostics.
+
+For each component the library tracks: terminal layout, rotation/flip behavior, properties with parsed quantities and units, taper/curve metadata for controls, and a `support` level (`simulatable` vs `view-only`) so downstream tools know what is safe to act on. Unsupported components stay visible and are explicitly marked, never silently dropped.
+
+## Pedal Symbol Strategy
+
+The editor has two compatible visual modes backed by the same normalized circuit document:
+
+- **Schematic view**: abstract electrical symbols, redrawn in a clean common pedal-schematic convention.
+- **Wiring diagram view**: physical pedal wiring symbols — jack lugs, pot lugs, 3PDT lug grids, LED legs, DC jack/battery connections, board pads, and offboard wires.
+
+Both views must preserve the same electrical connectivity. A view may change the graphic and physical affordances, but it must not silently add, remove, or rename electrical terminals.
+
+Symbol work is fixture-driven. Before broad redraw work, collect a component/symbol inventory from the bundled guitar-pedal schematics and use it as the acceptance target. The current pedal fixture corpus mostly needs:
+
+- resistor, capacitor, electrolytic capacitor, inductor;
+- diode, LED, Zener where present;
+- BJT, JFET, MOSFET;
+- op-amp / ideal op-amp;
+- potentiometer, variable resistor;
+- input jack, output jack, DC/battery supply, voltage rail, ground;
+- SPDT and 3PDT/footswitch-style switches;
+- label, named wire, port/test point metadata.
+
+Wah-style filters are not a single schematic symbol. Represent them as normal components — inductor, pot, capacitors, resistors, transistor stages — and optionally annotate the related components with role metadata such as `role: "wah-filter"` or `mechanical: "treadle"` for wiring and inspection surfaces.
+
+Do not base the project symbol plan on downloaded generic EDA symbol packs. A KiCad reference-pack attempt was removed because it was not a good enough match for common guitar-pedal schematic and wiring notation. Prefer a small hand-redrawn, pedal-focused symbol set derived from observed pedal fixtures, common published pedal schematics, and an explicit project-native style guide. Terminal geometry comes from the component catalog/source format mapping, not from copied symbol artwork.
+
+## Format Strategy
+
+### `.schx`
+
+Treat LiveSPICE `.schx` as the highest-priority graphical schematic format.
+
+Support:
+
+- XML import/export;
+- symbols/components;
+- positions, rotations, flips;
+- terminals and wires;
+- named wires and labels;
+- component properties and values;
+- warnings for unsupported or view-only components.
+
+Do not silently drop unknown `.schx` data. Preserve unknown attributes where practical, and warn when round-tripping may lose information.
+
+### `.cir` / `.net`
+
+Treat SPICE netlists as connectivity-first documents, not graphical schematics.
+
+Support V1 parsing for:
+
+- comments and directives;
+- resistors, capacitors, inductors;
+- diodes, BJTs, JFETs, MOSFETs as typed components;
+- voltage and current sources;
+- `.model`, `.subckt`, `.ends`, `.include`, `.param` as preserved metadata where full handling is not implemented.
+
+V1 preview can auto-layout imported netlists, but exported netlists must preserve electrical connectivity and original model/directive text where possible.
+
+### `.asc` (LTspice)
+
+Treat LTspice `.asc` as the second graphical schematic format, alongside `.schx`.
+
+Support:
+
+- line-oriented parsing for `SYMBOL`, `WIRE`, `FLAG`, `IOPIN`, `TEXT`, and `SYMATTR` records;
+- symbol catalog mapping LTspice symbol names → normalized `ComponentKind` with terminal geometry (`src/formats/ltspice/catalog.ts`);
+- orientation strings (`R0..R270`, `M0..M270`) → our `{ rotation, flipped }` tuple;
+- `FLAG` markers for ground/named nets and `IOPIN` markers for input/output jacks;
+- `WIRE` records into the same wire-splitting pipeline as `.schx`;
+- unknown symbol types fall back to `kind: 'unsupported'` with `sourceTypeName: "ltspice:<symbol>"` so they round-trip visibly.
+
+Surface unsupported keywords (`WINDOW`, `LINE`, `RECTANGLE`, etc.) as warnings, not silent drops.
+
+### Multi-format dispatcher
+
+`src/formats/document.ts` exposes:
+
+- `CircuitFormat = 'schx' | 'spice' | 'ltspice-asc'`;
+- `detectCircuitFormat(filename)` — extension-based;
+- `parseCircuitDocument(source, { format?, filename? })` — single entrypoint that delegates to the right parser.
+
+Use the dispatcher in playground / consumer code rather than calling format-specific parsers directly, so adding a new format only needs a new branch in one place.
+
+### tscircuit
+
+Use tscircuit as a preview and interop target for web-friendly board/schematic rendering, not as the canonical editor model.
+
+Prefer standalone preview generation first:
+
+- built-in tscircuit elements only for generated previews;
+- CDN/browser preview where appropriate;
+- no package dependency unless there is a clear local build or test need.
+
+Mark unsupported source components as comments or warnings instead of pretending they are supported.
+
+## Architecture
+
+Use TypeScript for both the library and the playground. Use Bun for scripts and tests. Use Vite for the playground dev server and GH Pages build.
+
+Preferred module boundaries:
+
+### Library (`src/`)
+
+- `src/formats/document.ts`: cross-format entry — `CircuitFormat`, `detectCircuitFormat(filename)`, `parseCircuitDocument(source, options)`.
+- `src/formats/schx/*`: `.schx` parser, serializer, type mapping, fixture tests.
+- `src/formats/ltspice/*`: `.asc` parser, symbol catalog, terminal mapping, fixture tests.
+- `src/formats/spice/*`: `.cir` / `.net` lexer/parser, serializer, directive preservation, fixture tests.
+- `src/model/*`: normalized circuit document model, component/terminal/wire/node types, validation.
+- `src/components/*`: pedal/audio component catalog — terminal maps, property schemas, taper curves, and schematic/wiring symbol metadata.
+- `src/editor/*`: editor commands such as add, move, rotate, flip, connect, delete, rename, edit property.
+- `src/preview/*`: SVG schematic preview, wiring diagram preview, fixture-driven symbol inventory, tscircuit preview/export, auto-layout for netlists.
+- `src/ui/*`: optional React component subpath. Ships UI primitives that render the model (canvas, palette, inspector). These must not depend on shadcn/ui or any specific design system — consumers bring their own styling.
+- `src/index.ts`: public headless API — formats, model, editor, component catalog.
+- `src/ui/index.tsx`: public React component API.
+- `tests/fixtures/*`: real-world audio circuit fixtures (`.schx`, `.cir`) plus round-trip baselines.
+
+Keep parsing and transformation code independent of React. The headless entrypoint must work without pulling in the UI layer so that headless consumers (build tools, validators, exporters, server-side renderers) can use the library directly.
+
+### Playground + docs (`playground/`)
+
+- `playground/index.html`, `playground/src/main.tsx`: Vite entrypoint.
+- `playground/src/App.tsx`: top-level shell — playground and docs surfaces.
+- `playground/src/components/ui/*`: shadcn/ui components copied in by the shadcn CLI (project-owned source).
+- `playground/src/lib/utils.ts`: `cn()` helper and other playground-scoped utilities.
+- `playground/src/index.css`: Tailwind v4 entry + theme tokens.
+- `playground/src/pages/*`: playground views (import circuit, inspect, preview) and docs pages.
+
+The playground imports the library through a Vite path alias (`circuit-preview-editor`, `circuit-preview-editor/ui`) so changes to `src/` are picked up live during development.
+
+## UI Rules
+
+- Build an actual editor surface, not a marketing page.
+- Use a dense, practical circuit-tool layout.
+- Do not use React Flow as the canonical circuit editor.
+- Use a custom SVG or canvas schematic surface backed by the normalized circuit model.
+- Support two compatible visual surfaces: schematic view for abstract electrical diagrams and wiring view for physical pedal wiring. Both views must render from the same normalized circuit document and connectivity model.
+- The current generic boxed component renderer is a temporary inspection renderer. The future schematic view should use common schematic symbols without generic boxes for supported components, while still keeping selection affordances and clear unsupported-component markers.
+- The wiring view should use physical pedal symbols for offboard wiring: 1/4" jacks, pot lugs, 3PDT lug grids, LEDs, DC jacks/batteries, board pads, and wire endpoints.
+- Start with selection, inspector, import/export, warnings, and preview before adding advanced editing.
+- Keep unsupported components visible and explicitly marked.
+- Editing must not silently change circuit behavior.
+- Use **shadcn/ui** for all playground and docs UI chrome (buttons, dialogs, tabs, cards, command palette, etc.). Install via the shadcn CLI; treat the copied component sources as project-owned and edit freely.
+- The library's `src/ui/*` does *not* depend on shadcn/ui. Keep it stylable from the outside via class hooks or render-prop slots so consumers can theme it with their own design system.
+
+## Development Rules
+
+- Use `rg` for search.
+- Use Bun commands, not npm, unless the user explicitly asks.
+- Keep format parsers covered by fixture tests before expanding UI behavior.
+- Add new format support as adapters around the normalized model, not as one-off UI paths.
+- Preserve source fidelity first; clever normalization comes after round-trip tests exist.
+- Keep the headless library boundary clean — `src/index.ts` and everything it transitively imports must not depend on React.
+- New components are added to `src/components/*` with terminal maps, property schemas, symbol metadata, and at least one fixture that exercises them.
+
+## Verification
+
+Pick the smallest check that covers the change:
+
+- Parser/serializer changes: run the related fixture and round-trip tests.
+- Model/editor command changes: run unit tests for command behavior.
+- Component catalog changes: run catalog unit tests + any fixture that uses the component.
+- UI changes: run TypeScript/web checks and inspect the local browser view when feasible.
+- Docs-only changes: inspect the changed file.
+
+## PLAN
+
+Status: planned
+
+### Phase 0: Project Scaffold
+
+Goal: create the library project + the GH Pages playground with strict TypeScript, a runnable test setup, working dev server, and clear module boundaries.
+
+Library tasks:
+
+- [x] Create `~/Projects/circuit-preview-editor`.
+- [x] Add `CLAUDE.md`.
+- [x] Symlink `AGENTS.md` to `CLAUDE.md`.
+- [x] Initialize `package.json` (Bun + TypeScript strict + `bun test`).
+- [x] Add `tsconfig.json` (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes, verbatimModuleSyntax) and `tsconfig.build.json` for library emit.
+- [x] Set up dual entrypoints: `src/index.ts` (headless) and `src/ui/index.tsx` (React).
+- [x] Wire scripts: `bun test`, `bun run typecheck`, `bun run build`, `bun run clean`.
+
+Playground tasks:
+
+- [x] Install Vite + React + Tailwind v4 + shadcn/ui prerequisites.
+- [x] Create `playground/` (Vite root) with `index.html`, `src/main.tsx`, `src/App.tsx`, `src/index.css`.
+- [x] Add `vite.config.ts` with React + Tailwind plugins, `circuit-preview-editor` / `circuit-preview-editor/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
+- [x] Add `components.json` and a Tailwind v4 + shadcn token CSS (`playground/src/index.css`); `cn()` helper at `playground/src/lib/utils.ts`.
+- [x] Single shared `tsconfig.json` covers library + tests + playground via `paths` aliases; build config stays in `tsconfig.build.json`.
+- [x] Add scripts: `bun run dev`, `bun run build:playground`, `bun run preview`.
+- [x] Hello-world `App.tsx` renders the library's `VERSION` and the shadcn `Button` to prove the alias and shadcn-ui pipeline work.
+- [x] Add `.github/workflows/deploy.yml` that builds the playground and deploys to GitHub Pages on push to `main`.
+
+Success criteria:
+
+- `bun install && bun test && bun run typecheck` succeed on a clean checkout.
+- The headless entrypoint compiles and imports nothing from `src/ui/*` or React.
+- `bun run dev` starts the Vite playground and renders a shadcn-styled hello page that imports from the library via its package alias.
+- `bun run build:playground` emits a static site under `gh-pages/`.
+- Scope, audio-domain focus, format separation, and distribution targets are documented in `CLAUDE.md`.
+
+### Phase 1: Core Circuit Model
+
+Goal: define a small normalized circuit document model expressive enough for audio schematics from both graphical and netlist sources.
+
+Tasks:
+
+- [x] Define component, terminal, wire, point, and warning types (`src/model/types.ts`). Directive and source-location types deferred until the format parsers need them.
+- [x] Define `ParsedQuantity` with unit tags and a `parseQuantity()` parser (`src/model/quantity.ts`) covering SI prefixes, `Ω`/`ohm`/`F`/`H`/`V`/`A`/`W`/`Hz`/`s`, and scientific notation.
+- [x] Implement **Borrow #1** — union-find pin → node resolution (`src/model/connectivity.ts`): `resolveConnectivity()` returns `{ pinToNode, nodeMembers, groundNodeId, nodeCount }`. Reimplemented from textbook union-find; CircuitSetu (GPL-3.0) referenced for the "ground → node 0" convention only.
+- [x] Unit tests cover quantity parsing (15 cases) and connectivity (9 cases: empty doc, dangling resistor, wire-joined Rs, RC divider with ground, multi-ground unification, wire chain, coincident pins, multi-terminal op-amp, pinKey stability).
+- [ ] Control metadata (taper curves, ranges, default values) → moved to Phase 2 since it's catalog-specific.
+
+Success criteria:
+
+- The model can represent a simple RC filter and a single-transistor gain stage from both `.schx` and `.cir` imports.
+- The model has zero React or DOM dependencies.
+- `resolveConnectivity()` correctly identifies nodes in fixtures including ground unification and multi-terminal components.
+
+### Phase 2: Audio Component Catalog
+
+Goal: ship a first-class catalog of audio-circuit components with symbols, terminals, and property schemas.
+
+Tasks:
+
+- [x] Implement **Borrow #3** — validation rules + property schemas (`src/model/validation.ts`): `PropertyRule` discriminated union (`quantity` with optional unit/min/max, or `string`), per-kind rule tables for 17 audio-domain kinds, `validateDocument()`, `validateComponent()`, `getRulesForKind()`, `hasErrors()`. 8 stable `ValidationCode`s (`value-required`, `model-required`, `value-unparseable`, `value-out-of-range`, `unit-mismatch`, `unsupported-component`, `duplicate-id`, `degenerate-wire`). 29 unit tests cover required values, alias resolution, range bounds (R=0/-100/2.2G all rejected), unit-mismatch warnings, semiconductor model requirements, duplicate IDs, degenerate wires, and view-only skip. Rules currently live as static lookup tables and will fold into the catalog entries when this phase lands.
+- [ ] Define component definitions for the audio-domain coverage list above (passives, semiconductors, tubes, op-amps, transformers, switches, jacks, sources, view-only).
+- [ ] Provide SVG symbol primitives that can be reused by the preview layer.
+- [ ] Resolve terminal positions per component, including rotation/flip transforms.
+- [ ] Distinguish `simulatable` vs `view-only` support per component.
+- [ ] Add catalog unit tests (every catalog entry round-trips its terminals; quantity props parse).
+- [ ] Migrate the inline lookup tables in `src/model/netlist.ts` (SPICE letter, node order, value property, has-model) and `src/model/validation.ts` (rules) into per-kind catalog entries.
+- [ ] Add control metadata (taper curves, ranges, default values) for potentiometers, switches, and variable resistors.
+
+Success criteria:
+
+- A standard guitar-pedal palette (R, C, pot, BJT, JFET, op-amp, diode, footswitch, jack, ground) is available from the headless API.
+- Each catalog entry documents its terminals, taper/curve metadata where applicable, and support level.
+
+### Phase 3: `.schx` Import / Export
+
+Goal: support LiveSPICE-style schematic documents with round-trip fidelity for audio circuits.
+
+Tasks:
+
+- [x] Build `.schx` XML parser (`src/formats/schx/parser.ts`). Regex-based (no XML-parser dependency); handles attribute ordering, whitespace, comments, UTF-8 BOM, malformed wires (warn + skip), unknown component types (warn + retain `sourceTypeName` + kind `'unsupported'`), and unique-id collision via `name-N` suffixing.
+- [x] Build `.schx` serializer (`src/formats/schx/serializer.ts`). Emits well-formed XML with proper entity escaping, reconstructs the LiveSPICE `_Type` via the catalog when `sourceTypeName` is missing, and round-trips `Name`/`Description`/`PartNumber` plus all extra root attributes.
+- [x] Preserve positions, rotations, flips, raw attributes, wires, named wires, and labels. Negative LiveSPICE rotations (e.g. `-1`) normalize to `0..3`. Unparseable quantity values (e.g. `Impedance="∞ Ω"`) fall back to string storage so they round-trip verbatim.
+- [x] Map `.schx` element types to the audio component catalog (`src/formats/schx/catalog.ts`) — 36 entries covering passives, semis (incl. canonical `BipolarJunctionTransistor`), tubes, op-amps, transformers, switches/SPDT/SP3T/SP4T, sources, ground/rail, jacks (Input/Speaker), labels, named wires.
+- [x] Add fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures. Op-amp / diode clipper / tube triode fixtures pending — add as Phase 5 wiring needs them.
+
+Success criteria:
+
+- Each fixture imports and exports without material topology loss.
+- Unknown attributes are preserved or explicitly surfaced in warnings.
+
+### Phase 4: `.cir` / SPICE Netlist Import + Export
+
+Goal: parse common SPICE netlists into the normalized model and round-trip them out, without pretending to be a full SPICE clone.
+
+Tasks:
+
+- [x] Implement **Borrow #2** — flat netlist projection (`src/model/netlist.ts`): `toNetlistView()` returns `{ components: NetlistComponent[], nodeCount, groundNodeId, directives, warnings }`. Per-kind SPICE letters, node-order conventions (R/C/L → a/b; D → anode/cathode; Q → C/B/E; J → D/G/S; M → D/G/S/B; V/I → +/-), and model-name extraction live as inline lookup tables.
+- [x] Build a line-oriented SPICE parser (`src/formats/spice/parser.ts`): comment + continuation handling, R/C/L/D/Q/J/M/V/I rules, multi-line `.SUBCKT` blocks preserved verbatim, `.TITLE` → metadata.name, `.END` terminator, inline `;` comments stripped. Subcircuit instances (`X`) emit a warning. Synthesizes wires + an auto-`GND` component at node "0" via a star topology so the result is renderable through `resolveConnectivity()`.
+- [x] Write a SPICE serializer (`src/formats/spice/serializer.ts`) consuming `toNetlistView()`. Subckt-bound kinds emit as commented placeholders. Directives passed through verbatim. 22 unit tests cover parse, serialize, and round-trip.
+- [x] Added `directives: readonly string[]` to `CircuitDocument` so `.MODEL`/`.SUBCKT`/`.INCLUDE`/`.PARAM` blocks survive parse → serialize cycles unchanged.
+- [ ] Round-trip tests against larger published `.cir` fixtures — current coverage is two hand-written fixtures.
+
+Success criteria:
+
+- A simple pedal-style `.cir` fixture (e.g. one-transistor gain stage with a `.model`) imports with correct nodes/components and the `.model` block survives a re-export.
+- Unsupported directives are visible in diagnostics and preserved where practical.
+
+### Phase 4b: LTspice `.asc` Import
+
+Goal: parse common LTspice schematic files into the same normalized circuit document, side-by-side with `.schx`.
+
+Tasks:
+
+- [x] Line-oriented `.asc` parser (`src/formats/ltspice/parser.ts`). Tokenizes `SYMBOL` / `WIRE` / `FLAG` / `IOPIN` / `TEXT` / `SYMATTR` records, ignores `WINDOW` / `LINE` / `RECTANGLE` / etc. (with warnings), and runs the parsed wire set through `splitWiresAtJunctions` so junction semantics match `.schx`.
+- [x] LTspice symbol catalog (`src/formats/ltspice/catalog.ts`): maps LTspice symbol names → normalized `ComponentKind`, declares terminal layout per symbol, and provides `mapLtspiceTerminal()` + orientation handling (`R0..R270`, `M0..M270` → `rotation`/`flipped`).
+- [x] `IOPIN In|Out` markers register as `kind: 'jack'` with `sourceTypeName` `ltspice:InputJack` / `ltspice:OutputJack`; preview symbols distinguish input vs output jacks.
+- [x] LED is a first-class `ComponentKind`; `.schx` Diodes with `Type="led"` and LTspice LED symbols both map there. Dedicated `led.svg` preview symbol.
+- [x] Unified entrypoint via `parseCircuitDocument(...)` in `src/formats/document.ts`. Extension detection: `.asc` → `'ltspice-asc'`.
+- [x] Fixture: `tests/fixtures/asc/simple-rc.asc` covers the IOPIN + WIRE + SYMBOL path end-to-end through parser + SchematicView SSR rendering tests.
+- [ ] Expand fixtures to cover BJT/JFET/op-amp pedal LTspice schematics.
+- [ ] Add an `.asc` *serializer* so edits round-trip back to LTspice — currently import-only.
+
+Success criteria:
+
+- A pedal-style LTspice `.asc` (input/output jacks, ground, R/C/L, diode/BJT) imports with correct components, wires, and electrical nodes.
+- Unknown LTspice symbols surface as `unsupported` with `sourceTypeName` preserved, never silently dropped.
+
+### Phase 5: Preview Surfaces
+
+Goal: make imported pedal circuits understandable before full editing exists, with two compatible visual surfaces:
+
+- **Schematic**: common pedal/electronics abstract circuit symbols for electrical reasoning.
+- **Wiring diagram**: physical pedal/offboard wiring symbols for build-oriented reasoning.
+
+Both surfaces render from the same normalized document and must preserve identical connectivity.
+
+Tasks:
+
+- [x] Add SVG schematic preview. `src/preview/symbols.ts` provides framework-agnostic symbol data (per-kind `Primitive[]` in local coords) covering 26 `ComponentKind`s; `src/preview/bounds.ts` computes the document viewBox with fallback + padding; `src/ui/schematic.tsx` exposes `<SchematicView document={...} />` that renders wires + components via `currentColor` so consumers can theme it.
+- [x] Mark unsupported/view-only components in the preview with explicit styling — unsupported kinds render with reduced opacity + dashed strokes via `stroke-dasharray`.
+- [x] Wire the playground to load bundled fixtures (`playground/src/fixtures/*.schx` via `?raw` imports), render them in a shadcn-styled shell (`Card` / `Tabs` / `Select` / `Badge`), and expose four tabs: Schematic, Netlist (table of `NetlistView` rows), Warnings (parser + validation + netlist diagnostics), Raw `.schx`.
+- [x] **Boxy renderer (CircuitSetu-style frame).** Each component is wrapped in a rounded `<rect>` (`src/preview/box-layout.ts`, `HALF_SIZE=11`, `PAD=0`). Symbol primitives shrunk significantly (resistor body 22×32 → 10×14; BJT/JFET circle r=14 → r=7; op-amp triangle 56×44 → 21×20; port symbols r=18 → r=7; pot body 22×32 → 10×14) so leads dominate visually and connectors land exactly on box edges. Filled connector dots are drawn at every terminal world position. Component name labels sit below the box (outside) with a halo for readability.
+- [x] **Pan + zoom.** SVG viewBox is state-managed inside `SchematicView`. Mousewheel zooms anchored at the cursor (clamped to `[0.1×, 10×]` of initial bounds). Drag on empty canvas pans (3 px threshold separates "click to deselect" from "drag to pan"). `userSelect: none` + `touchAction: none` on the SVG so drags don't trigger text selection or touch scroll.
+- [x] **Orthogonal wire routing** (`src/preview/routing.ts`). Each wire renders as a `<polyline>`: straight 2-point path for axis-aligned wires, single-elbow L-shape for diagonal wires (horizontal-first when `|dx| ≥ |dy|`, vertical-first otherwise).
+- [x] **Junction dots** (`src/preview/junctions.ts`). `findJunctions(wires, terminals)` flags any wire endpoint that sits on another wire's middle (T-junction) or any endpoint shared by ≥3 wires (Y/X-junction); terminal positions are excluded since the terminal dots already mark them. Rendered as small filled circles on top of components.
+- [x] **Wire splitting at T-junctions** (`src/model/wires.ts`, `splitWiresAtJunctions`). Called by every parser (`parseSchx`, `parseLtspiceAsc`) after wire collection. Any wire whose middle is touched by another wire's endpoint is split into shorter segments at the junction point. Result: every electrical junction is at a real wire endpoint, so when a component is dragged only the segments that actually touch its terminals move, and the junction stays put. Original `passive-divider` has 10 wires → 13 after splitting (one split on the horizontal R1→O1 trunk, two splits on the ground rail).
+- [x] **Runtime wire splitting at terminal positions** (`src/preview/renderable-wires.ts`, `buildRenderableWires`). On every render, `SchematicView` re-derives the displayed wire set by additionally splitting wires wherever a component terminal lands on a wire body — including positions that are only reached after a drag. This is what keeps a terminal-on-wire-middle case (e.g. drag a component so its pin lands on a trunk) visually and electrically T-junction-correct without committing extra wires to the model.
+- [x] **Inferred junction dots** (`src/preview/junctions.ts`). In addition to wire-endpoint T- and Y/X-junctions, `findJunctions` now flags any *component terminal* that lands on the middle of a wire — so editor-induced junctions render a dot the moment the user drops a component onto a wire.
+- [x] **SVG symbol library refactor** (`src/preview/symbols/`). Per-kind symbol artwork now lives as standalone `.svg` files (`resistor.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `capacitor.svg`, `capacitor-electrolytic.svg`, `diode.svg`, `diode-zener.svg`, `led.svg`, `jfet-n.svg`, `jfet-p.svg`, `mosfet-n.svg`, `mosfet-p.svg`, `triode.svg`, `pentode.svg`, `tube-diode.svg`, `transformer.svg`, `opamp.svg`, `ic-block.svg`, `optocoupler.svg`, `photoresistor.svg`, `potentiometer.svg`, `variable-resistor.svg`, `switch-spst.svg`, `switch-spdt.svg`, `switch-3pdt.svg`, `switch-toggle.svg`, `switch-rotary.svg`, `relay.svg`, `inductor.svg`, `battery.svg`, `voltage-source.svg`, `current-source.svg`, `rail.svg`, `ground.svg`, `jack-input.svg`, `jack-output.svg`, `port.svg`, `named-wire.svg`, `label.svg`, `unsupported.svg`). `svg-content.ts` exposes them as inlineable `<g>` markup so the renderer can place them into the schematic surface alongside the box frame. Inline `Primitive[]` shapes in `src/preview/symbols.ts` are still used by the boxed inspection view; the SVG files are the source of truth for the future schematic and wiring views.
+- [x] First-pass LTspice input/output jack rendering and LED support are now driven by the SVG library and the `led` `ComponentKind`.
+- [ ] Add a fixture-driven **guitar-pedal symbol inventory** report/test. It should scan bundled pedal fixtures, count observed source component types/kinds, and fail when an observed pedal symbol lacks both a schematic-view plan and a wiring-view plan.
+- [ ] Replace the temporary generic boxed schematic glyphs for supported pedal components with a hand-redrawn project-native schematic symbol set. Start from the observed pedal inventory and common guitar-pedal schematics: R, C, electrolytic C, inductor, diode, LED, BJT, JFET, MOSFET, op-amp, potentiometer, variable resistor, input/output jack, rail, ground, battery/DC source, SPDT/3PDT/footswitch, label/named wire/test point.
+- [ ] Add a separate wiring-diagram symbol provider for physical pedal components: 1/4" TS jack tip/sleeve lugs, potentiometer 3-lug row, 3PDT 3x3 lug grid, LED legs, DC jack/battery, board pads, and offboard wire endpoints.
+- [ ] Add a symbol view abstraction so supported components can resolve different graphics for `schematic` vs `wiring` while sharing the same terminal names and connectivity.
+- [ ] Treat wah filters as a recognized subcircuit/role annotation, not as a monolithic component. Keep the schematic as inductor + pot + R/C/transistor network; wiring view may show the wah pot as a treadle/mechanical pot.
+- [ ] Add simple auto-layout preview for netlist-only imports — waits for Phase 4 `.cir` parser.
+- [ ] Add tscircuit preview/export adapter for the subset of the catalog that maps cleanly.
+- [ ] Expand op-amp / diode-clipper / tube-triode fixtures so the playground exercises every catalog branch.
+
+Success criteria:
+
+- `.schx` circuits render using their source geometry.
+- `.cir` circuits render with deterministic generated layout.
+- Every observed guitar-pedal fixture symbol has an explicit schematic symbol strategy and wiring symbol strategy.
+- Schematic and wiring views remain connectivity-compatible: changing view mode must not change component ids, terminal names, or resolved electrical nodes.
+- tscircuit preview is clearly labeled as a preview/export target and skips unmapped components with warnings.
+- The deployed GH Pages playground shows working previews of all bundled fixtures.
+
+### Phase 6: Minimal Editing
+
+Goal: implement useful editing without expanding into a full EDA suite.
+
+The playground has two modes:
+- **Preview** (default): non-interactive (read-only) — click only selects. Future iteration will add an auto-sort/auto-layout pass for `.cir`-imported docs.
+- **Edit**: free-form. Components can be placed anywhere by drag-and-drop. Wires stay where they are (not auto-routed).
+
+Tasks:
+
+- [x] `src/editor/commands.ts` — pure `applyDocumentCommand(doc, command)` reducer. Commands: `delete-component`, `rename-component`, `set-property` (auto-`parseQuantity` when prior value was a quantity), `remove-property`, `move-component` (shifts terminals by the delta AND rewrites any wire endpoint that matches an old terminal position, so wires follow the dragged component).
+- [x] `src/editor/history.ts` — `EditorState = { document, selectedId, past, future }` + `applyEditorCommand` with select / undo / redo / pass-through. History capped at 200 entries. Deleting the selected component clears selection.
+- [x] `SchematicView` accepts `editMode`, `selectedId`, `onSelect`, `onMoveComponent`, `snapTo` (default 10), `snapRadius` (default 12), `minZoom` / `maxZoom`. Pointer events handle click-to-select, background-click-to-deselect, drag-to-move (with pointer capture). Selected components get a thicker outline. While dragging, wires connected to the dragged component re-route in real time and a snap target indicator appears when a dragged terminal comes within `snapRadius` of another component's terminal (`src/preview/snap.ts` — `findSnap` picks the closest target and adjusts the candidate origin so the terminals coincide exactly).
+- [x] Playground mode toggle (Preview / Edit) + Undo / Redo / Delete buttons + selection info bar. Editor state reducer mounted with a `key={fixtureId}` so switching fixtures resets the history.
+- [x] **Inspector panel** (`playground/src/components/inspector.tsx`). 320-px right column on `lg` screens, stacked on mobile. Shows the selected component's id (header) + kind (badge), editable name (commits on blur / Enter), read-only meta chips (origin, rotation, terminal count, source type), per-property `<Input>` row with parsed `value + unit` subtitle, `×` remove button per property, and a destructive Delete button. All edit affordances disabled in Preview mode. Built with shadcn `Input` / `Label` / `Separator`.
+- [x] **Connectivity correctness**: `resolveConnectivity` now unions wire endpoints with the wires they sit on mid-segment, so T-junctions are electrically merged even when one side is dragged into a diagonal. Combined with `splitWiresAtJunctions` at parse time, every junction stays self-consistent through edits.
+- [x] **BJT emitter catalog fix**: LiveSPICE places the NPN/PNP emitter at local `(+10, -20)` (slanted), not `(0, -20)`. Catalog + symbol primitives updated. Without this, Q1.emitter in the LPB-1 fixture was an electrically floating pin.
+- [x] **Fixture-level connectivity tests** (`tests/formats/schx/connectivity.test.ts`): per-fixture assertions for node counts, ground anchoring, and which terminals share each electrical node (passive-divider: 5 cases; passive-lowpass: 3; lpb-1-style-boost: 7 including the BJT bias junction, collector load, emitter group, output coupling, and pot wiper).
+- [x] **SVG rendering tests** (`tests/ui/schematic.test.tsx`): SSR `SchematicView` via `react-dom/server` and assert the expected polyline points + junction dots are in the markup.
+- [ ] Graphical rotate / flip commands.
+- [ ] Wire create / delete in edit mode.
+- [ ] Preview-mode auto-layout pass — sort/organize components into a clean schematic from arbitrary positions. Deferred as a larger refactor.
+- [ ] Serialize edits back to `.schx` and warn when an edit doesn't round-trip cleanly.
+
+Success criteria:
+
+- A user can import a `.schx`, move/edit components, export it, and re-import it without topology loss.
+- Netlist imports can be inspected and edited conservatively without losing original directives.
+
+### Phase 7: Library Packaging & Public API
+
+Goal: publish a clean, typed, consumer-friendly library that other web apps can embed.
+
+Tasks:
+
+- [ ] Lock the public surface of `src/index.ts` (parsers, model, editor commands, catalog) and `src/ui/index.ts` (React components).
+- [ ] Verify the headless entrypoint has no React dependency at runtime via a build-time check.
+- [ ] Produce ESM + type declaration build output suitable for npm publishing.
+- [ ] Declare `react` / `react-dom` as peer dependencies for the UI subpath.
+
+Success criteria:
+
+- A web app can install the library and use the headless API without React in its bundle.
+- A web app that wants the editor UI can import components through the UI subpath and supply its own React.
+- The build output is reproducible and typechecked.

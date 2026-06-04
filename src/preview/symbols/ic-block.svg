@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: ic (opaque block — BBD, PT2399, regulator, OTA, codec/DSP)
+    terminals: generic DIP-8 layout (4 left, 4 right)
+    NOTE: catalog has no terminal map yet for opaque ICs; this is a layout placeholder.
+  -->
+  <g stroke-width="0.95">
+    <line x1="-20" y1="-9" x2="-13" y2="-9"/>
+    <line x1="-20" y1="-3" x2="-13" y2="-3"/>
+    <line x1="-20" y1="3" x2="-13" y2="3"/>
+    <line x1="-20" y1="9" x2="-13" y2="9"/>
+    <line x1="13" y1="-9" x2="20" y2="-9"/>
+    <line x1="13" y1="-3" x2="20" y2="-3"/>
+    <line x1="13" y1="3" x2="20" y2="3"/>
+    <line x1="13" y1="9" x2="20" y2="9"/>
+  </g>
+  <rect x="-13" y="-13" width="26" height="26" rx="2"/>
+  <!-- Pin-1 indicator -->
+  <circle cx="-9" cy="-9" r="1.2" fill="currentColor" stroke="none"/>
+</svg>
