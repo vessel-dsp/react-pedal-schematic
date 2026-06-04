@@ -187,6 +187,18 @@ describe('toNetlistView', () => {
         expect(view.warnings.some((w) => w.includes('subcircuit'))).toBe(false);
     });
 
+    test('subcircuit placeholders with unknown pin geometry do not emit terminal-order warnings', () => {
+        const doc = withParts([
+            makeComponent('U1', 'opamp', [], { model: 'LM308' }, 'ltspice:lm308'),
+        ]);
+        const view = toNetlistView(doc);
+
+        const op = view.components[0]!;
+        expect(op.spiceLetter).toBeNull();
+        expect(op.nodes).toEqual([]);
+        expect(view.warnings).toEqual([]);
+    });
+
     test('component with unconventional terminal names falls back to declaration order with a warning', () => {
         const doc = withParts([
             makeComponent('R1', 'resistor', [

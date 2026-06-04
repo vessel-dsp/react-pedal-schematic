@@ -153,12 +153,15 @@ export function SymbolPalette(): React.ReactElement {
     }
 
     return (
-        <Card className="h-full">
+        <Card className="h-fit max-h-[calc(100vh-12rem)] overflow-hidden lg:sticky lg:top-4">
             <CardHeader className="pb-3">
                 <CardTitle className="text-base">Symbol library</CardTitle>
                 <p className="text-xs text-muted-foreground">Drag a symbol onto the canvas.</p>
             </CardHeader>
-            <CardContent className="space-y-2 pb-4">
+            <CardContent
+                data-symbol-library-scroll="true"
+                className="max-h-[calc(100vh-18rem)] space-y-2 overflow-y-auto pb-4 pr-3"
+            >
                 {PALETTE_GROUPS.map((group) => (
                     <PaletteGroupSection
                         key={group.id}

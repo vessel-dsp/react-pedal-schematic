@@ -166,7 +166,10 @@ export function toNetlistView(doc: CircuitDocument, precomputed?: Connectivity):
         // Components that need a SPICE subcircuit (opamps, pots, tubes, etc.) are signaled
         // structurally via `spiceLetter: null` — no per-component warning needed.
 
-        const expectedOrder = NODE_ORDER[component.kind] ?? null;
+        const spiceLetter = SPICE_LETTER[component.kind] ?? null;
+        const expectedOrder = spiceLetter === null && component.terminals.length === 0
+            ? null
+            : NODE_ORDER[component.kind] ?? null;
         const ordered = orderedNodes(component, connectivity, expectedOrder);
         warnings.push(...ordered.warnings);
 
@@ -193,7 +196,7 @@ export function toNetlistView(doc: CircuitDocument, precomputed?: Connectivity):
         components.push({
             id: component.id,
             kind: component.kind,
-            spiceLetter: SPICE_LETTER[component.kind] ?? null,
+            spiceLetter,
             value,
             nodes,
             model,

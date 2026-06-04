@@ -40,6 +40,30 @@ import canvasDotBg from '@/assets/canvas-dot-bg.png';
 type EditorReducer = (state: EditorState, command: EditorCommand) => EditorState;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
+const reactDependencyExample = `{
+  "dependencies": {
+    "@vessel-dsp/reaact-pedal-schematic": "github:indiejoseph/react-pedal-schematic"
+  }
+}`;
+
+const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/reaact-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/reaact-pedal-schematic/ui';
+
+export function CircuitPreview(props: { source: string; filename: string }) {
+  const document = parseCircuitDocument(props.source, { filename: props.filename });
+  const issues = validateDocument(document);
+
+  return (
+    <section>
+      <SchematicView
+        document={document}
+        className="h-[520px] w-full rounded-md border"
+        showLabels
+      />
+      {issues.length > 0 && <p>{issues.length} diagnostics</p>}
+    </section>
+  );
+}`;
 
 export function App(): React.ReactElement {
     const [fixtureId, setFixtureId] = useState<string>(FIXTURES[0]?.id ?? '');
@@ -103,6 +127,10 @@ type PlaygroundShellProps = Readonly<{
 
 export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement {
     const { fixture, onFixtureChange, fixtureId, editorState, dispatch, document, view, issues, selectedComponent } = props;
+    const diagnostics = useMemo(
+        () => buildDisplayDiagnostics(document.warnings, issues, view.warnings),
+        [document.warnings, issues, view.warnings],
+    );
     return (
         <div className="min-h-screen bg-background text-foreground">
             <header className="border-b border-border">
@@ -159,12 +187,13 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                 <Tabs defaultValue="schematic" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="schematic">Schematic</TabsTrigger>
+                        <TabsTrigger value="integration">Integration</TabsTrigger>
                         <TabsTrigger value="source">Source</TabsTrigger>
                         <TabsTrigger value="netlist">
                             Netlist <Badge variant="secondary" className="ml-2">{view.components.length}</Badge>
                         </TabsTrigger>
                         <TabsTrigger value="warnings">
-                            Warnings <IssueBadge count={issues.length + document.warnings.length + view.warnings.length} />
+                            Warnings <IssueBadge count={diagnostics.count} />
                         </TabsTrigger>
                         <TabsTrigger value="raw">{rawTabLabel(fixture)}</TabsTrigger>
                     </TabsList>
@@ -185,6 +214,10 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         </div>
                     </TabsContent>
 
+                    <TabsContent value="integration" className="m-0" forceMount>
+                        <IntegrationDocs />
+                    </TabsContent>
+
                     <TabsContent value="netlist" className="m-0">
                         <NetlistPanel netlist={view} />
                     </TabsContent>
@@ -199,11 +232,11 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="warnings" className="m-0">
+                    <TabsContent value="warnings" className="m-0" forceMount>
                         <WarningsPanel
-                            parseWarnings={document.warnings}
-                            validationIssues={issues}
-                            netlistWarnings={view.warnings}
+                            parseWarnings={diagnostics.parseWarnings}
+                            validationIssues={diagnostics.validationIssues}
+                            netlistWarnings={diagnostics.netlistWarnings}
                         />
                     </TabsContent>
 
@@ -219,6 +252,48 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                 </Tabs>
             </main>
         </div>
+    );
+}
+
+function IntegrationDocs(): React.ReactElement {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">React integration</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                    The npm package is not published yet. Install from GitHub now, but code against the future
+                    package name.
+                </p>
+            </CardHeader>
+            <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                <section className="space-y-3">
+                    <div>
+                        <h3 className="text-sm font-medium">Current dependency</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Use <span className="font-mono">github:indiejoseph/react-pedal-schematic</span> as the
+                            source until <span className="font-mono">@vessel-dsp/reaact-pedal-schematic</span> is
+                            available on npm.
+                        </p>
+                    </div>
+                    <pre className="overflow-auto rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
+                        {reactDependencyExample}
+                    </pre>
+                </section>
+
+                <section className="space-y-3">
+                    <div>
+                        <h3 className="text-sm font-medium">Minimal React preview</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Parse source text with <span className="font-mono">parseCircuitDocument</span>, then pass
+                            the resulting document into <span className="font-mono">SchematicView</span>.
+                        </p>
+                    </div>
+                    <pre className="overflow-auto rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
+                        {reactIntegrationExample}
+                    </pre>
+                </section>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -402,6 +477,86 @@ function SelectionInfo(props: { selectedComponent: ReturnType<typeof findCompone
 function IssueBadge({ count }: { count: number }): React.ReactElement {
     const variant = count === 0 ? 'secondary' : 'destructive';
     return <Badge variant={variant} className="ml-2">{count}</Badge>;
+}
+
+type DisplayDiagnostics = Readonly<{
+    parseWarnings: readonly Warning[];
+    validationIssues: readonly ValidationIssue[];
+    netlistWarnings: readonly string[];
+    count: number;
+}>;
+
+function buildDisplayDiagnostics(
+    parseWarnings: readonly Warning[],
+    validationIssues: readonly ValidationIssue[],
+    netlistWarnings: readonly string[],
+): DisplayDiagnostics {
+    const seenUnsupported = new Set<string>();
+    const displayParseWarnings: Warning[] = [];
+    const displayValidationIssues: ValidationIssue[] = [];
+    const displayNetlistWarnings: string[] = [];
+
+    for (const warning of parseWarnings) {
+        const key = unsupportedParserKey(warning);
+        if (key !== null && seenUnsupported.has(key)) {
+            continue;
+        }
+        if (key !== null) {
+            seenUnsupported.add(key);
+        }
+        displayParseWarnings.push(warning);
+    }
+
+    for (const issue of validationIssues) {
+        const key = unsupportedValidationKey(issue);
+        if (key !== null && seenUnsupported.has(key)) {
+            continue;
+        }
+        if (key !== null) {
+            seenUnsupported.add(key);
+        }
+        displayValidationIssues.push(issue);
+    }
+
+    for (const warning of netlistWarnings) {
+        const key = unsupportedNetlistKey(warning);
+        if (key !== null && seenUnsupported.has(key)) {
+            continue;
+        }
+        if (key !== null) {
+            seenUnsupported.add(key);
+        }
+        displayNetlistWarnings.push(warning);
+    }
+
+    return {
+        parseWarnings: displayParseWarnings,
+        validationIssues: displayValidationIssues,
+        netlistWarnings: displayNetlistWarnings,
+        count: displayParseWarnings.length + displayValidationIssues.length + displayNetlistWarnings.length,
+    };
+}
+
+function unsupportedParserKey(warning: Warning): string | null {
+    if (warning.code !== 'unknown-ltspice-symbol' || warning.componentId === undefined) {
+        return null;
+    }
+    return `unsupported:${warning.componentId}`;
+}
+
+function unsupportedValidationKey(issue: ValidationIssue): string | null {
+    if (issue.code !== 'unsupported-component' || issue.componentId === undefined) {
+        return null;
+    }
+    return `unsupported:${issue.componentId}`;
+}
+
+function unsupportedNetlistKey(message: string): string | null {
+    const match = message.match(/^([^:]+): unsupported source type /);
+    if (match?.[1] === undefined) {
+        return null;
+    }
+    return `unsupported:${match[1]}`;
 }
 
 function NetlistPanel({ netlist }: { netlist: NetlistView }): React.ReactElement {

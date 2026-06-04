@@ -1,9 +1,11 @@
-import type { ComponentKind } from '../model/types';
+import type { ComponentKind, PropertyValue } from '../model/types';
 import { SYMBOL_CONTENT, type SymbolContent } from './symbols/svg-content';
 
 export type SymbolDef = SymbolContent;
+export type SymbolProperties = Readonly<Record<string, PropertyValue>>;
 
 const FALLBACK_KEY = 'unsupported';
+const EMPTY_PROPERTIES: SymbolProperties = {};
 
 function lookup(key: string): SymbolDef {
     const def = SYMBOL_CONTENT[key];
@@ -13,12 +15,20 @@ function lookup(key: string): SymbolDef {
     return def;
 }
 
-export function symbolFor(kind: ComponentKind, sourceTypeName: string | null = null): SymbolDef {
-    return lookup(resolveKey(kind, sourceTypeName));
+export function symbolFor(
+    kind: ComponentKind,
+    sourceTypeName: string | null = null,
+    properties: SymbolProperties = EMPTY_PROPERTIES,
+): SymbolDef {
+    return lookup(resolveKey(kind, sourceTypeName, properties));
 }
 
-function resolveKey(kind: ComponentKind, sourceTypeName: string | null): string {
+function resolveKey(kind: ComponentKind, sourceTypeName: string | null, properties: SymbolProperties): string {
     switch (kind) {
+        case 'capacitor':
+            return resolveCapacitor(properties);
+        case 'diode':
+            return resolveDiode(sourceTypeName, properties);
         case 'bjt':
             return resolveBjt(sourceTypeName);
         case 'jfet':
@@ -60,9 +70,13 @@ function resolveBjt(sourceTypeName: string | null): string {
 
 const N_JFET_SHORT_TYPES = new Set(['NjfJfet']);
 const P_JFET_SHORT_TYPES = new Set(['PjfJfet']);
+const LIVE_SPICE_JUNCTION_FET_TYPES = new Set(['JunctionFieldEffectTransistor']);
 
 function resolveJfet(sourceTypeName: string | null): string {
     const short = shortName(sourceTypeName);
+    if (short !== null && LIVE_SPICE_JUNCTION_FET_TYPES.has(short)) {
+        return 'jfet-junction-n';
+    }
     if (short !== null && P_JFET_SHORT_TYPES.has(short)) {
         return 'jfet-p';
     }
@@ -70,6 +84,26 @@ function resolveJfet(sourceTypeName: string | null): string {
         return 'jfet-n';
     }
     return 'jfet-n';
+}
+
+function resolveCapacitor(properties: SymbolProperties): string {
+    const material = propertyText(properties, 'Material') ?? propertyText(properties, 'material');
+    if (material !== null && material.toLowerCase().includes('electrolytic')) {
+        return 'capacitor-electrolytic';
+    }
+    return 'capacitor';
+}
+
+function resolveDiode(sourceTypeName: string | null, properties: SymbolProperties): string {
+    const short = shortName(sourceTypeName)?.toLowerCase() ?? null;
+    const type = propertyText(properties, 'Type')?.toLowerCase() ?? null;
+    if (short === 'zener' || type?.includes('zener')) {
+        return 'diode-zener';
+    }
+    if (short === 'schottky' || type?.includes('schottky')) {
+        return 'diode-schottky';
+    }
+    return 'diode';
 }
 
 const N_MOSFET_SHORT_TYPES = new Set(['NMosfet']);
@@ -127,6 +161,17 @@ function shortName(fullType: string | null): string | null {
     }
     const ltspiceMatch = fullType.match(/^ltspice:([A-Za-z0-9_]+)/);
     return ltspiceMatch?.[1] ?? fullType;
+}
+
+function propertyText(properties: SymbolProperties, name: string): string | null {
+    const value = properties[name];
+    if (value === undefined) {
+        return null;
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return value.raw;
 }
 
 export const COMPONENT_KINDS: readonly ComponentKind[] = [

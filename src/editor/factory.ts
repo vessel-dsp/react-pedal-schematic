@@ -1,4 +1,5 @@
 import { defaultDefForKind, lookupSchxDef, type SchxComponentDef } from '../formats/schx/catalog';
+import { mapTerminal } from '../formats/schx/transforms';
 import type { Component, ComponentKind, Point } from '../model/types';
 
 export type CreateComponentArgs = Readonly<{
@@ -13,7 +14,7 @@ export function buildComponent(args: CreateComponentArgs): Component {
     const def = resolveDef(args.kind, args.sourceTypeName ?? null);
     const terminals = def.terminals.map((t) => ({
         name: t.name,
-        position: { x: args.origin.x + t.local.x, y: args.origin.y + t.local.y },
+        position: mapTerminal(t.local, args.origin, 0, false),
     }));
     const id = args.name ?? uniqueId(args.kind, args.existingIds ?? new Set());
     return {
@@ -40,6 +41,10 @@ function resolveDef(kind: ComponentKind, sourceTypeName: string | null): SchxCom
     const byKind = defaultDefForKind(kind);
     if (byKind !== undefined) {
         return byKind;
+    }
+    const editorDefault = EDITOR_DEFAULT_DEFS[kind];
+    if (editorDefault !== undefined) {
+        return editorDefault;
     }
     return FALLBACK_DEF;
 }
@@ -99,4 +104,27 @@ const FALLBACK_DEF: SchxComponentDef = {
     kind: 'unsupported',
     terminals: [],
     quantityProps: [],
+};
+
+const EDITOR_DEFAULT_DEFS: Partial<Record<ComponentKind, SchxComponentDef>> = {
+    led: {
+        shortType: 'LED',
+        kind: 'led',
+        terminals: [
+            { name: 'anode', local: { x: 0, y: 20 } },
+            { name: 'cathode', local: { x: 0, y: -20 } },
+        ],
+        quantityProps: [],
+    },
+    optocoupler: {
+        shortType: 'Optocoupler',
+        kind: 'optocoupler',
+        terminals: [
+            { name: 'led+', local: { x: -20, y: 10 } },
+            { name: 'led-', local: { x: -20, y: -10 } },
+            { name: 'r1', local: { x: 20, y: 10 } },
+            { name: 'r2', local: { x: 20, y: -10 } },
+        ],
+        quantityProps: [],
+    },
 };

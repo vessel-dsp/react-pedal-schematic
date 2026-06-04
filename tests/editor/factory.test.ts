@@ -9,8 +9,33 @@ describe('buildComponent', () => {
         expect(r.rotation).toBe(0);
         expect(r.flipped).toBe(false);
         expect(r.terminals).toEqual([
-            { name: 'a', position: { x: 100, y: 80 } },
-            { name: 'b', position: { x: 100, y: 40 } },
+            { name: 'a', position: { x: 100, y: 40 } },
+            { name: 'b', position: { x: 100, y: 80 } },
+        ]);
+    });
+
+    test('creates palette components with terminals aligned to SVG symbol anchors', () => {
+        const diode = buildComponent({
+            kind: 'diode',
+            origin: { x: 0, y: 0 },
+            sourceTypeName: 'Circuit.Diode, Circuit',
+        });
+        const led = buildComponent({ kind: 'led', origin: { x: 10, y: 10 } });
+        const optocoupler = buildComponent({ kind: 'optocoupler', origin: { x: 100, y: 100 } });
+
+        expect(diode.terminals).toEqual([
+            { name: 'anode', position: { x: 0, y: -20 } },
+            { name: 'cathode', position: { x: 0, y: 20 } },
+        ]);
+        expect(led.terminals).toEqual([
+            { name: 'anode', position: { x: 10, y: -10 } },
+            { name: 'cathode', position: { x: 10, y: 30 } },
+        ]);
+        expect(optocoupler.terminals).toEqual([
+            { name: 'led+', position: { x: 80, y: 90 } },
+            { name: 'led-', position: { x: 80, y: 110 } },
+            { name: 'r1', position: { x: 120, y: 90 } },
+            { name: 'r2', position: { x: 120, y: 110 } },
         ]);
     });
 

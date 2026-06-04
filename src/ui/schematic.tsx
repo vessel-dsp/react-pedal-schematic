@@ -57,6 +57,13 @@ type PanState = Readonly<{
 }>;
 
 const PAN_THRESHOLD = 3;
+const SCHEMATIC_TEXT_FONT =
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+const COMPONENT_CARD_LABEL_RATIO = 0.25;
+const COMPONENT_CARD_LABEL_FONT_SIZE = 5.5;
+const COMPONENT_CARD_LABEL_MAX_WIDTH_PADDING = 5;
+const COMPONENT_CARD_STROKE_WIDTH = 0.75;
+const COMPONENT_CARD_SELECTED_STROKE_WIDTH = 1.25;
 
 export function SchematicView(props: SchematicViewProps): ReactElement {
     const {
@@ -306,9 +313,16 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
         components: renderComponents,
         wires: renderWires,
     };
-    const renderableWires = buildRenderableWires(renderDocument);
-    const terminalPositions = renderComponents.flatMap((c) => c.terminals.map((t) => t.position));
-    const junctions = findJunctions(renderWires, terminalPositions);
+    const visualTerminalMap = buildVisualTerminalMap(renderComponents, renderWires);
+    const visualComponents = renderComponents.map((component) => withVisualTerminalPositions(component, visualTerminalMap));
+    const visualWires = renderWires
+        .map((wire) => remapWireForVisualTerminals(wire, visualTerminalMap))
+        .filter((wire) => !pointEquals(wire.endpoints[0], wire.endpoints[1]));
+    const renderableWires = buildRenderableWires(renderDocument)
+        .map((wire) => remapWireForVisualTerminals(wire, visualTerminalMap))
+        .filter((wire) => !pointEquals(wire.endpoints[0], wire.endpoints[1]));
+    const terminalPositions = visualComponents.flatMap((c) => c.terminals.map((t) => t.position));
+    const junctions = findJunctions(visualWires, terminalPositions);
 
     return (
         <div className={className} style={{ position: 'relative', ...style }}>
@@ -338,7 +352,7 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                 ))}
             </g>
             <g>
-                {renderComponents.map((renderComponent) => {
+                {visualComponents.map((renderComponent) => {
                     const isDragging = drag?.componentId === renderComponent.id;
                     const sourceComponent = document.components.find((c) => c.id === renderComponent.id) ?? renderComponent;
                     return (
@@ -416,7 +430,7 @@ function CanvasButton(props: { label: string; onClick: () => void; children: Rea
         border: '1px solid currentColor',
         borderRadius: 4,
         cursor: 'pointer',
-        fontFamily: 'inherit',
+        fontFamily: SCHEMATIC_TEXT_FONT,
         fontSize: 14,
         fontWeight: 600,
         lineHeight: 1,
@@ -458,6 +472,131 @@ function remapWireForDrag(wire: Wire, drag: DragState | null, document: CircuitD
         return wire;
     }
     return { ...wire, endpoints: [a, b] };
+}
+
+function buildVisualTerminalMap(components: readonly Component[], wires: readonly Wire[]): ReadonlyMap<string, Point> {
+    const terminals = new Map<string, Point>();
+    for (const component of components) {
+        if (component.kind === 'label') {
+            continue;
+        }
+        const box = computeComponentBox(component);
+        for (const terminal of component.terminals) {
+            const wireDirection = findAttachedWireDirection(terminal.position, wires);
+            terminals.set(
+                pointKey(terminal.position),
+                projectTerminalToCardEdge(terminal.position, component.origin, box, wireDirection),
+            );
+        }
+    }
+    return terminals;
+}
+
+function withVisualTerminalPositions(
+    component: Component,
+    visualTerminals: ReadonlyMap<string, Point>,
+): Component {
+    if (component.terminals.length === 0) {
+        return component;
+    }
+    let changed = false;
+    const terminals = component.terminals.map((terminal) => {
+        const position = visualTerminals.get(pointKey(terminal.position)) ?? terminal.position;
+        if (!pointEquals(position, terminal.position)) {
+            changed = true;
+        }
+        return { name: terminal.name, position };
+    });
+    return changed ? { ...component, terminals } : component;
+}
+
+function remapWireForVisualTerminals(wire: Wire, visualTerminals: ReadonlyMap<string, Point>): Wire {
+    const a = visualTerminals.get(pointKey(wire.endpoints[0])) ?? wire.endpoints[0];
+    const b = visualTerminals.get(pointKey(wire.endpoints[1])) ?? wire.endpoints[1];
+    if (pointEquals(a, wire.endpoints[0]) && pointEquals(b, wire.endpoints[1])) {
+        return wire;
+    }
+    return { ...wire, endpoints: [a, b] };
+}
+
+function findAttachedWireDirection(position: Point, wires: readonly Wire[]): Point | null {
+    for (const wire of wires) {
+        const a = wire.endpoints[0];
+        const b = wire.endpoints[1];
+        if (pointEquals(position, a)) {
+            return { x: b.x - a.x, y: b.y - a.y };
+        }
+        if (pointEquals(position, b)) {
+            return { x: a.x - b.x, y: a.y - b.y };
+        }
+    }
+    return null;
+}
+
+function projectTerminalToCardEdge(position: Point, origin: Point, box: Bounds, wireDirection: Point | null): Point {
+    const localX = position.x - origin.x;
+    const localY = position.y - origin.y;
+    if (localX === 0 && localY === 0 && wireDirection === null) {
+        return position;
+    }
+
+    const onEdge =
+        position.x === box.minX ||
+        position.x === box.maxX ||
+        position.y === box.minY ||
+        position.y === box.maxY;
+    if (onEdge) {
+        return position;
+    }
+
+    const outside =
+        position.x < box.minX ||
+        position.x > box.maxX ||
+        position.y < box.minY ||
+        position.y > box.maxY;
+    if (outside) {
+        return {
+            x: clamp(position.x, box.minX, box.maxX),
+            y: clamp(position.y, box.minY, box.maxY),
+        };
+    }
+
+    if (wireDirection !== null && (wireDirection.x !== 0 || wireDirection.y !== 0)) {
+        return projectTowardCardEdge(position, wireDirection, box);
+    }
+
+    const candidates: readonly Point[] = [
+        { x: box.minX, y: position.y },
+        { x: box.maxX, y: position.y },
+        { x: position.x, y: box.minY },
+        { x: position.x, y: box.maxY },
+    ];
+    return candidates.reduce((best, candidate) => (
+        distanceSquared(position, candidate) < distanceSquared(position, best) ? candidate : best
+    ));
+}
+
+function projectTowardCardEdge(position: Point, direction: Point, box: Bounds): Point {
+    if (Math.abs(direction.x) >= Math.abs(direction.y)) {
+        return {
+            x: direction.x < 0 ? box.minX : box.maxX,
+            y: clamp(position.y, box.minY, box.maxY),
+        };
+    }
+    return {
+        x: clamp(position.x, box.minX, box.maxX),
+        y: direction.y < 0 ? box.minY : box.maxY,
+    };
+}
+
+function distanceSquared(a: Point, b: Point): number {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
+function pointEquals(a: Point, b: Point): boolean {
+    return a.x === b.x && a.y === b.y;
 }
 
 function pointKey(p: Point): string {
@@ -569,11 +708,16 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
         );
     }
 
-    const def = symbolFor(component.kind, component.sourceTypeName);
+    const def = symbolFor(component.kind, component.sourceTypeName, component.properties);
     const isUnsupported = component.kind === 'unsupported';
     const box = computeComponentBox(component);
     const kindColor = colorForKind(component.kind);
-    const symbolTransform = `translate(${component.origin.x},${component.origin.y}) rotate(${-component.rotation * 90})${
+    const iconHeight = box.height * (1 - COMPONENT_CARD_LABEL_RATIO);
+    const labelHeight = box.height * COMPONENT_CARD_LABEL_RATIO;
+    const labelY = box.minY + iconHeight;
+    const clipId = componentCardClipId(component.id);
+    const cardStrokeWidth = selected ? COMPONENT_CARD_SELECTED_STROKE_WIDTH : COMPONENT_CARD_STROKE_WIDTH;
+    const symbolTransform = `rotate(${-component.rotation * 90})${
         component.flipped ? ' scale(1, -1)' : ''
     }`;
 
@@ -588,29 +732,75 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
             onPointerUp={onPointerUp}
             style={editMode ? { cursor: isDragging ? 'grabbing' : 'grab' } : { cursor: 'pointer' }}
         >
+            <defs>
+                <clipPath id={clipId}>
+                    <rect
+                        data-component-card-clip="true"
+                        x={box.minX}
+                        y={box.minY}
+                        width={box.width}
+                        height={box.height}
+                        rx={5}
+                    />
+                </clipPath>
+            </defs>
             <rect
+                data-component-card="true"
                 x={box.minX}
                 y={box.minY}
                 width={box.width}
                 height={box.height}
                 rx={5}
                 stroke={kindColor}
-                strokeWidth={selected ? 2 : 1.25}
+                strokeWidth={cardStrokeWidth}
                 strokeOpacity={selected ? 1 : 0.8}
                 strokeDasharray={isUnsupported ? '4 3' : undefined}
                 fill={kindColor}
-                fillOpacity={0.22}
+                fillOpacity={0.16}
             />
-            <g
-                transform={symbolTransform}
-                pointerEvents="none"
-                stroke="currentColor"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                dangerouslySetInnerHTML={{ __html: def.content }}
-            />
+            <g clipPath={`url(#${clipId})`} pointerEvents="none">
+                <svg
+                    data-component-icon-area="true"
+                    x={box.minX}
+                    y={box.minY}
+                    width={box.width}
+                    height={iconHeight}
+                    viewBox={def.viewBox}
+                    preserveAspectRatio="xMidYMid meet"
+                    overflow="hidden"
+                    style={{ overflow: 'hidden' }}
+                >
+                    <g
+                        transform={symbolTransform}
+                        stroke="currentColor"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        dangerouslySetInnerHTML={{ __html: def.content }}
+                    />
+                </svg>
+                <rect
+                    data-component-label-area="true"
+                    x={box.minX}
+                    y={labelY}
+                    width={box.width}
+                    height={labelHeight}
+                    rx={0}
+                    fill={kindColor}
+                    fillOpacity={0.95}
+                    stroke="currentColor"
+                    strokeOpacity={0}
+                />
+                {showLabel && (
+                    <ComponentCardLabel
+                        x={(box.minX + box.maxX) / 2}
+                        y={labelY + labelHeight / 2}
+                        name={component.name}
+                        maxWidth={box.width - COMPONENT_CARD_LABEL_MAX_WIDTH_PADDING}
+                    />
+                )}
+            </g>
             {component.terminals.map((terminal, index) => (
                 <circle
                     key={`${terminal.name}-${index}`}
@@ -621,17 +811,39 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
                     pointerEvents="none"
                 />
             ))}
-            {showLabel && (
-                <HaloText
-                    x={(box.minX + box.maxX) / 2}
-                    y={box.maxY + 12}
-                    fontSize={11}
-                    fontWeight={600}
-                >
-                    {component.name}
-                </HaloText>
-            )}
         </g>
+    );
+}
+
+function componentCardClipId(componentId: string): string {
+    return `component-card-clip-${componentId.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+}
+
+function ComponentCardLabel(props: {
+    x: number;
+    y: number;
+    name: string;
+    maxWidth: number;
+}): ReactElement {
+    const estimatedWidth = props.name.length * COMPONENT_CARD_LABEL_FONT_SIZE * 0.62;
+    const textLength = estimatedWidth > props.maxWidth ? props.maxWidth : undefined;
+    return (
+        <text
+            data-component-card-label="true"
+            x={props.x}
+            y={props.y}
+            fill="var(--cpe-component-label-fg, white)"
+            fontFamily={SCHEMATIC_TEXT_FONT}
+            fontSize={COMPONENT_CARD_LABEL_FONT_SIZE}
+            fontWeight={700}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            textLength={textLength}
+            lengthAdjust={textLength === undefined ? undefined : 'spacingAndGlyphs'}
+            pointerEvents="none"
+        >
+            {props.name}
+        </text>
     );
 }
 
@@ -703,7 +915,7 @@ function LabelTextBox(props: {
                 x={textX}
                 y={textY}
                 fill="currentColor"
-                fontFamily="ui-sans-serif, system-ui, sans-serif"
+                fontFamily={SCHEMATIC_TEXT_FONT}
                 fontSize={layout.fontSize}
                 fontWeight={500}
                 textAnchor="start"
@@ -744,7 +956,7 @@ function HaloText(props: {
             x={props.x}
             y={props.y}
             fill="currentColor"
-            fontFamily="ui-sans-serif, system-ui, sans-serif"
+            fontFamily={SCHEMATIC_TEXT_FONT}
             fontSize={props.fontSize}
             fontWeight={props.fontWeight}
             textAnchor="middle"

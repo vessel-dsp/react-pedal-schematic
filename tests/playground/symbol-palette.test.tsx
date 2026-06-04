@@ -12,6 +12,14 @@ describe('SymbolPalette drag preview', () => {
         expect(markup).toContain('-top-[1000px]');
     });
 
+    test('keeps the symbol library internally scrollable instead of growing the page', () => {
+        const markup = renderToStaticMarkup(createElement(SymbolPalette));
+
+        expect(markup).toContain('data-symbol-library-scroll="true"');
+        expect(markup).toContain('overflow-y-auto');
+        expect(markup).toContain('max-h-[calc(100vh-18rem)]');
+    });
+
     test('uses the symbol-only preview as the browser drag image', () => {
         const preview = {} as Element;
         const calls: Array<{ element: Element; x: number; y: number }> = [];

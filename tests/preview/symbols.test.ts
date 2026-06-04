@@ -68,6 +68,25 @@ describe('symbolFor', () => {
         expect(npn.content).toContain('NPN variant');
     });
 
+    test('uses the slanted LiveSPICE JFET glyph for JunctionFieldEffectTransistor terminals', () => {
+        const def = symbolFor('jfet', 'Circuit.JunctionFieldEffectTransistor, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null');
+
+        expect(def.content).toContain('JunctionFieldEffectTransistor variant');
+        expect(def.content).toContain('terminals: drain (SVG 10,-20), gate (SVG -20,0), source (SVG 10,20)');
+    });
+
+    test('distinguishes diode source variants and capacitor material variants', () => {
+        const zenerFromLtspice = symbolFor('diode', 'ltspice:zener');
+        const schottkyFromLtspice = symbolFor('diode', 'ltspice:schottky');
+        const zenerFromSchx = symbolFor('diode', 'Circuit.Diode, Circuit', { Type: 'Zener' });
+        const electrolytic = symbolFor('capacitor', 'Circuit.Capacitor, Circuit', { Material: 'electrolytic' });
+
+        expect(zenerFromLtspice.content).toContain('Zener variant');
+        expect(zenerFromSchx.content).toContain('Zener variant');
+        expect(schottkyFromLtspice.content).toContain('Schottky variant');
+        expect(electrolytic.content).toContain('electrolytic variant');
+    });
+
     test('renders LED with emission arrow primitives', () => {
         const diode = symbolFor('diode');
         const led = symbolFor('led');
@@ -76,6 +95,15 @@ describe('symbolFor', () => {
         const ledLines = countOccurrences(led.content, '<line');
         expect(ledLines).toBeGreaterThan(diodeLines);
         expect(ledLines - diodeLines).toBeGreaterThanOrEqual(4);
+    });
+
+    test('keeps potentiometer icon lead stubs short so it matches card icon scale', () => {
+        const def = symbolFor('potentiometer');
+
+        expect(def.content).toContain('<line x1="-10" y1="-24" x2="-10" y2="-10"');
+        expect(def.content).toContain('<line x1="-10" y1="10" x2="-10" y2="24"');
+        expect(def.content).not.toContain('y1="-40" x2="-10" y2="-10"');
+        expect(def.content).not.toContain('y1="10" x2="-10" y2="40"');
     });
 
     test('falls back to a question-mark badge for unsupported', () => {

@@ -162,6 +162,126 @@ describe('SchematicView rendering — LTspice I/O jacks', () => {
     });
 });
 
+describe('SchematicView rendering — component cards', () => {
+    test('renders symbol components as square cards with a centered icon area and solid name band', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'GND1',
+                kind: 'ground',
+                name: 'GND1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [{ name: 't', position: { x: 0, y: 0 } }],
+                properties: {},
+                sourceTypeName: null,
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toContain('data-component-card="true"');
+        expect(markup).toMatch(/<rect[^>]*data-component-card="true"[^>]*x="-20"[^>]*y="-20"[^>]*width="40"[^>]*height="40"/);
+        expect(markup).toMatch(/<svg[^>]*data-component-icon-area="true"[^>]*x="-20"[^>]*y="-20"[^>]*width="40"[^>]*height="30"/);
+        expect(markup).toMatch(/<rect[^>]*data-component-label-area="true"[^>]*x="-20"[^>]*y="10"[^>]*width="40"[^>]*height="10"/);
+        expect(markup).toContain('data-component-card-label="true"');
+        expect(markup).toContain('>GND1</text>');
+        expect(markup).toMatch(/<circle[^>]*cx="0"[^>]*cy="0"[^>]*r="2\.5"/);
+    });
+
+    test('clips card internals and uses thinner borders for normal and active nodes', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'GND1',
+                kind: 'ground',
+                name: 'GND1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [{ name: 't', position: { x: 0, y: 0 } }],
+                properties: {},
+                sourceTypeName: null,
+            }],
+        };
+
+        const normalMarkup = renderToStaticMarkup(createElement(SchematicView, { document }));
+        const selectedMarkup = renderToStaticMarkup(createElement(SchematicView, { document, selectedId: 'GND1' }));
+
+        expect(normalMarkup).toContain('data-component-card-clip="true"');
+        expect(normalMarkup).toContain('clip-path="url(#component-card-clip-GND1)"');
+        expect(normalMarkup).toMatch(/<rect[^>]*data-component-card="true"[^>]*stroke-width="0\.75"/);
+        expect(selectedMarkup).toMatch(/<rect[^>]*data-component-card="true"[^>]*stroke-width="1\.25"/);
+        expect(selectedMarkup).not.toMatch(/<rect[^>]*data-component-card="true"[^>]*stroke-width="2"/);
+    });
+
+    test('renders terminal connection dots and attached wires on the card perimeter', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'Volume',
+                kind: 'potentiometer',
+                name: 'Volume',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: -10, y: -40 } },
+                    { name: 'wiper', position: { x: 10, y: 0 } },
+                    { name: 'b', position: { x: -10, y: 40 } },
+                ],
+                properties: {},
+                sourceTypeName: null,
+            }],
+            wires: [
+                { id: 'top', endpoints: [{ x: -40, y: -40 }, { x: -10, y: -40 }] },
+                { id: 'wiper', endpoints: [{ x: 10, y: 0 }, { x: 50, y: 0 }] },
+                { id: 'bottom', endpoints: [{ x: -10, y: 20 }, { x: -10, y: 60 }] },
+            ],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toMatch(/<circle[^>]*cx="-10"[^>]*cy="-20"[^>]*r="2\.5"/);
+        expect(markup).toMatch(/<circle[^>]*cx="20"[^>]*cy="0"[^>]*r="2\.5"/);
+        expect(markup).toMatch(/<circle[^>]*cx="-10"[^>]*cy="20"[^>]*r="2\.5"/);
+        expect(markup).not.toMatch(/<circle[^>]*cy="-40"[^>]*r="2\.5"/);
+        expect(markup).not.toMatch(/<circle[^>]*cy="40"[^>]*r="2\.5"/);
+        expect(markup).toContain('points="-40,-40 -10,-40 -10,-20"');
+        expect(markup).toContain('points="20,0 50,0"');
+        expect(markup).toContain('points="-10,20 -10,60"');
+    });
+
+    test('moves center terminals to the card edge that faces the attached wire', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'GND1',
+                kind: 'ground',
+                name: 'GND1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [{ name: 't', position: { x: 0, y: 0 } }],
+                properties: {},
+                sourceTypeName: null,
+            }],
+            wires: [{
+                id: 'ground-lead',
+                endpoints: [{ x: 0, y: -60 }, { x: 0, y: 0 }],
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toMatch(/<circle[^>]*cx="0"[^>]*cy="-20"[^>]*r="2\.5"/);
+        expect(markup).not.toMatch(/<circle[^>]*cx="0"[^>]*cy="0"[^>]*r="2\.5"/);
+        expect(markup).toContain('points="0,-60 0,-20"');
+        expect(markup).not.toContain('points="0,-60 0,0"');
+    });
+});
+
 describe('SchematicView rendering — note labels', () => {
     test('renders long multiline note text in a wrapped textbox', () => {
         const document: CircuitDocument = {
@@ -190,5 +310,39 @@ describe('SchematicView rendering — note labels', () => {
         expect(markup).toContain('>time and frequency domain simulations.</tspan>');
         expect(markup).toContain('>GAIN SIM:</tspan>');
         expect(markup).toContain('>.step param Rgain list 1k 2k 5k 10k 20k 50k 100k</tspan>');
+    });
+
+    test('uses a monospaced technical font for rendered schematic text', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'R1',
+                kind: 'resistor',
+                name: 'R1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: {},
+                sourceTypeName: null,
+            }, {
+                id: 'NOTE1',
+                kind: 'label',
+                name: 'NOTE1',
+                origin: { x: 40, y: 60 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: {
+                    Text: 'NOTE: gain stage',
+                },
+                sourceTypeName: 'ltspice:TEXT',
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toContain('font-family="ui-monospace');
+        expect(markup).not.toContain('font-family="ui-sans-serif');
     });
 });

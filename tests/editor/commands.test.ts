@@ -185,8 +185,8 @@ describe('applyDocumentCommand', () => {
         expect(added.kind).toBe('resistor');
         expect(added.origin).toEqual({ x: 50, y: 30 });
         expect(added.terminals).toEqual([
-            { name: 'a', position: { x: 50, y: 50 } },
-            { name: 'b', position: { x: 50, y: 10 } },
+            { name: 'a', position: { x: 50, y: 10 } },
+            { name: 'b', position: { x: 50, y: 50 } },
         ]);
     });
 
