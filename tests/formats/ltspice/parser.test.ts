@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { parseLtspiceAsc } from '../../../src/formats/ltspice/parser';
 import { getPinNode, resolveConnectivity } from '../../../src/model/connectivity';
+import { toNetlistView } from '../../../src/model/netlist';
 import type { CircuitDocument } from '../../../src/model/types';
+import { validateDocument } from '../../../src/model/validation';
 
 const SIMPLE_RC_URL = new URL('../../fixtures/asc/simple-rc.asc', import.meta.url);
 
@@ -22,10 +24,13 @@ describe('parseLtspiceAsc', () => {
         const doc = parseLtspiceAsc(await loadSimpleRc());
         const wirePoints = doc.wires.map((wire) => `${wire.endpoints[0].x},${wire.endpoints[0].y} ${wire.endpoints[1].x},${wire.endpoints[1].y}`);
 
-        expect(wirePoints).toContain('16,-32 16,0');
-        expect(wirePoints).toContain('16,64 144,64');
-        expect(wirePoints).toContain('144,64 176,64');
-        expect(wirePoints).toContain('144,128 144,160');
+        // Source WIRE coords scaled by LTSPICE_COORD_SCALE (0.5). The fixture's
+        // resistor pins now sit at (16, 16) and (16, 96) per LTspice's real
+        // res.asy convention, so wires meet the pins at those LTspice coords.
+        expect(wirePoints).toContain('8,-16 8,8');
+        expect(wirePoints).toContain('8,48 72,48');
+        expect(wirePoints).toContain('72,48 88,48');
+        expect(wirePoints).toContain('72,80 72,96');
     });
 
     test('parses common LTspice ASC elements into the normalized model', async () => {
@@ -56,12 +61,14 @@ describe('parseLtspiceAsc', () => {
         expect(cValue.unit).toBe('');
         expect(input.kind).toBe('jack');
         expect(input.sourceTypeName).toBe('ltspice:InputJack');
-        expect(input.terminals).toEqual([{ name: 'tip', position: { x: 16, y: -32 } }]);
+        // LTspice coords scaled by LTSPICE_COORD_SCALE (0.5). IOPIN 16 -32 → (8, -16).
+        expect(input.terminals).toEqual([{ name: 'tip', position: { x: 8, y: -16 } }]);
         expect(input.properties.polarity).toBe('In');
         expect(input.properties.connector).toBe('1/4" TS jack');
         expect(output.kind).toBe('jack');
         expect(output.sourceTypeName).toBe('ltspice:OutputJack');
-        expect(output.terminals).toEqual([{ name: 'tip', position: { x: 176, y: 64 } }]);
+        // Source coord IOPIN 176 96 → (88, 48) after 0.5 scaling.
+        expect(output.terminals).toEqual([{ name: 'tip', position: { x: 88, y: 48 } }]);
         expect(output.properties.polarity).toBe('Out');
         expect(output.properties.connector).toBe('1/4" TS jack');
         expect(ground.kind).toBe('ground');
@@ -125,5 +132,81 @@ SYMATTR Value LED_RED
         expect(led.sourceTypeName).toBe('ltspice:led');
         expect(led.properties.model).toBe('LED_RED');
         expect(led.terminals.map((terminal) => terminal.name)).toEqual(['anode', 'cathode']);
+    });
+
+    test('maps schottky symbol to diode kind (catalog Gap 4)', () => {
+        const doc = parseLtspiceAsc(`Version 4
+SHEET 1 100 100
+SYMBOL schottky 0 0 R0
+SYMATTR InstName D1
+SYMATTR Value 1N5817
+`);
+        const d = findComponent(doc, 'D1');
+        expect(d.kind).toBe('diode');
+        expect(d.sourceTypeName).toBe('ltspice:schottky');
+        expect(d.properties.model).toBe('1N5817');
+        expect(d.terminals.map((t) => t.name)).toEqual(['anode', 'cathode']);
+    });
+
+    test('Opamps\\<Model> symbols resolve to opamp kind with model from path (catalog Gap 2)', () => {
+        // LTspice opamps live under Opamps\... or OpAmps/... — the model name is the basename.
+        // We don't know terminal geometry without the .asy file, so terminals are empty for now.
+        const doc = parseLtspiceAsc(`Version 4
+SHEET 1 100 100
+SYMBOL Opamps\\\\LM308 0 0 R0
+SYMATTR InstName U1
+`);
+        const op = findComponent(doc, 'U1');
+        expect(op.kind).toBe('opamp');
+        expect(op.sourceTypeName).toBe('ltspice:lm308');
+        expect(op.properties.model).toBe('LM308');
+    });
+
+    test('opamp path-prefix fallback is case- and separator-tolerant', () => {
+        // OpAmps/ (forward slash, mixed case) is what some LTspice exports emit.
+        const doc = parseLtspiceAsc(`Version 4
+SHEET 1 100 100
+SYMBOL OpAmps/AD820 0 0 R0
+SYMATTR InstName U2
+`);
+        const op = findComponent(doc, 'U2');
+        expect(op.kind).toBe('opamp');
+        expect(op.properties.model).toBe('AD820');
+    });
+
+    test('treats LTspice parameter and source expressions as valid raw values', () => {
+        const doc = parseLtspiceAsc(`Version 4
+SHEET 1 100 100
+SYMBOL res 0 0 R0
+SYMATTR InstName RGAIN
+SYMATTR Value {10k - Rgain + 1}
+SYMBOL voltage 80 0 R0
+SYMATTR InstName V1
+SYMATTR Value AC 1
+`);
+
+        const issues = validateDocument(doc);
+        const netlist = toNetlistView(doc);
+
+        expect(issues.filter((issue) => issue.code === 'value-unparseable')).toEqual([]);
+        expect(netlist.warnings.filter((message) => message.includes('missing required value property'))).toEqual([]);
+    });
+
+    test('decodes Windows-1252 µ when given raw bytes (encoding Gap 1)', () => {
+        // LTspice writes "100µF" with the single-byte Windows-1252 µ (0xB5).
+        // Passing it as Uint8Array should fall back to Windows-1252 decoding.
+        const header = new TextEncoder().encode('Version 4\r\nSHEET 1 100 100\r\nSYMBOL cap 0 0 R0\r\nSYMATTR InstName C1\r\nSYMATTR Value 100');
+        const tail = new TextEncoder().encode('F\r\n');
+        const bytes = new Uint8Array(header.length + 1 + tail.length);
+        bytes.set(header, 0);
+        bytes[header.length] = 0xB5; // lone Windows-1252 µ
+        bytes.set(tail, header.length + 1);
+
+        const doc = parseLtspiceAsc(bytes);
+        const c = findComponent(doc, 'C1');
+        expect(c.kind).toBe('capacitor');
+        // The C property should parse as 100 µF = 1e-4 F.
+        const cValue = c.properties.C;
+        expect(typeof cValue === 'object' && cValue !== null ? cValue.value : null).toBeCloseTo(1e-4);
     });
 });

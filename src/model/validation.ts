@@ -146,6 +146,9 @@ export function validateComponent(
 
         const quantity = coerceQuantity(value);
         if (quantity === null) {
+            if (typeof value === 'string' && isRawQuantityExpression(value)) {
+                continue;
+            }
             issues.push({
                 code: 'value-unparseable',
                 severity: 'error',
@@ -279,6 +282,18 @@ function coerceQuantity(value: PropertyValue): ParsedQuantity | null {
         return parseQuantity(value);
     }
     return value;
+}
+
+function isRawQuantityExpression(value: string): boolean {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return false;
+    }
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        return true;
+    }
+    return /^(AC|DC)\b/i.test(trimmed) ||
+        /^(SINE|PULSE|PWL|EXP|SFFM|AM|WAVEFILE)\s*\(/i.test(trimmed);
 }
 
 function missingPropertyIssue(component: Component, rule: PropertyRule): ValidationIssue {

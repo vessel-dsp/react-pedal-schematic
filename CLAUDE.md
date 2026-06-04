@@ -4,7 +4,7 @@ Guidance for Claude Code and other coding agents working in this repository.
 
 ## Project
 
-`circuit-preview-editor` is a web circuit editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
+`react-pedal-schematic` is a React schematic editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
 
 The library is consumer-agnostic. Any web application can embed it through a typed API; the library itself ships no opinions about how the host renders results or what downstream tooling consumes them.
 
@@ -13,6 +13,7 @@ Target formats:
 - LiveSPICE `.schx` schematic XML (primary, graphical);
 - LTspice `.asc` schematic (graphical, SYMBOL/WIRE/FLAG/IOPIN/TEXT);
 - SPICE-style `.cir` / `.net` netlists (connectivity);
+- project-native intermediary YAML export (implemented one-way; LLM-friendly, schema name intentionally rename-safe);
 - later KiCad schematic/netlist formats;
 - later tscircuit / Circuit JSON interop for PCB and web preview workflows.
 
@@ -22,7 +23,7 @@ The library is not a real-time audio engine, not a SPICE simulator, not a wiring
 
 The repo has two distinct deliverables that build from the same source tree:
 
-- **Library** → npm. Lives under `src/`. The published surface is `src/index.ts` (headless) and `src/ui/index.tsx` (optional React subpath). The library does not bundle a UI component framework; consumers bring their own styling.
+- **Library** → npm as `react-pedal-schematic`. Lives under `src/`. The package root is the React-friendly surface from `src/ui/index.tsx` plus core helper re-exports; `react-pedal-schematic/core` maps to the headless `src/index.ts`; `react-pedal-schematic/ui` remains a UI compatibility subpath. The library does not bundle a UI component framework; consumers bring their own styling.
 - **Playground + docs site** → GitHub Pages. Lives under `playground/`. A Vite + React + Tailwind v4 + shadcn/ui SPA that imports the library directly from `src/` for development, demonstrates every supported format and component, and serves the reference documentation. Hosted at the project's GitHub Pages URL via a GitHub Actions deploy workflow.
 
 The playground is the canonical demo and visual test surface. New features land in the library first, then get exercised in the playground.
@@ -45,7 +46,41 @@ source file (.schx / .cir / etc.)
   -> parsed source-specific AST
   -> normalized circuit document model
   -> editor operations
+  -> optional serialized Source/interchange YAML view
   -> preview/export adapters
+```
+
+## Intermediary Interchange Format
+
+The project needs a one-way intermediary YAML export so `.schx`, `.asc`, `.cir`, `.net`, and future formats can be inspected through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Prefer a neutral versioned schema id such as `circuit-interchange/v1` or `react-pedal-schematic/interchange/v1` until the final product name is settled.
+
+The in-memory source of truth remains `CircuitDocument`; the intermediary YAML is a serialized, LLM-friendly wrapper around that model plus source metadata. It should be easy for humans and LLMs to read, diff, inspect, and discuss.
+
+Current implementation status:
+
+- `src/formats/interchange/serializer.ts` exports `serializeInterchangeYaml(doc, options)` through the headless API.
+- The playground top tab row includes **Source**, which shows the current edited `CircuitDocument` as intermediary YAML.
+- The YAML view uses `schema: circuit-interchange/v1`, `metadata`, `source`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
+- `tests/formats/interchange/fixture-coverage.test.ts` verifies current one-way serialization coverage across all 35 supported fixtures in the workspace: 23 `.schx`, 10 `.asc`, and 2 `.cir`.
+- This one-way scope is intentional. The interchange YAML does **not** need to parse back into `CircuitDocument` or export back to `.schx`, `.asc`, `.cir`, `.net`, or fixture source formats.
+
+Current format shape:
+
+- Stable schema field: `schema: "circuit-interchange/v1"`.
+- Stable ids for components, wires, terminals, nodes, and diagnostics.
+- Explicit nodes: every component terminal includes its resolved node id; a top-level `nodes` list records names, ground role, aliases, and member pins.
+- Typed quantities: preserve `{ raw, value, unit }` rather than flattening values into strings.
+- Source provenance: record original format, filename when available, and encoding when relevant under `source`.
+- Diagnostics: warnings and known lossy conversions are first-class data, not comments.
+
+Do not use compact tuple-heavy data for the persisted interchange format. Prefer self-describing objects like `{ "x": 120, "y": 80 }` over `[120, 80]`, and `{ "componentId": "R1", "terminalName": "a" }` over `"R1:a"` except in derived indexes.
+
+The interchange YAML is an inspection/export artifact, not the canonical model and not a required import path. Do not add back-conversion, source-format regeneration, or cross-format conversion requirements unless the user explicitly reopens that scope. If future target-format exporters are added, they should consume `CircuitDocument` directly, with the YAML used only as an audit/debug/source view.
+
+```text
+.schx / .asc / .cir / .net
+  -> CircuitDocument
+  -> interchange YAML
 ```
 
 ## Audio-Domain Component Coverage
@@ -131,6 +166,25 @@ Support:
 
 Surface unsupported keywords (`WINDOW`, `LINE`, `RECTANGLE`, etc.) as warnings, not silent drops.
 
+### Interchangeability Review
+
+Current conversion and Source YAML confidence by format:
+
+| Format | Import status | Export status | Source YAML / conversion notes |
+| --- | --- | --- | --- |
+| `.schx` LiveSPICE | Implemented for graphical symbols, wires, labels, rotations/flips, properties, root attributes | Implemented | Best current round-trip target. Risk remains around unknown element internals and unsupported source-specific component data. |
+| `.asc` LTspice | Implemented for common schematic records and catalogued symbols | Not yet implemented | Import can preserve semantic layout, but ignored drawing records and missing `.asy` pin geometry can make strict round-trip impossible until an ASC serializer and symbol-file support exist. |
+| `.cir` / `.net` SPICE | Implemented for flat common primitives and preserved directives | Implemented through `toNetlistView()` | Connectivity-first only. Comments, original ordering details, unsupported subcircuit instances, and graphical layout are lossy. |
+| Interchange YAML | One-way `CircuitDocument -> YAML` serialization implemented | Back-conversion intentionally out of scope | 35/35 current fixtures serialize to YAML. This proves inspectable Source-tab coverage, not source-format regeneration. |
+
+Cross-format conversion rules:
+
+- `.schx` ↔ `.asc`: target semantic schematic interchange, but do not promise exact visual or source-file round-trip until both serializers and fixture baselines exist. LTspice symbol-path models and LiveSPICE component `_Type` values need explicit source metadata.
+- Graphical formats (`.schx`, `.asc`) → `.cir` / `.net`: preserve electrical connectivity, component values, models, and directives where supported. Expect loss of layout, labels that are not electrical nets, unsupported view-only components, and source-specific visual metadata.
+- `.cir` / `.net` → graphical formats: generate deterministic layout and preserve connectivity, but mark the layout as synthesized. Never imply that a generated schematic is the original drawing.
+- Any format → interchange YAML: this is a one-way inspection path. Do not require `interchange YAML -> source format` or `interchange YAML -> other format`.
+- Cross-format conversion, if implemented later, should go through `CircuitDocument` and target-specific serializers directly, not through YAML import.
+
 ### Multi-format dispatcher
 
 `src/formats/document.ts` exposes:
@@ -140,6 +194,37 @@ Surface unsupported keywords (`WINDOW`, `LINE`, `RECTANGLE`, etc.) as warnings, 
 - `parseCircuitDocument(source, { format?, filename? })` — single entrypoint that delegates to the right parser.
 
 Use the dispatcher in playground / consumer code rather than calling format-specific parsers directly, so adding a new format only needs a new branch in one place.
+
+The interchange YAML serializer does not require a `CircuitFormat` dispatcher branch because it is not an import format. Keep it under `src/formats/interchange/` as a one-way Source/export adapter around `CircuitDocument`.
+
+### Fixture Corpus Strategy
+
+Fixture coverage is the acceptance target for parser compatibility, source-format export where supported, and one-way Source YAML coverage. Collect fixtures by format and by purpose:
+
+- **Minimal fixtures**: small hand-written circuits that isolate one parser feature or edge case.
+- **Real pedal fixtures**: complete guitar-pedal schematics that exercise common audio components and naming conventions.
+- **Stress fixtures**: larger amp, tone-stack, filter, and utility circuits that reveal compatibility gaps without shifting product scope away from pedals.
+- **Round-trip baselines**: expected parse → serialize → parse invariants for source formats that support export.
+- **Source YAML baselines**: source → `CircuitDocument` → interchange YAML checks, focused on fixture coverage, explicit node ids, component kind, terminal names, values, models, directives, and diagnostics.
+
+Every external fixture corpus must include provenance next to the files: source URL, license, date vendored, encoding if non-UTF-8, known unsupported symbols/components, and why the corpus matters. Do not add downloaded generic EDA symbol packs as fixture substitutes; fixture files should represent real circuits or targeted parser cases.
+
+Current and target fixture organization:
+
+- `tests/fixtures/schx/`: hand-written LiveSPICE fixtures plus the vendored upstream LiveSPICE example corpus.
+- `tests/fixtures/asc/`: small LTspice fixtures; accepted pedal corpora should live under named subdirectories such as `ltspice-guitar-pedals/` with a README/provenance file.
+- `tests/fixtures/cir/`: hand-written SPICE fixtures; needs larger pedal-style `.cir` / `.net` examples with `.model`, `.subckt`, `.include`, and parameter coverage.
+- Future `tests/fixtures/interchange/`: optional expected YAML snapshots or focused examples for the Source tab; no import fixtures required.
+
+Fixture tests should cover five layers:
+
+1. Parser smoke: every vendored fixture parses without crashes.
+2. Unsupported inventory: unknown symbols/components are either fixed or explicitly allowlisted.
+3. Same-format round-trip: component counts, wire counts, terminal names, values, directives, and resolved nodes remain stable.
+4. Source YAML coverage: source → `CircuitDocument` → interchange YAML succeeds for every supported fixture, with no unresolved terminal nodes.
+5. Cross-format semantics: only needed for future target serializers; do not route this through YAML import.
+
+Current interchange coverage satisfies layer 4 for the one-way YAML scope: `source fixture -> CircuitDocument -> interchange YAML` passes for every supported fixture. That is enough unless the product scope changes.
 
 ### tscircuit
 
@@ -165,6 +250,7 @@ Preferred module boundaries:
 - `src/formats/schx/*`: `.schx` parser, serializer, type mapping, fixture tests.
 - `src/formats/ltspice/*`: `.asc` parser, symbol catalog, terminal mapping, fixture tests.
 - `src/formats/spice/*`: `.cir` / `.net` lexer/parser, serializer, directive preservation, fixture tests.
+- `src/formats/interchange/*`: LLM-friendly one-way intermediary YAML serializer and fixture coverage tests.
 - `src/model/*`: normalized circuit document model, component/terminal/wire/node types, validation.
 - `src/components/*`: pedal/audio component catalog — terminal maps, property schemas, taper curves, and schematic symbol metadata.
 - `src/editor/*`: editor commands such as add, move, rotate, flip, connect, delete, rename, edit property.
@@ -172,7 +258,7 @@ Preferred module boundaries:
 - `src/ui/*`: optional React component subpath. Ships UI primitives that render the model (canvas, palette, inspector). These must not depend on shadcn/ui or any specific design system — consumers bring their own styling.
 - `src/index.ts`: public headless API — formats, model, editor, component catalog.
 - `src/ui/index.tsx`: public React component API.
-- `tests/fixtures/*`: real-world audio circuit fixtures (`.schx`, `.cir`) plus round-trip baselines.
+- `tests/fixtures/*`: real-world audio circuit fixtures (`.schx`, `.asc`, `.cir`, `.net`) plus provenance notes and round-trip/interchange baselines.
 
 Keep parsing and transformation code independent of React. The headless entrypoint must work without pulling in the UI layer so that headless consumers (build tools, validators, exporters, server-side renderers) can use the library directly.
 
@@ -185,7 +271,7 @@ Keep parsing and transformation code independent of React. The headless entrypoi
 - `playground/src/index.css`: Tailwind v4 entry + theme tokens.
 - `playground/src/pages/*`: playground views (import circuit, inspect, preview) and docs pages.
 
-The playground imports the library through a Vite path alias (`circuit-preview-editor`, `circuit-preview-editor/ui`) so changes to `src/` are picked up live during development.
+The playground imports the library through Vite path aliases (`react-pedal-schematic`, `react-pedal-schematic/core`, `react-pedal-schematic/ui`) so changes to `src/` are picked up live during development.
 
 ## UI Rules
 
@@ -207,6 +293,8 @@ The playground imports the library through a Vite path alias (`circuit-preview-e
 - Keep format parsers covered by fixture tests before expanding UI behavior.
 - Add new format support as adapters around the normalized model, not as one-off UI paths.
 - Preserve source fidelity first; clever normalization comes after round-trip tests exist.
+- Treat the interchange YAML as a serialized Source/export adapter around `CircuitDocument`, not as a second in-memory canonical model and not as an import/round-trip format.
+- Never silently perform lossy format conversion. Emit diagnostics for unsupported components, synthesized layout, dropped directives, ignored source graphics, and missing serializer support.
 - Keep the headless library boundary clean — `src/index.ts` and everything it transitively imports must not depend on React.
 - New components are added to `src/components/*` with terminal maps, property schemas, symbol metadata, and at least one fixture that exercises them.
 
@@ -215,6 +303,7 @@ The playground imports the library through a Vite path alias (`circuit-preview-e
 Pick the smallest check that covers the change:
 
 - Parser/serializer changes: run the related fixture and round-trip tests.
+- Interchange changes: run interchange serializer tests and the broad fixture YAML coverage test.
 - Model/editor command changes: run unit tests for command behavior.
 - Component catalog changes: run catalog unit tests + any fixture that uses the component.
 - UI changes: run TypeScript/web checks and inspect the local browser view when feasible.
@@ -242,7 +331,7 @@ Playground tasks:
 
 - [x] Install Vite + React + Tailwind v4 + shadcn/ui prerequisites.
 - [x] Create `playground/` (Vite root) with `index.html`, `src/main.tsx`, `src/App.tsx`, `src/index.css`.
-- [x] Add `vite.config.ts` with React + Tailwind plugins, `circuit-preview-editor` / `circuit-preview-editor/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
+- [x] Add `vite.config.ts` with React + Tailwind plugins, `react-pedal-schematic` / `react-pedal-schematic/core` / `react-pedal-schematic/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
 - [x] Add `components.json` and a Tailwind v4 + shadcn token CSS (`playground/src/index.css`); `cn()` helper at `playground/src/lib/utils.ts`.
 - [x] Single shared `tsconfig.json` covers library + tests + playground via `paths` aliases; build config stays in `tsconfig.build.json`.
 - [x] Add scripts: `bun run dev`, `bun run build:playground`, `bun run preview`.
@@ -305,7 +394,9 @@ Tasks:
 - [x] Build `.schx` serializer (`src/formats/schx/serializer.ts`). Emits well-formed XML with proper entity escaping, reconstructs the LiveSPICE `_Type` via the catalog when `sourceTypeName` is missing, and round-trips `Name`/`Description`/`PartNumber` plus all extra root attributes.
 - [x] Preserve positions, rotations, flips, raw attributes, wires, named wires, and labels. Negative LiveSPICE rotations (e.g. `-1`) normalize to `0..3`. Unparseable quantity values (e.g. `Impedance="∞ Ω"`) fall back to string storage so they round-trip verbatim.
 - [x] Map `.schx` element types to the audio component catalog (`src/formats/schx/catalog.ts`) — 36 entries covering passives, semis (incl. canonical `BipolarJunctionTransistor`), tubes, op-amps, transformers, switches/SPDT/SP3T/SP4T, sources, ground/rail, jacks (Input/Speaker), labels, named wires.
-- [x] Add fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures.
+- [x] Add focused fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures.
+- [x] Vendor and test the upstream LiveSPICE example corpus under `tests/fixtures/schx/livespice-examples/` with provenance in README. Tests assert every expected `.schx` is present, parses without unknown component type warnings, covers real pedal/amp examples including op-amps and JFETs, and round-trips with stable component/wire counts.
+- [ ] Add additional focused minimal fixtures only when a broad example does not isolate the behavior being changed, especially diode clippers, tube triodes, switches, labels/named wires, and source-specific unknown-data preservation.
 
 Success criteria:
 
@@ -322,7 +413,7 @@ Tasks:
 - [x] Build a line-oriented SPICE parser (`src/formats/spice/parser.ts`): comment + continuation handling, R/C/L/D/Q/J/M/V/I rules, multi-line `.SUBCKT` blocks preserved verbatim, `.TITLE` → metadata.name, `.END` terminator, inline `;` comments stripped. Subcircuit instances (`X`) emit a warning. Synthesizes wires + an auto-`GND` component at node "0" via a star topology so the result is renderable through `resolveConnectivity()`.
 - [x] Write a SPICE serializer (`src/formats/spice/serializer.ts`) consuming `toNetlistView()`. Subckt-bound kinds emit as commented placeholders. Directives passed through verbatim. 22 unit tests cover parse, serialize, and round-trip.
 - [x] Added `directives: readonly string[]` to `CircuitDocument` so `.MODEL`/`.SUBCKT`/`.INCLUDE`/`.PARAM` blocks survive parse → serialize cycles unchanged.
-- [ ] Round-trip tests against larger published `.cir` fixtures — current coverage is two hand-written fixtures.
+- [ ] Round-trip tests against larger published `.cir` / `.net` fixtures — current coverage is two hand-written fixtures. Prioritize pedal-style circuits with `.model`, `.subckt`, `.include`, `.param`, op-amp/macromodel, transistor, clipping diode, and tone-stack coverage.
 
 Success criteria:
 
@@ -341,13 +432,35 @@ Tasks:
 - [x] LED is a first-class `ComponentKind`; `.schx` Diodes with `Type="led"` and LTspice LED symbols both map there. Dedicated `led.svg` preview symbol.
 - [x] Unified entrypoint via `parseCircuitDocument(...)` in `src/formats/document.ts`. Extension detection: `.asc` → `'ltspice-asc'`.
 - [x] Fixture: `tests/fixtures/asc/simple-rc.asc` covers the IOPIN + WIRE + SYMBOL path end-to-end through parser + SchematicView SSR rendering tests.
-- [ ] Expand fixtures to cover BJT/JFET/op-amp pedal LTspice schematics.
+- [ ] Accept and document a real LTspice guitar-pedal corpus under `tests/fixtures/asc/ltspice-guitar-pedals/` with source URL, license, encoding, known unsupported symbols, and parser tests. The corpus should cover BJT, JFET, op-amp, wah, compressor, distortion, and tone-control schematics.
+- [ ] Add focused `.asc` fixtures for parser edge cases that large pedal schematics obscure: custom symbol paths, Windows-1252 bytes such as `µ`, missing `SYMATTR`, mirrored rotations, multi-point labels, flags, and IOPIN polarity.
 - [ ] Add an `.asc` *serializer* so edits round-trip back to LTspice — currently import-only.
 
 Success criteria:
 
 - A pedal-style LTspice `.asc` (input/output jacks, ground, R/C/L, diode/BJT) imports with correct components, wires, and electrical nodes.
 - Unknown LTspice symbols surface as `unsupported` with `sourceTypeName` preserved, never silently dropped.
+
+### Phase 4c: One-Way Intermediary YAML + Fixture Matrix
+
+Goal: define a project-native one-way YAML export that turns any parsed `CircuitDocument` from `.schx`, `.asc`, `.cir`, `.net`, and future formats into an explicit, LLM-friendly Source view. Back-conversion to source/fixture formats is not required.
+
+Tasks:
+
+- [ ] Define `src/formats/interchange/types.ts` for a versioned YAML shape with metadata, components, terminals, explicit nodes, wires, directives, source provenance, and diagnostics.
+- [x] Add YAML serialization with a persisted schema id that does not depend on the temporary `circuit-preview-ir` codename.
+- [x] Implement first-pass `CircuitDocument -> interchange YAML` serialization with explicit node ids derived from `resolveConnectivity()` (`serializeInterchangeYaml`).
+- [x] Show the YAML in the playground **Source** tab from the current edited `CircuitDocument`.
+- [ ] Add focused YAML output tests for edge cases: unsupported components, parser diagnostics, named wires/labels, source metadata, directives, unitless quantities, and string-valued properties that are not parseable quantities.
+- [x] Add broad fixture serialization coverage: every supported fixture currently visible under `tests/fixtures` serializes to interchange YAML without unresolved terminal nodes.
+- [ ] Add fixture provenance checks so external fixture directories cannot be added without README/source/license/encoding notes.
+
+Success criteria:
+
+- The interchange YAML represents every current `CircuitDocument` field needed for LLM inspection plus derived nodes and source metadata.
+- Every supported fixture can be serialized to YAML with stable schema id, component data, wire data, diagnostics, and no unresolved terminal nodes.
+- The playground Source tab reflects the current edited document, not only the original fixture text.
+- There is no requirement to parse YAML back into `CircuitDocument` or convert YAML back to `.schx`, `.asc`, `.cir`, `.net`, or any fixture source format.
 
 ### Phase 5: Preview Surface
 
@@ -419,13 +532,14 @@ Goal: publish a clean, typed, consumer-friendly library that other web apps can 
 
 Tasks:
 
-- [ ] Lock the public surface of `src/index.ts` (parsers, model, editor commands, catalog) and `src/ui/index.ts` (React components).
-- [ ] Verify the headless entrypoint has no React dependency at runtime via a build-time check.
-- [ ] Produce ESM + type declaration build output suitable for npm publishing.
-- [ ] Declare `react` / `react-dom` as peer dependencies for the UI subpath.
+- [x] Lock the public surface as package root `react-pedal-schematic` (React UI + core helper re-exports), `react-pedal-schematic/core` (headless parsers/model/editor/preview helpers), and `react-pedal-schematic/ui` (React UI compatibility subpath).
+- [x] Verify the headless entrypoint has no React dependency through `tests/smoke.test.ts`.
+- [x] Produce ESM + type declaration build output suitable for npm publishing via `tsconfig.build.json`.
+- [x] Declare `react` / `react-dom` as peer dependencies for the React UI surface.
+- [x] Add npm publish readiness metadata: public package name `react-pedal-schematic`, `files`, `main`/`module`/`types`, export map, `publishConfig`, `prepack`, and `pack:dry-run`.
 
 Success criteria:
 
-- A web app can install the library and use the headless API without React in its bundle.
-- A web app that wants the editor UI can import components through the UI subpath and supply its own React.
-- The build output is reproducible and typechecked.
+- A web app can install the library and use the headless API through `react-pedal-schematic/core` without React in its bundle.
+- A React web app can import `SchematicView` and common helpers from `react-pedal-schematic`, or keep using the `react-pedal-schematic/ui` subpath.
+- The build output is reproducible, typechecked, tested, and packable with `npm pack --dry-run`.

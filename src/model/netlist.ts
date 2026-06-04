@@ -180,8 +180,9 @@ export function toNetlistView(doc: CircuitDocument, precomputed?: Connectivity):
             }
         }
 
-        const value = extractValue(component);
-        if (value === null && REQUIRES_VALUE.has(component.kind)) {
+        const valueResult = extractValue(component);
+        const value = valueResult.value;
+        if (value === null && REQUIRES_VALUE.has(component.kind) && !valueResult.present) {
             warnings.push(`${component.id} (${component.kind}): missing required value property`);
         }
 
@@ -267,10 +268,10 @@ function collectDeclarationOrder(
     return nodes;
 }
 
-function extractValue(component: Component): ParsedQuantity | null {
+function extractValue(component: Component): { value: ParsedQuantity | null; present: boolean } {
     const baseName = VALUE_PROPERTY[component.kind];
     if (baseName === undefined) {
-        return null;
+        return { value: null, present: false };
     }
 
     const aliases = VALUE_PROPERTY_ALIASES[component.kind] ?? [];
@@ -290,11 +291,11 @@ function extractValue(component: Component): ParsedQuantity | null {
             continue;
         }
         if (typeof raw === 'string') {
-            return parseQuantity(raw);
+            return { value: parseQuantity(raw), present: raw.trim().length > 0 };
         }
-        return raw;
+        return { value: raw, present: true };
     }
-    return null;
+    return { value: null, present: false };
 }
 
 function extractModel(component: Component): string | null {

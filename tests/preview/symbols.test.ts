@@ -40,6 +40,16 @@ describe('symbolFor', () => {
         expect(output.content).toContain('OUTPUT');
     });
 
+    test('renders output jacks as the horizontal mirror of input jacks', () => {
+        const input = symbolFor('jack', 'ltspice:InputJack');
+        const output = symbolFor('jack', 'ltspice:OutputJack');
+
+        expect(input.content).toContain('<rect x="-15" y="-7" width="6" height="14"');
+        expect(input.content).toContain('<line x1="-9" y1="-3" x2="0" y2="-3"');
+        expect(output.content).toContain('<rect x="9" y="-7" width="6" height="14"');
+        expect(output.content).toContain('<line x1="0" y1="-3" x2="9" y2="-3"');
+    });
+
     test('renders SPDT and 3PDT switch source types as multi-contact switch glyphs', () => {
         const generic = symbolFor('switch');
         const spdt = symbolFor('switch', 'Circuit.SPDT, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null');

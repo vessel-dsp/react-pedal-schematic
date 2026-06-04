@@ -10,11 +10,14 @@ import type {
 } from '../../model/types';
 import { splitWiresAtJunctions } from '../../model/wires';
 import {
+    extractModelFromSymbolPath,
     lookupLtspiceSymbolDef,
+    LTSPICE_COORD_SCALE,
     mapLtspiceTerminal,
     normalizeLtspiceSymbolName,
     type LtspiceSymbolDef,
 } from './catalog';
+import { decodeLtspiceBytes } from './encoding';
 
 type MutableLtspiceSymbol = {
     readonly sourceName: string;
@@ -44,8 +47,9 @@ const IGNORED_KEYWORDS = new Set<string>([
     'BUSTAP',
 ]);
 
-export function parseLtspiceAsc(source: string): CircuitDocument {
-    const normalized = source.replace(/^﻿/, '').replace(/\r\n/g, '\n');
+export function parseLtspiceAsc(source: string | Uint8Array): CircuitDocument {
+    const text = typeof source === 'string' ? source : decodeLtspiceBytes(source);
+    const normalized = text.replace(/^﻿/, '').replace(/\r\n/g, '\n');
     const lines = normalized.split('\n');
     const firstLine = lines.find((line) => line.trim().length > 0)?.trim() ?? '';
     if (!firstLine.toUpperCase().startsWith('VERSION ')) {
@@ -288,7 +292,7 @@ function buildSymbolComponent(
         rotation: 0,
         flipped: symbol.orientation.toUpperCase().startsWith('M'),
         terminals,
-        properties: buildProperties(symbol.attrs, def),
+        properties: buildProperties(symbol.attrs, def, symbol.sourceName),
         sourceTypeName: `ltspice:${normalizedName}`,
     };
 }
@@ -342,6 +346,7 @@ function buildTextComponent(text: LtspiceText, index: number, usedIds: Map<strin
 function buildProperties(
     attrs: ReadonlyMap<string, string>,
     def: LtspiceSymbolDef | undefined,
+    rawSymbolName: string,
 ): Readonly<Record<string, PropertyValue>> {
     const properties: Record<string, PropertyValue> = {};
     for (const [key, value] of attrs) {
@@ -356,6 +361,10 @@ function buildProperties(
         if (def.modelFromValue) {
             properties.model = value;
         }
+    }
+
+    if (def?.modelFromSymbolPath === true && properties.model === undefined) {
+        properties.model = extractModelFromSymbolPath(rawSymbolName);
     }
 
     return properties;
@@ -387,7 +396,9 @@ function parsePoint(xText: string | undefined, yText: string | undefined): Point
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
         return null;
     }
-    return { x, y };
+    // Scale LTspice grid units down to the document-level scale used by the rest
+    // of the library — see LTSPICE_COORD_SCALE in catalog.ts for the rationale.
+    return { x: x * LTSPICE_COORD_SCALE, y: y * LTSPICE_COORD_SCALE };
 }
 
 function pointKey(point: Point): string {

@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { colorForKind, symbolFor, type ComponentKind } from 'react-pedal-schematic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -44,6 +44,17 @@ export function readPalettePayload(event: DragEvent | globalThis.DragEvent): Pal
         return null;
     }
     return null;
+}
+
+export function applyPaletteDragImage(
+    event: Pick<DragEvent | globalThis.DragEvent, 'dataTransfer'>,
+    preview: Element | null,
+): void {
+    const dataTransfer = event.dataTransfer;
+    if (preview === null || dataTransfer === null || typeof dataTransfer.setDragImage !== 'function') {
+        return;
+    }
+    dataTransfer.setDragImage(preview, 20, 20);
 }
 
 const PALETTE_GROUPS: readonly PaletteGroup[] = [
@@ -190,10 +201,13 @@ function PaletteGroupSection(props: {
 }
 
 function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
+    const dragPreviewRef = useRef<SVGSVGElement | null>(null);
+
     function handleDragStart(event: DragEvent<HTMLDivElement>): void {
         const payload: PalettePayload = { kind: item.kind, sourceTypeName: item.sourceTypeName };
         event.dataTransfer.setData(PALETTE_DATA_TYPE, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
+        applyPaletteDragImage(event, dragPreviewRef.current);
     }
 
     const symbol = symbolFor(item.kind, item.sourceTypeName);
@@ -222,6 +236,23 @@ function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
                 />
             </svg>
             <span className="line-clamp-1">{item.label}</span>
+            <svg
+                ref={dragPreviewRef}
+                data-drag-preview="symbol"
+                viewBox={symbol.viewBox}
+                xmlns="http://www.w3.org/2000/svg"
+                className="pointer-events-none fixed -left-[1000px] -top-[1000px] h-10 w-10 text-foreground"
+                aria-hidden
+            >
+                <g
+                    stroke="currentColor"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    dangerouslySetInnerHTML={{ __html: symbol.content }}
+                />
+            </svg>
         </div>
     );
 }

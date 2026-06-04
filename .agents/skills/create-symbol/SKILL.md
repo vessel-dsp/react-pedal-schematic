@@ -1,11 +1,19 @@
 ---
 name: create-symbol
-description: Draw or revise schematic-component SVG symbols for circuit-preview-editor. Use when adding a new component glyph (resistor, BJT variant, opto, IC block, jack, footswitch, etc.), redrawing an existing one, or auditing the project's symbol library for stylistic consistency.
+description: Draw or revise schematic-component SVG symbols for circuit-preview-editor. Use with the svg skill when adding a new component glyph (resistor, BJT variant, opto, IC block, jack, footswitch, etc.), redrawing an existing one, or auditing the project's symbol library for stylistic consistency.
+metadata:
+  dependencies:
+    - svg
 ---
 
 # Create Symbol
 
 Authoring rules for the project's hand-drawn schematic glyphs. Symbols live as standalone SVG files in `src/preview/symbols/*.svg`. They are the source of truth for the schematic-view appearance — not the inline `Primitive[]` table in `src/preview/symbols.ts`. New symbols MUST follow this style guide so the schematic preview reads as one coherent symbol set.
+
+## Skill Dependencies
+
+- Load and apply the `svg` skill for general SVG syntax, path construction, optimization, and validation when creating or revising symbol files.
+- Treat this skill as the project-specific authority for `circuit-preview-editor` symbol style, canvas size, terminal anchors, stroke hierarchy, and fixture workflow when it conflicts with generic SVG guidance.
 
 ## Where Symbols Live
 

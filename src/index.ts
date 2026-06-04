@@ -37,6 +37,8 @@ export { parseSchx } from './formats/schx/parser';
 export { serializeSchx } from './formats/schx/serializer';
 export { parseSpiceNetlist } from './formats/spice/parser';
 export { serializeSpiceNetlist } from './formats/spice/serializer';
+export type { InterchangeSourceFormat, SerializeInterchangeYamlOptions } from './formats/interchange/serializer';
+export { serializeInterchangeYaml } from './formats/interchange/serializer';
 export type { CircuitFormat, ParseCircuitDocumentOptions } from './formats/document';
 export { detectCircuitFormat, parseCircuitDocument } from './formats/document';
 export { parseLtspiceAsc } from './formats/ltspice/parser';

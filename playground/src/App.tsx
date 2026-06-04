@@ -7,6 +7,7 @@ import {
     detectCircuitFormat,
     parseCircuitDocument,
     serializeSchx,
+    serializeInterchangeYaml,
     toNetlistView,
     validateDocument,
     VERSION,
@@ -158,6 +159,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                 <Tabs defaultValue="schematic" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="schematic">Schematic</TabsTrigger>
+                        <TabsTrigger value="source">Source</TabsTrigger>
                         <TabsTrigger value="netlist">
                             Netlist <Badge variant="secondary" className="ml-2">{view.components.length}</Badge>
                         </TabsTrigger>
@@ -185,6 +187,16 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
 
                     <TabsContent value="netlist" className="m-0">
                         <NetlistPanel netlist={view} />
+                    </TabsContent>
+
+                    <TabsContent value="source" className="m-0">
+                        <Card>
+                            <CardContent className="p-0">
+                                <pre className="max-h-140 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
+                                    {sourceYaml(fixture, document)}
+                                </pre>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
                     <TabsContent value="warnings" className="m-0">
@@ -221,6 +233,9 @@ function rawTabLabel(fixture: ReturnType<typeof findFixture>): string {
     if (format === 'ltspice-asc') {
         return 'Raw .asc';
     }
+    if (format === 'spice') {
+        return 'Raw .cir';
+    }
     return 'Raw source';
 }
 
@@ -237,6 +252,28 @@ function rawSource(
     return fixture.source;
 }
 
+function sourceYaml(
+    fixture: ReturnType<typeof findFixture>,
+    document: EditorState['document'],
+): string {
+    if (fixture === undefined) {
+        return serializeInterchangeYaml(document);
+    }
+
+    const sourceFormat = detectCircuitFormat(fixture.filename);
+    if (sourceFormat === null) {
+        return serializeInterchangeYaml(document, {
+            filename: fixture.filename,
+            sourceFormat: 'unknown',
+        });
+    }
+
+    return serializeInterchangeYaml(document, {
+        filename: fixture.filename,
+        sourceFormat,
+    });
+}
+
 function findComponent(state: EditorState): EditorState['document']['components'][number] | null {
     if (state.selectedId === null) {
         return null;
@@ -250,6 +287,7 @@ export function SchematicCard(props: {
     selectedComponent: ReturnType<typeof findComponent>;
 }): React.ReactElement {
     const { editorState, dispatch, selectedComponent } = props;
+    const [wireFlow, setWireFlow] = useState(false);
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -280,6 +318,14 @@ export function SchematicCard(props: {
                     </Button>
                     <Button
                         size="sm"
+                        variant={wireFlow ? 'secondary' : 'outline'}
+                        aria-pressed={wireFlow}
+                        onClick={() => setWireFlow((enabled) => !enabled)}
+                    >
+                        Signal flow
+                    </Button>
+                    <Button
+                        size="sm"
                         variant="ghost"
                         disabled={selectedComponent === null}
                         onClick={() => selectedComponent && dispatch({
@@ -300,6 +346,7 @@ export function SchematicCard(props: {
                         backgroundRepeat: 'repeat',
                         backgroundPosition: '0 0',
                     }}
+                    wireFlow={wireFlow ? 'all' : 'none'}
                     editMode={true}
                     selectedId={editorState.selectedId}
                     onSelect={(id) => dispatch({ type: 'select', componentId: id })}

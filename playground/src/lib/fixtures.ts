@@ -27,7 +27,32 @@ try {
     ltspiceExtraExamples = {};
 }
 
-export type FixtureGroup = 'custom' | 'livespice-examples' | 'ltspice-examples';
+let ltspiceGuitarPedals: Record<string, string> = {};
+try {
+    ltspiceGuitarPedals = import.meta.glob(
+        '../../../tests/fixtures/asc/ltspice-guitar-pedals/*.asc',
+        { query: '?raw', import: 'default', eager: true },
+    ) as Record<string, string>;
+} catch {
+    ltspiceGuitarPedals = {};
+}
+
+let spiceNetlists: Record<string, string> = {};
+try {
+    spiceNetlists = import.meta.glob(
+        '../../../tests/fixtures/cir/*.cir',
+        { query: '?raw', import: 'default', eager: true },
+    ) as Record<string, string>;
+} catch {
+    spiceNetlists = {};
+}
+
+export type FixtureGroup =
+    | 'custom'
+    | 'livespice-examples'
+    | 'ltspice-examples'
+    | 'ltspice-guitar-pedals'
+    | 'spice-netlists';
 
 export type Fixture = Readonly<{
     id: string;
@@ -79,7 +104,7 @@ function basename(path: string): string {
 }
 
 function stem(filename: string): string {
-    return filename.replace(/\.(schx|asc)$/, '');
+    return filename.replace(/\.(schx|asc|cir|net|spice)$/, '');
 }
 
 function toId(stemValue: string): string {
@@ -119,16 +144,50 @@ const LTSPICE_FIXTURES: readonly Fixture[] = Object.entries(ltspiceExtraExamples
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 
+const LTSPICE_GUITAR_PEDAL_FIXTURES: readonly Fixture[] = Object.entries(ltspiceGuitarPedals)
+    .map(([path, source]) => {
+        const filename = basename(path);
+        const title = stem(filename);
+        return {
+            id: `ltspice-pedal-${toId(title)}`,
+            title,
+            description: 'Guitar pedal from cushychicken/ltspice-guitar-pedals.',
+            filename,
+            source,
+            group: 'ltspice-guitar-pedals' as const,
+        };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+const SPICE_NETLIST_FIXTURES: readonly Fixture[] = Object.entries(spiceNetlists)
+    .map(([path, source]) => {
+        const filename = basename(path);
+        const title = stem(filename);
+        return {
+            id: `spice-${toId(title)}`,
+            title,
+            description: 'SPICE-style netlist (.cir).',
+            filename,
+            source,
+            group: 'spice-netlists' as const,
+        };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+
 export const FIXTURES: readonly Fixture[] = [
     ...CUSTOM_FIXTURES,
     ...LIVESPICE_FIXTURES,
     ...LTSPICE_FIXTURES,
+    ...LTSPICE_GUITAR_PEDAL_FIXTURES,
+    ...SPICE_NETLIST_FIXTURES,
 ];
 
 export const FIXTURE_GROUPS: readonly { id: FixtureGroup; label: string }[] = [
     { id: 'custom', label: 'Curated examples' },
-    { id: 'livespice-examples', label: 'LiveSPICE upstream examples' },
+    { id: 'livespice-examples', label: 'LiveSPICE examples' },
     { id: 'ltspice-examples', label: 'LTspice examples' },
+    { id: 'ltspice-guitar-pedals', label: 'LTspice guitar pedals' },
+    { id: 'spice-netlists', label: 'SPICE netlists' },
 ];
 
 export function findFixture(id: string): Fixture | undefined {
