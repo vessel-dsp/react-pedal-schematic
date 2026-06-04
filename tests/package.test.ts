@@ -106,6 +106,14 @@ describe('npm package contract', () => {
         expect(pkg.scripts['check:dist']).toBe('node scripts/check-dist-entrypoints.mjs');
         expect(pkg.scripts['pack:dry-run']).toBe('npm pack --dry-run');
     });
+
+    test('declares the MIT license and includes the license file', async () => {
+        const pkg = await readPackageJson();
+
+        expect(pkg.license).toBe('MIT');
+        expect(Array.isArray(pkg.files)).toBe(true);
+        expect(pkg.files).toContain('LICENSE.md');
+    });
 });
 
 describe('published import surface', () => {
