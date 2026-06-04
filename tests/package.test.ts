@@ -30,6 +30,10 @@ async function readPublishWorkflow(): Promise<string> {
     return Bun.file(new URL('../.github/workflows/publish.yml', import.meta.url)).text();
 }
 
+async function readReadme(): Promise<string> {
+    return Bun.file(new URL('../README.md', import.meta.url)).text();
+}
+
 function expectExport(
     exportsField: unknown,
     exportName: string,
@@ -164,6 +168,15 @@ describe('npm publish workflow', () => {
         expect(workflow).toContain('bun run pack:dry-run');
         expect(workflow).toContain('npm publish --access public --provenance');
         expect(workflow).toContain('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}');
+    });
+});
+
+describe('README package metadata', () => {
+    test('shows the npm version badge for the scoped package', async () => {
+        const readme = await readReadme();
+
+        expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-pedal-schematic.svg)]');
+        expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/react-pedal-schematic)');
     });
 });
 

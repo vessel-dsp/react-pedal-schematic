@@ -1,5 +1,7 @@
 # @vessel-dsp/react-pedal-schematic
 
+[![npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-pedal-schematic.svg)](https://www.npmjs.com/package/@vessel-dsp/react-pedal-schematic)
+
 React circuit-schematic tooling for guitar pedals and nearby audio electronics. The library renders a stylable SVG schematic preview, and also includes format-aware parsing, validation, inspection, light editing, and export helpers.
 
 The project is pedal-first, but the model and fixtures also cover nearby audio-circuit schematics such as amp stages, tone filters, and utility circuits.
