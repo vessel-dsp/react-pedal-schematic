@@ -114,6 +114,23 @@ describe('npm package contract', () => {
         expect(Array.isArray(pkg.files)).toBe(true);
         expect(pkg.files).toContain('LICENSE.md');
     });
+
+    test('publishes GitHub repository metadata for the npm package page', async () => {
+        const pkg = await readPackageJson();
+
+        expect(pkg.homepage).toBe('https://github.com/vessel-dsp/react-pedal-schematic#readme');
+
+        expect(isRecord(pkg.repository)).toBe(true);
+        if (isRecord(pkg.repository)) {
+            expect(pkg.repository.type).toBe('git');
+            expect(pkg.repository.url).toBe('git+https://github.com/vessel-dsp/react-pedal-schematic.git');
+        }
+
+        expect(isRecord(pkg.bugs)).toBe(true);
+        if (isRecord(pkg.bugs)) {
+            expect(pkg.bugs.url).toBe('https://github.com/vessel-dsp/react-pedal-schematic/issues');
+        }
+    });
 });
 
 describe('published import surface', () => {

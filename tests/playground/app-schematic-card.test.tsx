@@ -164,7 +164,8 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('trigger-integration');
         expect(markup).toContain('React integration');
         expect(markup).toContain('@vessel-dsp/react-pedal-schematic');
-        expect(markup).toContain('github:indiejoseph/react-pedal-schematic');
+        expect(markup).toContain('npm install @vessel-dsp/react-pedal-schematic');
+        expect(markup).not.toContain('github:indiejoseph/react-pedal-schematic');
         expect(markup).toContain('SchematicView');
         expect(markup).toContain('parseCircuitDocument');
     });

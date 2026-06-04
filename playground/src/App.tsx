@@ -43,11 +43,7 @@ export type SelectedSchematicComponent = EditorState['document']['components'][n
 type SelectedComponent = SelectedSchematicComponent;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
-const reactDependencyExample = `{
-  "dependencies": {
-    "@vessel-dsp/react-pedal-schematic": "github:indiejoseph/react-pedal-schematic"
-  }
-}`;
+const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
 
 const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
 import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
@@ -272,8 +268,7 @@ function IntegrationDocs(): React.ReactElement {
             <CardHeader>
                 <CardTitle className="text-base">React integration</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                    The npm package is not published yet. Install from GitHub now, but code against the future
-                    package name.
+                    Install from npm, then import from the root package or the typed subpaths.
                 </p>
             </CardHeader>
             <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -281,9 +276,8 @@ function IntegrationDocs(): React.ReactElement {
                     <div>
                         <h3 className="text-sm font-medium">Current dependency</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Use <span className="font-mono">github:indiejoseph/react-pedal-schematic</span> as the
-                            source until <span className="font-mono">@vessel-dsp/react-pedal-schematic</span> is
-                            available on npm.
+                            Use <span className="font-mono">@vessel-dsp/react-pedal-schematic</span> from npm for
+                            application integrations.
                         </p>
                     </div>
                     <pre className="overflow-auto rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
