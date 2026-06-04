@@ -26,6 +26,10 @@ async function readPackageJson(): Promise<JsonRecord> {
     return value;
 }
 
+async function readPublishWorkflow(): Promise<string> {
+    return Bun.file(new URL('../.github/workflows/publish.yml', import.meta.url)).text();
+}
+
 function expectExport(
     exportsField: unknown,
     exportName: string,
@@ -138,6 +142,28 @@ describe('published import surface', () => {
         expect(SchematicView).toBe(SchematicViewSubpath);
         expect(parseCircuitDocument).toBe(parseCoreCircuitDocument);
         expect(VERSION).toBe(CORE_VERSION);
+    });
+});
+
+describe('npm publish workflow', () => {
+    test('publishes the scoped package to npm with the configured token', async () => {
+        const workflow = await readPublishWorkflow();
+
+        expect(workflow).toContain('name: Publish to npm');
+        expect(workflow).toContain('workflow_dispatch:');
+        expect(workflow).toContain('push:');
+        expect(workflow).toContain('tags:');
+        expect(workflow).toContain("- 'v*'");
+        expect(workflow).not.toContain('release:');
+        expect(workflow).toContain('id-token: write');
+        expect(workflow).toContain('oven-sh/setup-bun@v2');
+        expect(workflow).toContain('actions/setup-node@v4');
+        expect(workflow).toContain('registry-url: https://registry.npmjs.org');
+        expect(workflow).toContain("scope: '@vessel-dsp'");
+        expect(workflow).toContain('bun install --frozen-lockfile');
+        expect(workflow).toContain('bun run pack:dry-run');
+        expect(workflow).toContain('npm publish --access public --provenance');
+        expect(workflow).toContain('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}');
     });
 });
 
