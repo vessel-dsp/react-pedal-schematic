@@ -51,6 +51,21 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('aria-label="Schematic preview"');
     });
 
+    test('renders a tidy layout command in the schematic toolbar', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const dispatch = (_command: EditorCommand): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(SchematicCard, {
+                editorState,
+                dispatch,
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('Tidy up');
+    });
+
     test('renders the symbol library palette in the schematic tab', () => {
         const editorState = createEditorState(parseSchx(emptySchx));
         const document = editorState.document;

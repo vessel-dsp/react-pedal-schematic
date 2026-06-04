@@ -234,4 +234,29 @@ describe('applyDocumentCommand', () => {
         // Wire w3 doesn't touch R1, returned unchanged.
         expect(next.wires[2]).toBe(doc.wires[2]);
     });
+
+    test('tidy-layout moves overlapping components through the document command path', () => {
+        const r1: Component = {
+            ...makeComponent('R1', 'resistor'),
+            terminals: [
+                { name: 'a', position: { x: 0, y: -20 } },
+                { name: 'b', position: { x: 0, y: 20 } },
+            ],
+        };
+        const r2: Component = {
+            ...makeComponent('R2', 'resistor'),
+            origin: { x: 10, y: 0 },
+            terminals: [
+                { name: 'a', position: { x: 10, y: -20 } },
+                { name: 'b', position: { x: 10, y: 20 } },
+            ],
+        };
+        const doc = { ...EMPTY_DOCUMENT, components: [r1, r2] };
+
+        const next = applyDocumentCommand(doc, { type: 'tidy-layout' });
+
+        expect(next).not.toBe(doc);
+        expect(next.components[0]?.origin).toEqual({ x: 0, y: 0 });
+        expect(next.components[1]?.origin).not.toEqual({ x: 10, y: 0 });
+    });
 });

@@ -113,6 +113,21 @@ describe('applyEditorCommand', () => {
         expect(canUndo(next)).toBe(true);
     });
 
+    test('tidy-layout pushes history when it changes component positions', () => {
+        const initial = createEditorState({
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('R1'),
+                { ...makeComponent('R2'), origin: { x: 10, y: 0 } },
+            ],
+        });
+
+        const next = applyEditorCommand(initial, { type: 'tidy-layout' });
+
+        expect(next.document.components[1]?.origin).not.toEqual({ x: 10, y: 0 });
+        expect(canUndo(next)).toBe(true);
+    });
+
     test('no-op commands return the same state reference', () => {
         const initial = createEditorState({ ...EMPTY_DOCUMENT, components: [makeComponent('R1')] });
         const next = applyEditorCommand(initial, {

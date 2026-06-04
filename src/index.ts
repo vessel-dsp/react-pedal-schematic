@@ -50,7 +50,9 @@ export {
     canUndo,
     createEditorState,
     resetEditorState,
+    tidyDocumentLayout,
 } from './editor';
+export type { TidyLayoutOptions } from './editor';
 
 export type { Bounds } from './preview/bounds';
 export { computeDocumentBounds, viewBoxString } from './preview/bounds';

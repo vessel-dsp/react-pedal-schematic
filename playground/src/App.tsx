@@ -273,6 +273,13 @@ export function SchematicCard(props: {
                     </Button>
                     <Button
                         size="sm"
+                        variant="outline"
+                        onClick={() => dispatch({ type: 'tidy-layout' })}
+                    >
+                        Tidy up
+                    </Button>
+                    <Button
+                        size="sm"
                         variant="ghost"
                         disabled={selectedComponent === null}
                         onClick={() => selectedComponent && dispatch({

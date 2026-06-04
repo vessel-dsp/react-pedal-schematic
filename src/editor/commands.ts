@@ -1,6 +1,7 @@
 import { parseQuantity } from '../model/quantity';
 import type { CircuitDocument, Component, ComponentKind, Point, PropertyValue } from '../model/types';
 import { buildComponent } from './factory';
+import { tidyDocumentLayout } from './layout';
 
 export type DocumentCommand =
     | Readonly<{ type: 'delete-component'; componentId: string }>
@@ -8,6 +9,7 @@ export type DocumentCommand =
     | Readonly<{ type: 'set-property'; componentId: string; propertyName: string; value: string }>
     | Readonly<{ type: 'remove-property'; componentId: string; propertyName: string }>
     | Readonly<{ type: 'move-component'; componentId: string; origin: Point }>
+    | Readonly<{ type: 'tidy-layout' }>
     | Readonly<{
         type: 'add-component';
         kind: ComponentKind;
@@ -27,6 +29,8 @@ export function applyDocumentCommand(doc: CircuitDocument, command: DocumentComm
             return removeProperty(doc, command.componentId, command.propertyName);
         case 'move-component':
             return moveComponent(doc, command.componentId, command.origin);
+        case 'tidy-layout':
+            return tidyDocumentLayout(doc);
         case 'add-component':
             return addComponent(doc, command.kind, command.origin, command.sourceTypeName ?? null);
     }
