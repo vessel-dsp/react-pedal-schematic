@@ -22,9 +22,17 @@
         "baseUrl": ".",
         "paths": {
             "@/*": ["playground/src/*"],
-            "circuit-preview-editor": ["src/index.ts"],
-            "circuit-preview-editor/ui": ["src/ui/index.tsx"]
+            "react-pedal-schematic": ["src/ui/index.tsx"],
+            "react-pedal-schematic/core": ["src/index.ts"],
+            "react-pedal-schematic/ui": ["src/ui/index.tsx"]
         }
     },
-    "include": ["src/**/*", "tests/**/*", "playground/**/*", "vite.config.ts"]
+    "include": [
+        "src/**/*",
+        "tests/**/*",
+        "playground/**/*",
+        "examples/**/*",
+        "scripts/fix-dist-imports.ts",
+        "vite.config.ts"
+    ]
 }

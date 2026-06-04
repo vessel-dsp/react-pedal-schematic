@@ -1,0 +1,81 @@
+# react-pedal-schematic
+
+React circuit-schematic tooling for guitar pedals and nearby audio electronics. The library renders a stylable SVG schematic preview, and also includes format-aware parsing, validation, inspection, light editing, and export helpers.
+
+The project is pedal-first, but the model and fixtures also cover nearby audio-circuit schematics such as amp stages, tone filters, and utility circuits.
+
+## Install
+
+```bash
+npm install react-pedal-schematic
+```
+
+React apps can import the UI component and document helpers from the package root:
+
+```ts
+import { parseCircuitDocument, validateDocument } from 'react-pedal-schematic';
+import { SchematicView } from 'react-pedal-schematic';
+```
+
+Headless consumers can avoid the React entrypoint:
+
+```ts
+import { parseCircuitDocument, validateDocument } from 'react-pedal-schematic/core';
+```
+
+## Supported Inputs
+
+- LiveSPICE `.schx`
+- LTspice `.asc`
+- SPICE-style `.cir` / `.net`
+
+Use the dispatcher for consumer integrations:
+
+```ts
+import { parseCircuitDocument } from 'react-pedal-schematic/core';
+
+const document = parseCircuitDocument(sourceText, {
+    filename: 'pedal.asc',
+});
+```
+
+## React Preview
+
+```tsx
+import { useState } from 'react';
+import { SchematicView, type WireFlowMode } from 'react-pedal-schematic';
+import type { CircuitDocument } from 'react-pedal-schematic/core';
+
+export function CircuitPreview(props: { document: CircuitDocument }) {
+    const [wireFlow, setWireFlow] = useState<WireFlowMode>('none');
+
+    return (
+        <>
+            <button
+                type="button"
+                aria-pressed={wireFlow === 'all'}
+                onClick={() => setWireFlow((mode) => mode === 'all' ? 'none' : 'all')}
+            >
+                Signal flow
+            </button>
+            <SchematicView document={props.document} wireFlow={wireFlow} />
+        </>
+    );
+}
+```
+
+`wireFlow="all"` is a visual overlay only. It dims the base wires to light gray and animates light-blue dashes along wires so users can trace connectivity; it does not claim simulated current direction. Override the colors with `--cpe-wire-flow-base` and `--cpe-wire-flow` on the `SchematicView` host element.
+
+## Development
+
+```bash
+bun install
+bun test
+bun run typecheck
+bun run build
+npm pack --dry-run
+bun run build:playground
+bun run dev
+```
+
+More integration notes and a full example live in [DOCUMENT.md](./DOCUMENT.md) and [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).

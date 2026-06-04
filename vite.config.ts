@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 
-const repoBase = '/circuit-preview-editor/';
+const repoBase = '/react-pedal-schematic/';
 
 export default defineConfig(({ command }) => ({
     root: 'playground',
@@ -12,8 +12,9 @@ export default defineConfig(({ command }) => ({
     resolve: {
         alias: {
             '@': resolve(__dirname, 'playground/src'),
-            'circuit-preview-editor/ui': resolve(__dirname, 'src/ui/index.tsx'),
-            'circuit-preview-editor': resolve(__dirname, 'src/index.ts'),
+            'react-pedal-schematic/core': resolve(__dirname, 'src/index.ts'),
+            'react-pedal-schematic/ui': resolve(__dirname, 'src/ui/index.tsx'),
+            'react-pedal-schematic': resolve(__dirname, 'src/ui/index.tsx'),
         },
     },
     build: {

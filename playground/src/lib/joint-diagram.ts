@@ -1,4 +1,4 @@
-import type { CircuitDocument, Component, Point, Wire } from 'circuit-preview-editor';
+import type { CircuitDocument, Component, Point, Wire } from 'react-pedal-schematic';
 
 export type JointDiagramPort = Readonly<{
     id: string;

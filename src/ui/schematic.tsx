@@ -27,6 +27,7 @@ export type SchematicViewProps = Readonly<{
     style?: CSSProperties;
     padding?: number;
     showLabels?: boolean;
+    wireFlow?: WireFlowMode;
     editMode?: boolean;
     selectedId?: string | null;
     onSelect?: (id: string | null) => void;
@@ -37,6 +38,8 @@ export type SchematicViewProps = Readonly<{
     minZoom?: number;
     maxZoom?: number;
 }>;
+
+export type WireFlowMode = 'none' | 'all';
 
 type DragState = Readonly<{
     componentId: string;
@@ -62,6 +65,7 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
         style,
         padding,
         showLabels = true,
+        wireFlow = 'none',
         editMode = false,
         selectedId = null,
         onSelect,
@@ -329,6 +333,7 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                     <WireGlyph
                         key={wire.id}
                         wire={wire}
+                        flow={wireFlow === 'all'}
                     />
                 ))}
             </g>
@@ -485,17 +490,43 @@ function clamp(value: number, min: number, max: number): number {
     return value;
 }
 
-function WireGlyph({ wire }: { wire: Wire }): ReactElement {
+function WireGlyph({ wire, flow }: { wire: Wire; flow: boolean }): ReactElement {
     const path = orthogonalPath(wire.endpoints[0], wire.endpoints[1]);
+    const points = pointsToSvg(path);
     return (
-        <polyline
-            points={pointsToSvg(path)}
-            stroke="currentColor"
-            strokeWidth={0.95}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-        />
+        <>
+            <polyline
+                points={points}
+                stroke={flow ? 'var(--cpe-wire-flow-base, #cbd5e1)' : 'currentColor'}
+                strokeWidth={0.95}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+            {flow && (
+                <polyline
+                    data-wire-flow="true"
+                    aria-hidden="true"
+                    points={points}
+                    stroke="var(--cpe-wire-flow, #7dd3fc)"
+                    strokeWidth={2.1}
+                    strokeOpacity={0.62}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="6 10"
+                    fill="none"
+                    pointerEvents="none"
+                >
+                    <animate
+                        attributeName="stroke-dashoffset"
+                        from="0"
+                        to="-16"
+                        dur="850ms"
+                        repeatCount="indefinite"
+                    />
+                </polyline>
+            )}
+        </>
     );
 }
 

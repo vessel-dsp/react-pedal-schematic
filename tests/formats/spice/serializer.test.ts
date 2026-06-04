@@ -6,7 +6,7 @@ import { EMPTY_DOCUMENT } from '../../../src/model/types';
 describe('serializeSpiceNetlist', () => {
     test('emits a placeholder comment when there is no title', () => {
         const text = serializeSpiceNetlist(EMPTY_DOCUMENT);
-        expect(text).toContain('* circuit-preview-editor');
+        expect(text).toContain('* react-pedal-schematic');
         expect(text.trim().endsWith('.END')).toBe(true);
     });
 

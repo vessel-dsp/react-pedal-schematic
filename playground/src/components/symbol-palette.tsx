@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from 'react';
-import { colorForKind, symbolFor, type ComponentKind } from 'circuit-preview-editor';
+import { colorForKind, symbolFor, type ComponentKind } from 'react-pedal-schematic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export type PaletteItem = Readonly<{

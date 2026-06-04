@@ -104,6 +104,44 @@ describe('SchematicView rendering — inferred editor junctions', () => {
     });
 });
 
+describe('SchematicView rendering — wire flow overlay', () => {
+    test('keeps wire flow animation off by default', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            wires: [{
+                id: 'w1',
+                endpoints: [{ x: 0, y: 0 }, { x: 80, y: 0 }],
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).not.toContain('data-wire-flow="true"');
+        expect(markup).toContain('stroke="currentColor"');
+        expect(markup).not.toContain('stroke="var(--cpe-wire-flow-base, #cbd5e1)"');
+    });
+
+    test('renders an animated semi-opaque overlay when wire flow is enabled', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            wires: [{
+                id: 'w1',
+                endpoints: [{ x: 0, y: 0 }, { x: 80, y: 0 }],
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document, wireFlow: 'all' }));
+
+        expect(markup).toContain('data-wire-flow="true"');
+        expect(markup).toContain('stroke="var(--cpe-wire-flow-base, #cbd5e1)"');
+        expect(markup).toContain('stroke="var(--cpe-wire-flow, #7dd3fc)"');
+        expect(markup).toContain('stroke-opacity="0.62"');
+        expect(markup).toContain('stroke-dasharray="6 10"');
+        expect(markup).toContain('attributeName="stroke-dashoffset"');
+        expect(markup).toContain('repeatCount="indefinite"');
+    });
+});
+
 describe('SchematicView rendering — lpb-1-style-boost', () => {
     test('Q1.emitter wire endpoint (after the catalog fix) is at world (-30, 140)', async () => {
         const markup = await renderFixture('lpb-1-style-boost');

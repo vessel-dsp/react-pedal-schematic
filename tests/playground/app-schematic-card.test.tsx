@@ -7,7 +7,7 @@ import {
     toNetlistView,
     validateDocument,
     type EditorCommand,
-} from 'circuit-preview-editor';
+} from 'react-pedal-schematic';
 import { PlaygroundShell, SchematicCard } from '../../playground/src/App';
 
 const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';

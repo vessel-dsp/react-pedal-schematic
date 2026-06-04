@@ -16,8 +16,8 @@ import {
     type Point,
     type ValidationIssue,
     type Warning,
-} from 'circuit-preview-editor';
-import { SchematicView } from 'circuit-preview-editor/ui';
+} from 'react-pedal-schematic';
+import { SchematicView } from 'react-pedal-schematic/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -107,7 +107,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
             <header className="border-b border-border">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
                     <div>
-                        <h1 className="text-lg font-semibold tracking-tight">circuit-preview-editor</h1>
+                        <h1 className="text-lg font-semibold tracking-tight">react-pedal-schematic</h1>
                         <p className="text-sm text-muted-foreground">
                             Web circuit editor library for audio electronics — playground &amp; docs.
                         </p>

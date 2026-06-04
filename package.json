@@ -1,31 +1,60 @@
 {
-    "name": "circuit-preview-editor",
-    "version": "0.0.0",
-    "description": "Web circuit editor library for audio electronics — .schx and SPICE netlist import/export, preview, and light editing.",
+    "name": "react-pedal-schematic",
+    "version": "0.1.0",
+    "description": "React schematic editor library for guitar pedal circuits with LiveSPICE, LTspice, and SPICE import helpers.",
     "type": "module",
-    "private": true,
+    "packageManager": "bun@1.2.2",
     "sideEffects": false,
+    "main": "./dist/ui/index.js",
+    "module": "./dist/ui/index.js",
+    "types": "./dist/ui/index.d.ts",
     "exports": {
         ".": {
+            "types": "./dist/ui/index.d.ts",
+            "import": "./dist/ui/index.js"
+        },
+        "./core": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
         },
         "./ui": {
             "types": "./dist/ui/index.d.ts",
             "import": "./dist/ui/index.js"
+        },
+        "./package.json": {
+            "default": "./package.json"
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "README.md",
+        "DOCUMENT.md",
+        "examples"
     ],
+    "keywords": [
+        "react",
+        "schematic",
+        "guitar-pedal",
+        "electronics",
+        "spice",
+        "ltspice",
+        "livespice"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "scripts": {
         "dev": "vite",
         "preview": "vite preview",
         "build:playground": "vite build",
         "test": "bun test",
         "typecheck": "tsc --noEmit",
-        "build": "tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.build.json && bun run scripts/fix-dist-imports.ts && bun run check:dist",
+        "check:dist": "node scripts/check-dist-entrypoints.mjs",
+        "clean:dist": "rm -rf dist",
         "clean": "rm -rf dist gh-pages",
+        "prepack": "bun run clean:dist && bun run typecheck && bun test && bun run build",
+        "pack:dry-run": "npm pack --dry-run",
         "generate:symbols": "bun run scripts/generate-symbol-content.ts",
         "generate:canvas-bg": "bun run scripts/generate-canvas-bg.ts"
     },
