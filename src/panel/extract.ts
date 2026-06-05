@@ -6,15 +6,20 @@ import type {
     KnobTaper,
     LedIndicator,
     Panel,
+    SliderControl,
+    SliderOrientation,
+    SliderRange,
     SwitchControl,
     SwitchKind,
 } from './types';
+import { buildKnobSteps, snapKnobPosition } from './knobs';
 
 // extractPanel inspects a CircuitDocument and emits the typed Panel descriptor
 // that drives the runtime control surface. It's a pure read over the existing
 // schematic model — no parsing of the source format, no UI knowledge.
 export function extractPanel(doc: CircuitDocument): Panel {
     const knobs: Knob[] = [];
+    const sliders: SliderControl[] = [];
     const switches: SwitchControl[] = [];
     const leds: LedIndicator[] = [];
     const jacks: JackPort[] = [];
@@ -22,7 +27,11 @@ export function extractPanel(doc: CircuitDocument): Panel {
     for (const component of doc.components) {
         switch (component.kind) {
             case 'potentiometer': {
-                knobs.push(toKnob(component));
+                if (isSliderControl(component)) {
+                    sliders.push(toSlider(component));
+                } else {
+                    knobs.push(toKnob(component));
+                }
                 break;
             }
             case 'switch': {
@@ -42,12 +51,16 @@ export function extractPanel(doc: CircuitDocument): Panel {
         }
     }
 
-    return { knobs, switches, leds, jacks };
+    return { knobs, sliders, switches, leds, jacks };
 }
 
 function toKnob(component: Component): Knob {
     const taper = resolveTaper(propertyString(component, 'Sweep') ?? propertyString(component, 'Taper'));
-    const defaultPosition = clamp01(parseNumeric(component.properties.Wipe) ?? 0.5);
+    const stepLabels = parseStepLabels(propertyStringAny(component, ['StepLabels', 'Steps']));
+    const explicitStepCount = parseStepCount(propertyStringAny(component, ['StepCount', 'Detents', 'Positions', 'Steps']));
+    const steps = buildKnobSteps(stepLabels.length >= 2 ? stepLabels.length : explicitStepCount ?? 0, stepLabels);
+    const rawDefaultPosition = clamp01(parseNumeric(component.properties.Wipe) ?? 0.5);
+    const defaultPosition = steps === undefined ? rawDefaultPosition : snapKnobPosition({ steps }, rawDefaultPosition);
     const resistance = quantityProperty(component, 'Resistance');
     const gangGroup = propertyString(component, 'Group') ?? undefined;
     const description = propertyString(component, 'Description') ?? undefined;
@@ -55,8 +68,27 @@ function toKnob(component: Component): Knob {
         id: component.id,
         name: component.name,
         taper,
+        controlMode: steps === undefined ? 'continuous' : 'stepped',
         defaultPosition,
+        ...(steps !== undefined ? { steps } : {}),
         ...(resistance !== undefined ? { resistance } : {}),
+        ...(gangGroup !== undefined && gangGroup.length > 0 ? { gangGroup } : {}),
+        ...(description !== undefined && description.length > 0 ? { description } : {}),
+    };
+}
+
+function toSlider(component: Component): SliderControl {
+    const defaultPosition = clamp01(parseNumeric(component.properties.Wipe) ?? 0.5);
+    const orientation = resolveSliderOrientation(propertyStringAny(component, ['Orientation', 'SliderOrientation']));
+    const range = sliderRange(component);
+    const gangGroup = propertyString(component, 'Group') ?? undefined;
+    const description = propertyString(component, 'Description') ?? undefined;
+    return {
+        id: component.id,
+        name: component.name,
+        defaultPosition,
+        orientation,
+        ...(range !== undefined ? { range } : {}),
         ...(gangGroup !== undefined && gangGroup.length > 0 ? { gangGroup } : {}),
         ...(description !== undefined && description.length > 0 ? { description } : {}),
     };
@@ -107,6 +139,38 @@ function toJack(component: Component): JackPort {
         ...(impedance !== undefined ? { impedance } : {}),
         ...(sourceTypeName !== undefined ? { sourceTypeName } : {}),
         ...(description !== undefined && description.length > 0 ? { description } : {}),
+    };
+}
+
+function isSliderControl(component: Component): boolean {
+    const style = propertyStringAny(component, ['ControlStyle', 'ControlType', 'PanelControl', 'UiControl', 'Style']);
+    if (style === null) {
+        return false;
+    }
+    const lower = style.toLowerCase();
+    return lower.includes('slider') || lower.includes('fader');
+}
+
+function resolveSliderOrientation(value: string | null): SliderOrientation {
+    if (value?.toLowerCase().includes('horizontal')) {
+        return 'horizontal';
+    }
+    return 'vertical';
+}
+
+function sliderRange(component: Component): SliderRange | undefined {
+    const min = parseNumericAny(component, ['RangeMin', 'Min', 'Minimum']);
+    const max = parseNumericAny(component, ['RangeMax', 'Max', 'Maximum']);
+    if (min === undefined || max === undefined || min >= max) {
+        return undefined;
+    }
+    const unit = propertyStringAny(component, ['Unit', 'RangeUnit']) ?? undefined;
+    const center = parseNumericAny(component, ['Center', 'CenterValue', 'RangeCenter']);
+    return {
+        min,
+        max,
+        ...(unit !== undefined && unit.length > 0 ? { unit } : {}),
+        ...(center !== undefined ? { center } : {}),
     };
 }
 
@@ -216,6 +280,16 @@ function propertyString(component: Component, name: string): string | null {
     return typeof value === 'string' ? value : value.raw;
 }
 
+function propertyStringAny(component: Component, names: readonly string[]): string | null {
+    for (const name of names) {
+        const value = propertyString(component, name);
+        if (value !== null) {
+            return value;
+        }
+    }
+    return null;
+}
+
 function quantityProperty(component: Component, name: string): ParsedQuantity | undefined {
     const value = component.properties[name];
     if (value === undefined || typeof value === 'string') {
@@ -233,6 +307,39 @@ function parseNumeric(value: PropertyValue | undefined): number | undefined {
         return Number.isFinite(n) ? n : undefined;
     }
     return Number.isFinite(value.value) ? value.value : undefined;
+}
+
+function parseNumericAny(component: Component, names: readonly string[]): number | undefined {
+    for (const name of names) {
+        const value = parseNumeric(component.properties[name]);
+        if (value !== undefined) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
+function parseStepLabels(value: string | null): readonly string[] {
+    if (value === null) {
+        return [];
+    }
+    const parts = value
+        .split(/[,;|]/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+    return parts.length >= 2 ? parts : [];
+}
+
+function parseStepCount(value: string | null): number | undefined {
+    if (value === null) {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    if (!/^\d+(?:\.0+)?$/.test(trimmed)) {
+        return undefined;
+    }
+    const count = Number(trimmed);
+    return Number.isInteger(count) && count >= 2 ? count : undefined;
 }
 
 function clamp01(v: number): number {

@@ -13,15 +13,15 @@ describe('playground Tabs', () => {
                     TabsList,
                     null,
                     createElement(TabsTrigger, { value: 'source' }, 'Source'),
-                    createElement(TabsTrigger, { value: 'live-panel' }, 'Live Panel'),
+                    createElement(TabsTrigger, { value: 'integration' }, 'Integration'),
                 ),
                 createElement(TabsContent, { value: 'source' }, 'source content'),
-                createElement(TabsContent, { value: 'live-panel', forceMount: true }, 'live panel content'),
+                createElement(TabsContent, { value: 'integration', forceMount: true }, 'integration content'),
             ),
         );
 
         expect(markup).toContain('data-state="inactive"');
-        expect(markup).toContain('live panel content');
+        expect(markup).toContain('integration content');
         expect(markup).toContain('data-[state=inactive]:hidden');
     });
 });

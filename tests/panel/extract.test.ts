@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { extractPanel } from '../../src/panel';
 import { parseSchx } from '../../src/formats/schx/parser';
+import { EMPTY_DOCUMENT, type CircuitDocument } from '../../src/model/types';
 
 async function loadFixture(name: string): Promise<string> {
     return Bun.file(new URL(`../fixtures/schx/${name}.schx`, import.meta.url)).text();
@@ -87,6 +88,121 @@ describe('extractPanel', () => {
         expect(mix.taper).toBe('log');
         const time = panel.knobs.find((k) => k.id === 'TIME')!;
         expect(time.taper).toBe('linear');
+    });
+
+    test('extracts Boss GE-7 style slider controls from potentiometer metadata', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'BAND_800',
+                kind: 'potentiometer',
+                name: '800Hz',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: 0, y: -20 } },
+                    { name: 'wiper', position: { x: 20, y: 0 } },
+                    { name: 'b', position: { x: 0, y: 20 } },
+                ],
+                properties: {
+                    Wipe: '0.5',
+                    ControlStyle: 'Slider',
+                    Orientation: 'Vertical',
+                    RangeMin: '-15',
+                    RangeMax: '15',
+                    Unit: 'dB',
+                    Center: '0',
+                    Group: 'GE-7',
+                    Description: 'Graphic EQ band fader.',
+                },
+                sourceTypeName: 'Circuit.Potentiometer, Circuit',
+            }],
+        };
+
+        const panel = extractPanel(doc);
+        const sliders = panel.sliders ?? [];
+        const slider = sliders[0]!;
+
+        expect(panel.knobs).toEqual([]);
+        expect(sliders).toHaveLength(1);
+        expect(slider.id).toBe('BAND_800');
+        expect(slider.name).toBe('800Hz');
+        expect(slider.defaultPosition).toBe(0.5);
+        expect(slider.orientation).toBe('vertical');
+        expect(slider.gangGroup).toBe('GE-7');
+        expect(slider.range).toEqual({ min: -15, max: 15, unit: 'dB', center: 0 });
+    });
+
+    test('extracts DigiTech Drop style stepped knob detents from labels', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'DROP',
+                kind: 'potentiometer',
+                name: 'Drop',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: 0, y: -20 } },
+                    { name: 'wiper', position: { x: 20, y: 0 } },
+                    { name: 'b', position: { x: 0, y: 20 } },
+                ],
+                properties: {
+                    Wipe: '0.24',
+                    Sweep: 'Stepped',
+                    StepLabels: '1, 2, 3, 4, 5, 6, 7, OCT, OCT+DRY',
+                    Description: 'Drop-tune selector with fixed semitone detents.',
+                },
+                sourceTypeName: 'Circuit.Potentiometer, Circuit',
+            }],
+        };
+
+        const panel = extractPanel(doc);
+        const drop = panel.knobs[0]!;
+
+        expect(drop.controlMode).toBe('stepped');
+        expect(drop.defaultPosition).toBeCloseTo(0.25);
+        expect(drop.steps).toHaveLength(9);
+        expect(drop.steps?.[0]).toEqual({ index: 0, position: 0, label: '1' });
+        expect(drop.steps?.[2]).toEqual({ index: 2, position: 0.25, label: '3' });
+        expect(drop.steps?.[8]).toEqual({ index: 8, position: 1, label: 'OCT+DRY' });
+    });
+
+    test('extracts unlabeled stepped knobs from numeric detent metadata', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'MODE',
+                kind: 'potentiometer',
+                name: 'Mode',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: 0, y: -20 } },
+                    { name: 'wiper', position: { x: 20, y: 0 } },
+                    { name: 'b', position: { x: 0, y: 20 } },
+                ],
+                properties: {
+                    Wipe: '0.6',
+                    Detents: '4',
+                },
+                sourceTypeName: 'Circuit.Potentiometer, Circuit',
+            }],
+        };
+
+        const mode = extractPanel(doc).knobs[0]!;
+
+        expect(mode.controlMode).toBe('stepped');
+        expect(mode.steps).toEqual([
+            { index: 0, position: 0 },
+            { index: 1, position: 0.333333333333 },
+            { index: 2, position: 0.666666666667 },
+            { index: 3, position: 1 },
+        ]);
+        expect(mode.defaultPosition).toBeCloseTo(0.666666666667);
     });
 
     test('empty document produces an empty panel', () => {

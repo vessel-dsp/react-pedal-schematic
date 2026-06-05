@@ -1,13 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-    applyControlMessage,
     applyEditorCommand,
     canRedo,
     canUndo,
     createEditorState,
-    defaultControlState,
     detectCircuitFormat,
-    extractPanel,
     findWireChain,
     parseCircuitDocument,
     parseInterchangeYaml,
@@ -16,12 +13,9 @@ import {
     toNetlistView,
     validateDocument,
     VERSION,
-    type Component,
-    type ControlState,
     type EditorCommand,
     type EditorState,
     type NetlistView,
-    type PanelMessage,
     type Point,
     type ValidationIssue,
     type Warning,
@@ -40,7 +34,6 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FIXTURES, FIXTURE_GROUPS, findFixture } from '@/lib/fixtures';
 import { Inspector } from '@/components/inspector';
@@ -53,10 +46,6 @@ export type SelectedSchematicComponent = EditorState['document']['components'][n
 type SelectedComponent = SelectedSchematicComponent;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
-const controlReducer = (state: ControlState, message: PanelMessage): ControlState => applyControlMessage(state, message);
-const LIVE_PANEL_LED_ID = 'status-led';
-const LIVE_PANEL_KNOB_ID = 'virtual-level';
-const LIVE_PANEL_SWITCH_ID = 'virtual-bypass';
 const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
 
 const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
@@ -223,7 +212,6 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                 <Tabs defaultValue="schematic" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="schematic">Schematic</TabsTrigger>
-                        <TabsTrigger value="live-panel">Live Panel</TabsTrigger>
                         <TabsTrigger value="integration">Integration</TabsTrigger>
                         <TabsTrigger value="source">Source</TabsTrigger>
                         <TabsTrigger value="netlist">
@@ -241,10 +229,6 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                             dispatch={dispatch}
                             selectedComponent={selectedComponent}
                         />
-                    </TabsContent>
-
-                    <TabsContent value="live-panel" className="m-0" forceMount>
-                        <LivePanelDemo document={document} />
                     </TabsContent>
 
                     <TabsContent value="integration" className="m-0" forceMount>
@@ -520,188 +504,6 @@ function sourceYaml(
         filename: fixture.filename,
         sourceFormat,
     });
-}
-
-function LivePanelDemo(props: { document: EditorState['document'] }): React.ReactElement {
-    const document = useMemo(() => withLivePanelSyntheticControls(props.document), [props.document]);
-    const panel = useMemo(() => extractPanel(document), [document]);
-    const [controlState, dispatchControl] = useReducer(controlReducer, panel, defaultControlState);
-
-    useEffect(() => {
-        dispatchControl({ type: 'panel/load', panel });
-    }, [panel]);
-
-    const knob = panel.knobs.find((item) => item.id === LIVE_PANEL_KNOB_ID) ?? panel.knobs[0];
-    const switchControl = panel.switches[0];
-    const knobValue = knob === undefined ? undefined : controlState[knob.id];
-    const switchValue = switchControl === undefined ? undefined : controlState[switchControl.id];
-    const statusLedValue = controlState[LIVE_PANEL_LED_ID];
-    const knobPosition = knobValue?.kind === 'knob' ? knobValue.position : 0.5;
-    const switchPosition = switchValue?.kind === 'switch' ? switchValue.position : 0;
-    const statusLedOn = statusLedValue?.kind === 'led' ? statusLedValue.on : false;
-
-    return (
-        <Card data-live-panel-demo="true">
-            <CardHeader>
-                <CardTitle className="text-base">Live Panel</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <SchematicView
-                    document={document}
-                    controlState={controlState}
-                    className="h-140 w-full rounded-md border border-border bg-card text-foreground [--cpe-bg:var(--card)]"
-                    style={{
-                        backgroundImage: `url(${canvasDotBg})`,
-                        backgroundRepeat: 'repeat',
-                        backgroundPosition: '0 0',
-                    }}
-                    showLabels
-                />
-                <div className="space-y-4 rounded-md border border-border bg-muted/30 p-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="live-level">Level</Label>
-                        <Input
-                            id="live-level"
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            value={knobPosition}
-                            disabled={knob === undefined}
-                            className="h-8 px-0 accent-primary"
-                            onChange={(event) => {
-                                if (knob === undefined) {
-                                    return;
-                                }
-                                dispatchControl({
-                                    type: 'control/set',
-                                    controlId: knob.id,
-                                    value: { kind: 'knob', position: Number(event.currentTarget.value) },
-                                });
-                            }}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button
-                            type="button"
-                            variant={switchPosition === 1 ? 'secondary' : 'outline'}
-                            disabled={switchControl === undefined}
-                            aria-pressed={switchPosition === 1}
-                            onClick={() => {
-                                if (switchControl === undefined) {
-                                    return;
-                                }
-                                const next = switchPosition === 0 ? 1 : 0;
-                                dispatchControl({
-                                    type: 'control/set',
-                                    controlId: switchControl.id,
-                                    value: { kind: 'switch', position: next },
-                                });
-                            }}
-                        >
-                            Bypass
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={statusLedOn ? 'secondary' : 'outline'}
-                            aria-pressed={statusLedOn}
-                            onClick={() => {
-                                dispatchControl({
-                                    type: 'control/changed',
-                                    controlId: LIVE_PANEL_LED_ID,
-                                    value: { kind: 'led', on: !statusLedOn, intensity: !statusLedOn ? 1 : 0 },
-                                });
-                            }}
-                        >
-                            Status LED
-                        </Button>
-                    </div>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                        <dt className="text-muted-foreground">Knob</dt>
-                        <dd className="font-mono text-right">{knobPosition.toFixed(2)}</dd>
-                        <dt className="text-muted-foreground">Switch</dt>
-                        <dd className="font-mono text-right">{switchPosition}</dd>
-                        <dt className="text-muted-foreground">LED</dt>
-                        <dd className="font-mono text-right">{statusLedOn ? 'on' : 'off'}</dd>
-                    </dl>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function withLivePanelSyntheticControls(document: EditorState['document']): EditorState['document'] {
-    const existingIds = new Set(document.components.map((component) => component.id));
-    const components: Component[] = [];
-    if (!existingIds.has(LIVE_PANEL_KNOB_ID)) {
-        components.push({
-            id: LIVE_PANEL_KNOB_ID,
-            kind: 'potentiometer',
-            name: 'LEVEL',
-            origin: { x: 440, y: 80 },
-            rotation: 0,
-            flipped: false,
-            terminals: [
-                { name: 'a', position: { x: 430, y: 40 } },
-                { name: 'wiper', position: { x: 450, y: 80 } },
-                { name: 'b', position: { x: 430, y: 120 } },
-            ],
-            properties: {
-                Resistance: '100 kΩ',
-                Wipe: '0.5',
-                Sweep: 'Linear',
-                Description: 'Render-only live panel level control',
-            },
-            sourceTypeName: 'Circuit.Potentiometer, Circuit',
-        });
-    }
-    if (!existingIds.has(LIVE_PANEL_SWITCH_ID)) {
-        components.push({
-            id: LIVE_PANEL_SWITCH_ID,
-            kind: 'switch',
-            name: 'BYPASS',
-            origin: { x: 440, y: 250 },
-            rotation: 0,
-            flipped: false,
-            terminals: [
-                { name: 'collector', position: { x: 440, y: 230 } },
-                { name: 'base', position: { x: 420, y: 250 } },
-                { name: 'emitter', position: { x: 450, y: 270 } },
-            ],
-            properties: {
-                PartNumber: 'SPDT footswitch',
-                Description: 'Render-only host bypass switch',
-            },
-            sourceTypeName: 'Circuit.SPDT, Circuit',
-        });
-    }
-    if (!existingIds.has(LIVE_PANEL_LED_ID)) {
-        components.push({
-            id: LIVE_PANEL_LED_ID,
-            kind: 'led',
-            name: 'STATUS',
-            origin: { x: 440, y: 170 },
-            rotation: 0,
-            flipped: false,
-            terminals: [
-                { name: 'anode', position: { x: 440, y: 150 } },
-                { name: 'cathode', position: { x: 440, y: 190 } },
-            ],
-            properties: {
-                Type: 'LED',
-                PartNumber: '3mm blue',
-                Description: 'Render-only host status indicator',
-            },
-            sourceTypeName: 'Circuit.Diode, Circuit',
-        });
-    }
-    if (components.length === 0) {
-        return document;
-    }
-    return {
-        ...document,
-        components: [...document.components, ...components],
-    };
 }
 
 function findComponent(state: EditorState): SelectedComponent {

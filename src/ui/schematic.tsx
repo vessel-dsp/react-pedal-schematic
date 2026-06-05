@@ -24,7 +24,8 @@ import { findSnap } from '../preview/snap';
 import { symbolFor } from '../preview/symbols';
 import type { CircuitDocument, Component, Point, PropertyValue, Wire } from '../model/types';
 import { extractPanel } from '../panel/extract';
-import type { ControlState, ControlValue } from '../panel/types';
+import { nearestKnobStep } from '../panel/knobs';
+import type { ControlState, ControlValue, KnobStep, SliderControl } from '../panel/types';
 
 export type SchematicViewProps = Readonly<{
     document: CircuitDocument;
@@ -147,13 +148,30 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
 
     const contentBounds = useMemo(() => computeDocumentBounds(document, padding), [document, padding]);
     const modelPorts = useMemo(() => collectPorts(document.components), [document.components]);
+    const panel = useMemo(() => extractPanel(document), [document]);
     const ledColors = useMemo(() => {
         const colors = new Map<string, string>();
-        for (const led of extractPanel(document).leds) {
+        for (const led of panel.leds) {
             colors.set(led.id, led.color ?? 'red');
         }
         return colors;
-    }, [document]);
+    }, [panel]);
+    const knobSteps = useMemo(() => {
+        const stepsById = new Map<string, readonly KnobStep[]>();
+        for (const knob of panel.knobs) {
+            if (knob.steps !== undefined) {
+                stepsById.set(knob.id, knob.steps);
+            }
+        }
+        return stepsById;
+    }, [panel]);
+    const sliderControls = useMemo(() => {
+        const slidersById = new Map<string, SliderControl>();
+        for (const slider of panel.sliders ?? []) {
+            slidersById.set(slider.id, slider);
+        }
+        return slidersById;
+    }, [panel]);
     const initialBoundsRef = useRef<Bounds>(contentBounds);
     const [viewBox, setViewBox] = useState<Bounds>(contentBounds);
 
@@ -536,6 +554,8 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                             isDragging={isDragging}
                             controlValue={isDragging ? undefined : controlState[renderComponent.id]}
                             ledColor={ledColors.get(renderComponent.id) ?? 'red'}
+                            knobSteps={knobSteps.get(renderComponent.id)}
+                            sliderControl={sliderControls.get(renderComponent.id)}
                             onPointerDown={(event) => handleComponentPointerDown(sourceComponent, event)}
                             onPointerMove={handleComponentPointerMove}
                             onPointerUp={handleComponentPointerUp}
@@ -1062,6 +1082,8 @@ type ComponentGlyphProps = Readonly<{
     isDragging: boolean;
     controlValue: ControlValue | undefined;
     ledColor: string;
+    knobSteps: readonly KnobStep[] | undefined;
+    sliderControl: SliderControl | undefined;
     onPointerDown: (event: PointerEvent<SVGGElement>) => void;
     onPointerMove: (event: PointerEvent<SVGGElement>) => void;
     onPointerUp: (event: PointerEvent<SVGGElement>) => void;
@@ -1076,6 +1098,8 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
         isDragging,
         controlValue,
         ledColor,
+        knobSteps,
+        sliderControl,
         onPointerDown,
         onPointerMove,
         onPointerUp,
@@ -1173,6 +1197,8 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
                         value={controlValue}
                         symbolTransform={symbolTransform}
                         ledColor={ledColor}
+                        knobSteps={knobSteps}
+                        sliderControl={sliderControl}
                     />
                 </svg>
                 <rect
@@ -1215,8 +1241,10 @@ function LiveControlGlyph(props: {
     value: ControlValue | undefined;
     symbolTransform: string;
     ledColor: string;
+    knobSteps: readonly KnobStep[] | undefined;
+    sliderControl: SliderControl | undefined;
 }): ReactElement | null {
-    const { component, value, symbolTransform, ledColor } = props;
+    const { component, value, symbolTransform, ledColor, knobSteps, sliderControl } = props;
     if (value === undefined) {
         return null;
     }
@@ -1224,12 +1252,55 @@ function LiveControlGlyph(props: {
         return <LiveLedGlyph id={component.id} value={value} color={ledColor} />;
     }
     if (component.kind === 'potentiometer' && value.kind === 'knob') {
-        return <LiveKnobGlyph id={component.id} position={value.position} symbolTransform={symbolTransform} />;
+        return <LiveKnobGlyph id={component.id} position={value.position} symbolTransform={symbolTransform} steps={knobSteps} />;
+    }
+    if (component.kind === 'potentiometer' && value.kind === 'slider') {
+        return (
+            <LiveSliderGlyph
+                id={component.id}
+                position={value.position}
+                orientation={sliderControl?.orientation ?? 'vertical'}
+                symbolTransform={symbolTransform}
+            />
+        );
     }
     if (component.kind === 'switch' && value.kind === 'switch') {
         return <LiveSwitchGlyph component={component} position={value.position} symbolTransform={symbolTransform} />;
     }
     return null;
+}
+
+function LiveSliderGlyph(props: {
+    id: string;
+    position: number;
+    orientation: SliderControl['orientation'];
+    symbolTransform: string;
+}): ReactElement {
+    const position = clamp(props.position, 0, 1);
+    const horizontal = props.orientation === 'horizontal';
+    const thumb = horizontal ? -12 + position * 24 : 12 - position * 24;
+    return (
+        <g
+            data-control-kind="slider"
+            data-control-id={props.id}
+            data-control-position={position}
+            data-control-orientation={props.orientation}
+            transform={props.symbolTransform}
+            pointerEvents="none"
+        >
+            {horizontal ? (
+                <>
+                    <line x1={-12} y1={0} x2={12} y2={0} stroke={CONTROL_ACCENT} strokeWidth={1.6} strokeLinecap="round" opacity={0.75} />
+                    <line x1={formatNumber(thumb)} y1={-7} x2={formatNumber(thumb)} y2={7} stroke={CONTROL_ACCENT} strokeWidth={3} strokeLinecap="round" />
+                </>
+            ) : (
+                <>
+                    <line x1={0} y1={12} x2={0} y2={-12} stroke={CONTROL_ACCENT} strokeWidth={1.6} strokeLinecap="round" opacity={0.75} />
+                    <line x1={-7} y1={formatNumber(thumb)} x2={7} y2={formatNumber(thumb)} stroke={CONTROL_ACCENT} strokeWidth={3} strokeLinecap="round" />
+                </>
+            )}
+        </g>
+    );
 }
 
 function LiveLedGlyph(props: {
@@ -1271,14 +1342,19 @@ function LiveKnobGlyph(props: {
     id: string;
     position: number;
     symbolTransform: string;
+    steps: readonly KnobStep[] | undefined;
 }): ReactElement {
     const position = clamp(props.position, 0, 1);
+    const activeStep = nearestKnobStep(props.steps, position);
     const angle = -120 + position * 240;
     return (
         <g
             data-control-kind="knob"
             data-control-id={props.id}
             data-control-position={position}
+            data-control-step-count={props.steps?.length}
+            data-control-step-index={activeStep?.index}
+            data-control-step-label={activeStep?.label}
             transform={`${props.symbolTransform} rotate(${formatNumber(angle)})`}
             pointerEvents="none"
         >

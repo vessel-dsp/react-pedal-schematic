@@ -1,4 +1,4 @@
-export const VERSION = '0.2.1';
+export const VERSION = '0.2.2';
 
 export type {
     CircuitDocument,
@@ -74,12 +74,18 @@ export type {
     JackPort,
     JackRole,
     Knob,
+    KnobControlMode,
+    KnobStep,
     KnobTaper,
     KnobValue,
     LedIndicator,
     LedValue,
     Panel,
     PanelMessage,
+    SliderControl,
+    SliderOrientation,
+    SliderRange,
+    SliderValue,
     SwitchControl,
     SwitchKind,
     SwitchValue,
@@ -88,9 +94,14 @@ export {
     applyControlMessage,
     defaultControlState,
     extractPanel,
+    isKnobPositionOnStep,
     isKnob,
     isLed,
+    isSlider,
     isSwitch,
+    knobStepSize,
+    nearestKnobStep,
     PANEL_PROTOCOL_VERSION,
+    snapKnobPosition,
     validateMessage,
 } from './panel';

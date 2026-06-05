@@ -34,6 +34,10 @@ async function readReadme(): Promise<string> {
     return Bun.file(new URL('../README.md', import.meta.url)).text();
 }
 
+async function readChangelog(): Promise<string> {
+    return Bun.file(new URL('../CHANGELOG.md', import.meta.url)).text();
+}
+
 function expectExport(
     exportsField: unknown,
     exportName: string,
@@ -177,6 +181,18 @@ describe('README package metadata', () => {
 
         expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-pedal-schematic.svg)]');
         expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/react-pedal-schematic)');
+    });
+});
+
+describe('release metadata', () => {
+    test('pins the current package release and changelog entry', async () => {
+        const pkg = await readPackageJson();
+        const changelog = await readChangelog();
+
+        expect(pkg.version).toBe('0.2.2');
+        expect(VERSION).toBe('0.2.2');
+        expect(UI_VERSION).toBe('0.2.2');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.2.2\n\n');
     });
 });
 

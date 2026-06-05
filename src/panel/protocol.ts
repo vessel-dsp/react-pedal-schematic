@@ -5,15 +5,20 @@ import type {
     LedValue,
     Panel,
     PanelMessage,
+    SliderValue,
     SwitchValue,
 } from './types';
+import { isKnobPositionOnStep, snapKnobPosition } from './knobs';
 
 // defaultControlState builds the initial control state from a Panel descriptor.
 // Every knob/switch lands at its declared default; every LED starts off.
 export function defaultControlState(panel: Panel): ControlState {
     const state: Record<string, ControlValue> = {};
     for (const knob of panel.knobs) {
-        state[knob.id] = { kind: 'knob', position: knob.defaultPosition };
+        state[knob.id] = { kind: 'knob', position: snapKnobPosition(knob, knob.defaultPosition) };
+    }
+    for (const slider of panel.sliders ?? []) {
+        state[slider.id] = { kind: 'slider', position: slider.defaultPosition };
     }
     for (const sw of panel.switches) {
         state[sw.id] = { kind: 'switch', position: sw.defaultPosition };
@@ -48,6 +53,10 @@ export function isKnob(value: ControlValue | undefined): value is KnobValue {
     return value !== undefined && value.kind === 'knob';
 }
 
+export function isSlider(value: ControlValue | undefined): value is SliderValue {
+    return value !== undefined && value.kind === 'slider';
+}
+
 export function isSwitch(value: ControlValue | undefined): value is SwitchValue {
     return value !== undefined && value.kind === 'switch';
 }
@@ -68,6 +77,20 @@ export function validateMessage(panel: Panel, message: PanelMessage): string | n
             }
             if (!Number.isFinite(message.value.position) || message.value.position < 0 || message.value.position > 1) {
                 return `knob "${message.controlId}" position must be in [0,1]`;
+            }
+            if (!isKnobPositionOnStep(knob, message.value.position)) {
+                const stepCount = knob.steps?.length ?? 0;
+                return `knob "${message.controlId}" position must match one of ${stepCount} stepped positions`;
+            }
+            return null;
+        }
+        const slider = (panel.sliders ?? []).find((s) => s.id === message.controlId);
+        if (slider !== undefined) {
+            if (message.value.kind !== 'slider') {
+                return `control "${message.controlId}" is a slider but received ${message.value.kind} value`;
+            }
+            if (!Number.isFinite(message.value.position) || message.value.position < 0 || message.value.position > 1) {
+                return `slider "${message.controlId}" position must be in [0,1]`;
             }
             return null;
         }

@@ -241,7 +241,7 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('parseCircuitDocument');
     });
 
-    test('renders a Live Panel demo driven by SchematicView controlState', () => {
+    test('does not render a Live Panel playground tab or demo', () => {
         const editorState = createEditorState(parseSchx(emptySchx));
         const document = editorState.document;
         const dispatch = (_command: EditorCommand): void => {};
@@ -261,15 +261,12 @@ describe('playground Schematic tab', () => {
             }),
         );
 
-        expect(markup).toContain('trigger-live-panel');
-        expect(markup).toContain('data-live-panel-demo="true"');
-        expect(markup).toContain('data-component-id="status-led"');
-        expect(markup).toContain('data-control-kind="knob"');
-        expect(markup).toContain('data-control-kind="switch"');
-        expect(markup).toContain('data-control-kind="led"');
+        expect(markup).not.toContain('trigger-live-panel');
+        expect(markup).not.toContain('Live Panel');
+        expect(markup).not.toContain('data-live-panel-demo="true"');
     });
 
-    test('renders the current editor document inside the Live Panel', () => {
+    test('renders the current editor document only in the schematic workspace', () => {
         const document: CircuitDocument = {
             ...EMPTY_DOCUMENT,
             components: [{
@@ -306,7 +303,7 @@ describe('playground Schematic tab', () => {
         );
 
         const renderedMarkers = markup.match(/data-component-id="CURRENT_PANEL_MARKER"/g) ?? [];
-        expect(renderedMarkers).toHaveLength(2);
+        expect(renderedMarkers).toHaveLength(1);
     });
 
     test('deduplicates repeated unsupported-component diagnostics in the warnings UI', () => {

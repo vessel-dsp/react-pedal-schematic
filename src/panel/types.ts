@@ -3,13 +3,41 @@ import type { ParsedQuantity } from '../model/types';
 // ---------- Static panel descriptor (extracted from a CircuitDocument) ----------
 
 export type KnobTaper = 'linear' | 'log' | 'reverse-log' | 'unknown';
+export type KnobControlMode = 'continuous' | 'stepped';
+
+export type KnobStep = Readonly<{
+    index: number;
+    position: number;
+    label?: string;
+}>;
 
 export type Knob = Readonly<{
     id: string;
     name: string;
     taper: KnobTaper;
+    controlMode?: KnobControlMode;
     defaultPosition: number;
+    steps?: readonly KnobStep[];
     resistance?: ParsedQuantity;
+    gangGroup?: string;
+    description?: string;
+}>;
+
+export type SliderOrientation = 'vertical' | 'horizontal';
+
+export type SliderRange = Readonly<{
+    min: number;
+    max: number;
+    unit?: string;
+    center?: number;
+}>;
+
+export type SliderControl = Readonly<{
+    id: string;
+    name: string;
+    defaultPosition: number;
+    orientation: SliderOrientation;
+    range?: SliderRange;
     gangGroup?: string;
     description?: string;
 }>;
@@ -49,6 +77,7 @@ export type JackPort = Readonly<{
 
 export type Panel = Readonly<{
     knobs: readonly Knob[];
+    sliders?: readonly SliderControl[];
     switches: readonly SwitchControl[];
     leds: readonly LedIndicator[];
     jacks: readonly JackPort[];
@@ -60,10 +89,11 @@ export type Panel = Readonly<{
 // The same shape is used in messages going UI → DSP (`control/set`) and DSP → UI
 // (`control/changed`, e.g. LED illumination from a level detector).
 export type KnobValue = Readonly<{ kind: 'knob'; position: number }>;
+export type SliderValue = Readonly<{ kind: 'slider'; position: number }>;
 export type SwitchValue = Readonly<{ kind: 'switch'; position: number }>;
 export type LedValue = Readonly<{ kind: 'led'; on: boolean; intensity?: number }>;
 
-export type ControlValue = KnobValue | SwitchValue | LedValue;
+export type ControlValue = KnobValue | SliderValue | SwitchValue | LedValue;
 
 export type ControlState = Readonly<Record<string, ControlValue>>;
 

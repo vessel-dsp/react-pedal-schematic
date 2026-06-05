@@ -52,6 +52,30 @@ const RV1 = makeComponent('potentiometer', 'RV1', { x: 0, y: 0 }, [
     { name: 'b', position: { x: -10, y: 40 } },
 ]);
 
+const DROP = makeComponent('potentiometer', 'DROP', { x: 0, y: 0 }, [
+    { name: 'a', position: { x: -10, y: -40 } },
+    { name: 'wiper', position: { x: 10, y: 0 } },
+    { name: 'b', position: { x: -10, y: 40 } },
+], {
+    properties: {
+        Wipe: '0.25',
+        Sweep: 'Stepped',
+        StepLabels: '1, 2, 3, 4, 5, 6, 7, OCT, OCT+DRY',
+    },
+});
+
+const GE7_BAND = makeComponent('potentiometer', 'BAND_800', { x: 0, y: 0 }, [
+    { name: 'a', position: { x: -10, y: -40 } },
+    { name: 'wiper', position: { x: 10, y: 0 } },
+    { name: 'b', position: { x: -10, y: 40 } },
+], {
+    properties: {
+        Wipe: '0.5',
+        ControlStyle: 'Slider',
+        Orientation: 'Vertical',
+    },
+});
+
 const SW1_SPDT = makeComponent('switch', 'SW1', { x: 0, y: 0 }, [
     { name: 'collector', position: { x: 0, y: 20 } },
     { name: 'base', position: { x: -20, y: 0 } },
@@ -115,6 +139,31 @@ describe('SchematicView controlState', () => {
 
         expect(maxMarkup).toContain('data-control-position="1"');
         expect(maxMarkup).toContain('rotate(120)');
+    });
+
+    test('renders stepped potentiometer metadata with the active detent index', () => {
+        const markup = renderSchematic({
+            document: makeDocument([DROP]),
+            controlState: { DROP: { kind: 'knob', position: 0.25 } },
+        });
+
+        expect(markup).toContain('data-control-kind="knob"');
+        expect(markup).toContain('data-control-id="DROP"');
+        expect(markup).toContain('data-control-step-count="9"');
+        expect(markup).toContain('data-control-step-index="2"');
+        expect(markup).toContain('data-control-step-label="3"');
+    });
+
+    test('renders slider control state as a fader overlay', () => {
+        const markup = renderSchematic({
+            document: makeDocument([GE7_BAND]),
+            controlState: { BAND_800: { kind: 'slider', position: 0.5 } },
+        });
+
+        expect(markup).toContain('data-control-kind="slider"');
+        expect(markup).toContain('data-control-id="BAND_800"');
+        expect(markup).toContain('data-control-position="0.5"');
+        expect(markup).toContain('data-control-orientation="vertical"');
     });
 
     test('highlights the active SPDT throw for switch position', () => {

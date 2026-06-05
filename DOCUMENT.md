@@ -57,48 +57,6 @@ Use the `wireFlow` prop:
 
 A full React toggle example is available at [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).
 
-## Reflect Live Panel State
-
-Use the panel helpers when a host has runtime control values from a UI, worklet,
-or hardware bridge:
-
-```tsx
-import { useReducer } from 'react';
-import {
-    applyControlMessage,
-    defaultControlState,
-    extractPanel,
-} from '@vessel-dsp/react-pedal-schematic';
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
-
-export function LivePreview({ document }) {
-    const panel = extractPanel(document);
-    const [controlState, dispatch] = useReducer(
-        applyControlMessage,
-        defaultControlState(panel),
-    );
-
-    return <SchematicView document={document} controlState={controlState} />;
-}
-```
-
-`controlState` is a render-time overlay. It does not mutate `CircuitDocument`
-and does not change exported source. Matching component ids get visual state:
-LEDs light, potentiometer indicators move, and active switch throws highlight.
-Ids absent from the document are ignored.
-
-For host-owned indicators that are not in the parsed schematic, use one of two
-patterns:
-
-- pass `controlOverlay` and render HUD-style SVG children from the provided
-  `componentPositions` and `viewBox`;
-- append a synthetic render-only `Component` with a stable id to the document
-  passed to `SchematicView`, then drive that id through `controlState`.
-
-Synthetic components are a host rendering concern. Do not serialize them back
-to `.schx`, `.asc`, or netlist formats unless the host intentionally wants to
-edit the schematic source.
-
 ## Playground Behavior
 
 The playground schematic toolbar includes a `Signal flow` button. It toggles the same `wireFlow` prop used by external integrations:
