@@ -23,6 +23,8 @@ export type PalettePayload = Readonly<{
     sourceTypeName: string | null;
 }>;
 
+const SQUARE_PALETTE_ICON_VIEW_BOX = '-25 -25 50 50';
+
 export type SymbolPaletteProps = Readonly<{
     className?: string | undefined;
     contentClassName?: string | undefined;
@@ -114,7 +116,7 @@ const PALETTE_GROUPS: readonly PaletteGroup[] = [
         items: [
             { id: 'switch-spst', kind: 'switch', sourceTypeName: 'Circuit.Switch, Circuit', label: 'Switch (SPST)' },
             { id: 'switch-spdt', kind: 'switch', sourceTypeName: 'Circuit.SPDT, Circuit', label: 'Switch (SPDT)' },
-            { id: 'switch-3pdt', kind: 'switch', sourceTypeName: 'Circuit.SP3T, Circuit', label: 'Switch (SP3T)' },
+            { id: 'switch-3pdt', kind: 'switch', sourceTypeName: 'Circuit.3PDT, Circuit', label: 'Footswitch (3PDT)' },
         ],
     },
     {
@@ -136,7 +138,7 @@ const PALETTE_GROUPS: readonly PaletteGroup[] = [
             { id: 'jack-output', kind: 'jack', sourceTypeName: 'Circuit.Speaker, Circuit', label: 'Output jack' },
             { id: 'port', kind: 'port', sourceTypeName: 'Circuit.Port, Circuit', label: 'Test point' },
             { id: 'named-wire', kind: 'named-wire', sourceTypeName: 'Circuit.NamedWire, Circuit', label: 'Named wire' },
-            { id: 'label', kind: 'label', sourceTypeName: 'Circuit.Label, Circuit', label: 'Label' },
+            { id: 'label', kind: 'label', sourceTypeName: 'Circuit.Label, Circuit', label: 'Text' },
         ],
     },
 ];
@@ -221,6 +223,7 @@ function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
     }
 
     const symbol = symbolFor(item.kind, item.sourceTypeName);
+    const iconViewBox = paletteIconViewBox(item, symbol.viewBox);
     const color = colorForKind(item.kind);
     return (
         <div
@@ -230,12 +233,12 @@ function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
             className="group flex cursor-grab select-none items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/40 hover:text-foreground active:cursor-grabbing"
         >
             <svg
-                viewBox={symbol.viewBox}
+                viewBox={iconViewBox}
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-8 w-8 shrink-0 text-foreground"
                 aria-hidden
             >
-                <TileBox viewBox={symbol.viewBox} color={color} />
+                <TileBox viewBox={iconViewBox} color={color} />
                 <g
                     stroke="currentColor"
                     fill="none"
@@ -249,11 +252,15 @@ function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
             <svg
                 ref={dragPreviewRef}
                 data-drag-preview="symbol"
-                viewBox={symbol.viewBox}
+                viewBox={iconViewBox}
                 xmlns="http://www.w3.org/2000/svg"
                 className="pointer-events-none fixed -left-[1000px] -top-[1000px] h-10 w-10 text-foreground"
                 aria-hidden
             >
+                {/* Mirror the on-screen tile (colored card + glyph) so items
+                    with empty symbol content (e.g. Text labels) still have a
+                    visible drag image. */}
+                <TileBox viewBox={iconViewBox} color={color} />
                 <g
                     stroke="currentColor"
                     fill="none"
@@ -267,14 +274,24 @@ function PaletteTile({ item }: { item: PaletteItem }): React.ReactElement {
     );
 }
 
+function paletteIconViewBox(item: PaletteItem, symbolViewBox: string): string {
+    if (item.kind === 'potentiometer') {
+        return SQUARE_PALETTE_ICON_VIEW_BOX;
+    }
+    return symbolViewBox;
+}
+
 function TileBox({ viewBox, color }: { viewBox: string; color: string }): React.ReactElement {
     const box = parseViewBox(viewBox);
+    const size = Math.max(0, Math.min(box.w, box.h) - 2);
+    const x = box.x + box.w / 2 - size / 2;
+    const y = box.y + box.h / 2 - size / 2;
     return (
         <rect
-            x={box.x + 1}
-            y={box.y + 1}
-            width={box.w - 2}
-            height={box.h - 2}
+            x={x}
+            y={y}
+            width={size}
+            height={size}
             rx={4}
             stroke={color}
             strokeWidth={1.25}

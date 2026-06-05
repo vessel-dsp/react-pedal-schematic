@@ -46,10 +46,10 @@ describe('interchange YAML fixture coverage', () => {
     test('serializes every supported fixture into the intermediary YAML view', async () => {
         const fixtures = await collectFixtures();
         const formatCounts = countByFormat(fixtures);
-        expect(fixtures).toHaveLength(35);
-        expect(formatCounts.schx).toBe(23);
+        expect(fixtures).toHaveLength(47);
+        expect(formatCounts.schx).toBe(34);
         expect(formatCounts['ltspice-asc']).toBe(10);
-        expect(formatCounts.spice).toBe(2);
+        expect(formatCounts.spice).toBe(3);
 
         const failures: string[] = [];
         for (const fixture of fixtures) {

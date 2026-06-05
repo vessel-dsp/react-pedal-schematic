@@ -2,7 +2,7 @@
   <!--
     kind: potentiometer
     terminals: a (SVG -10,-40), wiper (SVG 10,0), b (SVG -10,40)
-    NOTE: catalog terminals extend to ±40, but the card renderer draws
+    NOTE: catalog terminals extend to ±40, but the square card renderer draws
     connector dots separately, so the visual lead stubs are shortened.
   -->
   <g stroke-width="0.95">

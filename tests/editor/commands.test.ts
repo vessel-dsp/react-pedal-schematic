@@ -259,4 +259,200 @@ describe('applyDocumentCommand', () => {
         expect(next.components[0]?.origin).toEqual({ x: 0, y: 0 });
         expect(next.components[1]?.origin).not.toEqual({ x: 10, y: 0 });
     });
+
+    test('delete-wire removes the matching wire by id', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 0, y: 10 }, { x: 10, y: 10 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'delete-wire', wireId: 'wire-1' });
+        expect(next.wires.map((w) => w.id)).toEqual(['wire-2']);
+    });
+
+    test('delete-wire is a no-op when the wireId does not match', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'delete-wire', wireId: 'missing' });
+        expect(next).toBe(doc);
+    });
+
+    test('add-wire appends a new wire with a fresh unique id', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'add-wire',
+            from: { x: 0, y: 0 },
+            to: { x: 0, y: 50 },
+        });
+        expect(next.wires).toHaveLength(2);
+        expect(next.wires[1]?.id).toBe('wire-2');
+        expect(next.wires[1]?.endpoints).toEqual([{ x: 0, y: 0 }, { x: 0, y: 50 }]);
+    });
+
+    test('add-wire skirts existing ids to avoid collisions', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+                { id: 'wire-3', endpoints: [{ x: 0, y: 0 }, { x: 0, y: 10 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'add-wire',
+            from: { x: 0, y: 0 },
+            to: { x: 0, y: 99 },
+        });
+        // wires.length+1 = 3, but wire-3 is taken — should bump to wire-4
+        expect(next.wires.map((w) => w.id)).toEqual(['wire-1', 'wire-3', 'wire-4']);
+    });
+
+    test('add-wire is a no-op when from == to (zero-length)', () => {
+        const doc = EMPTY_DOCUMENT;
+        const next = applyDocumentCommand(doc, {
+            type: 'add-wire',
+            from: { x: 5, y: 5 },
+            to: { x: 5, y: 5 },
+        });
+        expect(next).toBe(doc);
+    });
+
+    test('delete-wires removes every wire whose id is in the batch', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 10, y: 0 }, { x: 10, y: 10 }] },
+                { id: 'wire-3', endpoints: [{ x: 0, y: 0 }, { x: 0, y: 10 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'delete-wires',
+            wireIds: ['wire-1', 'wire-2'],
+        });
+        expect(next.wires.map((w) => w.id)).toEqual(['wire-3']);
+    });
+
+    test('delete-wires is a no-op when no listed wires match', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'delete-wires',
+            wireIds: ['ghost', 'phantom'],
+        });
+        expect(next).toBe(doc);
+    });
+
+    test('delete-wires with an empty batch returns the same document reference', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'delete-wires', wireIds: [] });
+        expect(next).toBe(doc);
+    });
+
+    test('split-wire replaces the wire with two segments meeting at the split point', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'split-wire',
+            wireId: 'wire-1',
+            at: { x: 50, y: 0 },
+        });
+        expect(next.wires).toHaveLength(2);
+        expect(next.wires[0]?.endpoints).toEqual([{ x: 0, y: 0 }, { x: 50, y: 0 }]);
+        expect(next.wires[1]?.endpoints).toEqual([{ x: 50, y: 0 }, { x: 100, y: 0 }]);
+        expect(new Set(next.wires.map((w) => w.id)).size).toBe(2);
+    });
+
+    test('split-wire projects an off-segment point onto the wire before splitting', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }] as const,
+        };
+        // Click at (40, 25) — off the wire. Projected onto y=0 axis → (40, 0).
+        const next = applyDocumentCommand(doc, {
+            type: 'split-wire',
+            wireId: 'wire-1',
+            at: { x: 40, y: 25 },
+        });
+        expect(next.wires[0]?.endpoints[1]).toEqual({ x: 40, y: 0 });
+        expect(next.wires[1]?.endpoints[0]).toEqual({ x: 40, y: 0 });
+    });
+
+    test('split-wire is a no-op when the split point coincides with an endpoint', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, {
+            type: 'split-wire',
+            wireId: 'wire-1',
+            at: { x: 0, y: 0 },
+        });
+        expect(next).toBe(doc);
+    });
+
+    test('merge-wires collapses a degree-2 corner into a single wire', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 50, y: 0 }, { x: 50, y: 50 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'merge-wires', at: { x: 50, y: 0 } });
+        expect(next.wires).toHaveLength(1);
+        expect(next.wires[0]?.endpoints).toEqual([{ x: 0, y: 0 }, { x: 50, y: 50 }]);
+    });
+
+    test('merge-wires refuses when a terminal sits at the corner', () => {
+        const r1: Component = {
+            ...makeComponent('R1', 'resistor'),
+            terminals: [{ name: 't', position: { x: 50, y: 0 } }],
+        };
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            components: [r1],
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 50, y: 0 }, { x: 50, y: 50 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'merge-wires', at: { x: 50, y: 0 } });
+        expect(next).toBe(doc);
+    });
+
+    test('merge-wires refuses when a third wire branches at the corner', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 50, y: 0 }, { x: 50, y: 50 }] },
+                { id: 'wire-3', endpoints: [{ x: 50, y: 0 }, { x: 100, y: 0 }] },
+            ] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'merge-wires', at: { x: 50, y: 0 } });
+        expect(next).toBe(doc);
+    });
+
+    test('merge-wires is a no-op when fewer than 2 wires meet at the point', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] }] as const,
+        };
+        const next = applyDocumentCommand(doc, { type: 'merge-wires', at: { x: 50, y: 0 } });
+        expect(next).toBe(doc);
+    });
 });

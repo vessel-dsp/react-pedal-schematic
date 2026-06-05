@@ -1,19 +1,26 @@
-import { createContext, useContext, useMemo, useReducer, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
 import {
+    applyControlMessage,
     applyEditorCommand,
     canRedo,
     canUndo,
     createEditorState,
+    defaultControlState,
     detectCircuitFormat,
+    extractPanel,
+    findWireChain,
     parseCircuitDocument,
     serializeSchx,
     serializeInterchangeYaml,
     toNetlistView,
     validateDocument,
     VERSION,
+    type Component,
+    type ControlState,
     type EditorCommand,
     type EditorState,
     type NetlistView,
+    type PanelMessage,
     type Point,
     type ValidationIssue,
     type Warning,
@@ -32,6 +39,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { FIXTURES, FIXTURE_GROUPS, findFixture } from '@/lib/fixtures';
 import { Inspector } from '@/components/inspector';
 import { SymbolPalette, readPalettePayload } from '@/components/symbol-palette';
@@ -43,6 +52,16 @@ export type SelectedSchematicComponent = EditorState['document']['components'][n
 type SelectedComponent = SelectedSchematicComponent;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
+const controlReducer = (state: ControlState, message: PanelMessage): ControlState => applyControlMessage(state, message);
+const livePanelFallbackSchx = `<?xml version="1.0" encoding="utf-8"?>
+<Schematic Name="Live panel demo" Description="Minimal SPDT fixture for server-rendered playground tests." PartNumber="">
+  <Element Type="Circuit.Symbol, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" Rotation="0" Flip="false" Position="0,0">
+    <Component _Type="Circuit.SPDT, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" PartNumber="SPDT footswitch" Name="SW1" />
+  </Element>
+</Schematic>`;
+const LIVE_PANEL_FIXTURE_ID = 'spdt-bypass-pedal';
+const LIVE_PANEL_LED_ID = 'status-led';
+const LIVE_PANEL_KNOB_ID = 'virtual-level';
 const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
 
 const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
@@ -202,6 +221,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                 <Tabs defaultValue="schematic" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="schematic">Schematic</TabsTrigger>
+                        <TabsTrigger value="live-panel">Live Panel</TabsTrigger>
                         <TabsTrigger value="integration">Integration</TabsTrigger>
                         <TabsTrigger value="source">Source</TabsTrigger>
                         <TabsTrigger value="netlist">
@@ -219,6 +239,10 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                             dispatch={dispatch}
                             selectedComponent={selectedComponent}
                         />
+                    </TabsContent>
+
+                    <TabsContent value="live-panel" className="m-0" forceMount>
+                        <LivePanelDemo />
                     </TabsContent>
 
                     <TabsContent value="integration" className="m-0" forceMount>
@@ -354,6 +378,174 @@ function sourceYaml(
     });
 }
 
+function LivePanelDemo(): React.ReactElement {
+    const fixture = findFixture(LIVE_PANEL_FIXTURE_ID);
+    const baseDocument = useMemo(
+        () => (fixture && sourceLooksLikeSchx(fixture.source)
+            ? parseCircuitDocument(fixture.source, { filename: fixture.filename })
+            : parseCircuitDocument(livePanelFallbackSchx, { format: 'schx' })),
+        [fixture],
+    );
+    const document = useMemo(() => withLivePanelSyntheticControls(baseDocument), [baseDocument]);
+    const panel = useMemo(() => extractPanel(document), [document]);
+    const [controlState, dispatchControl] = useReducer(controlReducer, panel, defaultControlState);
+    const knob = panel.knobs.find((item) => item.id === LIVE_PANEL_KNOB_ID) ?? panel.knobs[0];
+    const switchControl = panel.switches[0];
+    const knobValue = knob === undefined ? undefined : controlState[knob.id];
+    const switchValue = switchControl === undefined ? undefined : controlState[switchControl.id];
+    const statusLedValue = controlState[LIVE_PANEL_LED_ID];
+    const knobPosition = knobValue?.kind === 'knob' ? knobValue.position : 0.5;
+    const switchPosition = switchValue?.kind === 'switch' ? switchValue.position : 0;
+    const statusLedOn = statusLedValue?.kind === 'led' ? statusLedValue.on : false;
+
+    return (
+        <Card data-live-panel-demo="true">
+            <CardHeader>
+                <CardTitle className="text-base">Live Panel</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <SchematicView
+                    document={document}
+                    controlState={controlState}
+                    className="h-140 w-full rounded-md border border-border bg-card text-foreground [--cpe-bg:var(--card)]"
+                    style={{
+                        backgroundImage: `url(${canvasDotBg})`,
+                        backgroundRepeat: 'repeat',
+                        backgroundPosition: '0 0',
+                    }}
+                    showLabels
+                />
+                <div className="space-y-4 rounded-md border border-border bg-muted/30 p-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="live-level">Level</Label>
+                        <Input
+                            id="live-level"
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={knobPosition}
+                            disabled={knob === undefined}
+                            className="h-8 px-0 accent-primary"
+                            onChange={(event) => {
+                                if (knob === undefined) {
+                                    return;
+                                }
+                                dispatchControl({
+                                    type: 'control/set',
+                                    controlId: knob.id,
+                                    value: { kind: 'knob', position: Number(event.currentTarget.value) },
+                                });
+                            }}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button
+                            type="button"
+                            variant={switchPosition === 1 ? 'secondary' : 'outline'}
+                            disabled={switchControl === undefined}
+                            aria-pressed={switchPosition === 1}
+                            onClick={() => {
+                                if (switchControl === undefined) {
+                                    return;
+                                }
+                                const next = switchPosition === 0 ? 1 : 0;
+                                dispatchControl({
+                                    type: 'control/set',
+                                    controlId: switchControl.id,
+                                    value: { kind: 'switch', position: next },
+                                });
+                            }}
+                        >
+                            Bypass
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={statusLedOn ? 'secondary' : 'outline'}
+                            aria-pressed={statusLedOn}
+                            onClick={() => {
+                                dispatchControl({
+                                    type: 'control/changed',
+                                    controlId: LIVE_PANEL_LED_ID,
+                                    value: { kind: 'led', on: !statusLedOn, intensity: !statusLedOn ? 1 : 0 },
+                                });
+                            }}
+                        >
+                            Status LED
+                        </Button>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <dt className="text-muted-foreground">Knob</dt>
+                        <dd className="font-mono text-right">{knobPosition.toFixed(2)}</dd>
+                        <dt className="text-muted-foreground">Switch</dt>
+                        <dd className="font-mono text-right">{switchPosition}</dd>
+                        <dt className="text-muted-foreground">LED</dt>
+                        <dd className="font-mono text-right">{statusLedOn ? 'on' : 'off'}</dd>
+                    </dl>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function sourceLooksLikeSchx(source: string): boolean {
+    return source.trimStart().startsWith('<?xml') || source.includes('<Schematic');
+}
+
+function withLivePanelSyntheticControls(document: EditorState['document']): EditorState['document'] {
+    const existingIds = new Set(document.components.map((component) => component.id));
+    const components: Component[] = [];
+    if (!existingIds.has(LIVE_PANEL_KNOB_ID)) {
+        components.push({
+            id: LIVE_PANEL_KNOB_ID,
+            kind: 'potentiometer',
+            name: 'LEVEL',
+            origin: { x: 440, y: 80 },
+            rotation: 0,
+            flipped: false,
+            terminals: [
+                { name: 'a', position: { x: 430, y: 40 } },
+                { name: 'wiper', position: { x: 450, y: 80 } },
+                { name: 'b', position: { x: 430, y: 120 } },
+            ],
+            properties: {
+                Resistance: '100 kΩ',
+                Wipe: '0.5',
+                Sweep: 'Linear',
+                Description: 'Render-only live panel level control',
+            },
+            sourceTypeName: 'Circuit.Potentiometer, Circuit',
+        });
+    }
+    if (!existingIds.has(LIVE_PANEL_LED_ID)) {
+        components.push({
+            id: LIVE_PANEL_LED_ID,
+            kind: 'led',
+            name: 'STATUS',
+            origin: { x: 440, y: 170 },
+            rotation: 0,
+            flipped: false,
+            terminals: [
+                { name: 'anode', position: { x: 440, y: 150 } },
+                { name: 'cathode', position: { x: 440, y: 190 } },
+            ],
+            properties: {
+                Type: 'LED',
+                PartNumber: '3mm blue',
+                Description: 'Render-only host status indicator',
+            },
+            sourceTypeName: 'Circuit.Diode, Circuit',
+        });
+    }
+    if (components.length === 0) {
+        return document;
+    }
+    return {
+        ...document,
+        components: [...document.components, ...components],
+    };
+}
+
 function findComponent(state: EditorState): SelectedComponent {
     if (state.selectedId === null) {
         return null;
@@ -446,6 +638,32 @@ export function SchematicCard(props: {
 }): React.ReactElement {
     const { editorState, dispatch, selectedComponent, className, canvasClassName } = props;
     const [wireFlow, setWireFlow] = useState(false);
+
+    useEffect(() => {
+        function handleKey(event: KeyboardEvent): void {
+            if (event.key !== 'Delete' && event.key !== 'Backspace') {
+                return;
+            }
+            const target = event.target as HTMLElement | null;
+            // Don't steal Delete from form inputs in the Inspector.
+            if (target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                return;
+            }
+            if (editorState.selectedWireId !== null) {
+                event.preventDefault();
+                const chain = findWireChain(editorState.selectedWireId, editorState.document);
+                dispatch({ type: 'delete-wires', wireIds: chain });
+                return;
+            }
+            if (selectedComponent !== null) {
+                event.preventDefault();
+                dispatch({ type: 'delete-component', componentId: selectedComponent.id });
+            }
+        }
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [editorState.selectedWireId, editorState.document, selectedComponent, dispatch]);
+
     return (
         <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -485,11 +703,17 @@ export function SchematicCard(props: {
                     <Button
                         size="sm"
                         variant="ghost"
-                        disabled={selectedComponent === null}
-                        onClick={() => selectedComponent && dispatch({
-                            type: 'delete-component',
-                            componentId: selectedComponent.id,
-                        })}
+                        disabled={selectedComponent === null && editorState.selectedWireId === null}
+                        onClick={() => {
+                            if (selectedComponent !== null) {
+                                dispatch({ type: 'delete-component', componentId: selectedComponent.id });
+                                return;
+                            }
+                            if (editorState.selectedWireId !== null) {
+                                const chain = findWireChain(editorState.selectedWireId, editorState.document);
+                                dispatch({ type: 'delete-wires', wireIds: chain });
+                            }
+                        }}
                     >
                         Delete
                     </Button>
@@ -510,11 +734,16 @@ export function SchematicCard(props: {
                     wireFlow={wireFlow ? 'all' : 'none'}
                     editMode={true}
                     selectedId={editorState.selectedId}
+                    selectedWireId={editorState.selectedWireId}
                     onSelect={(id) => dispatch({ type: 'select', componentId: id })}
+                    onSelectWire={(wireId) => dispatch({ type: 'select-wire', wireId })}
                     onMoveComponent={(id, origin) => handleMove(dispatch, id, origin)}
                     onCanvasDrop={(event, origin) => handleCanvasDrop(dispatch, event, origin)}
+                    onCreateWire={(from, to) => dispatch({ type: 'add-wire', from, to })}
+                    onSplitWire={(wireId, at) => dispatch({ type: 'split-wire', wireId, at })}
+                    onMergeCorner={(at) => dispatch({ type: 'merge-wires', at })}
                 />
-                <SelectionInfo selectedComponent={selectedComponent} />
+                <SelectionInfo selectedComponent={selectedComponent} selectedWireId={editorState.selectedWireId} />
             </CardContent>
         </Card>
     );
@@ -541,21 +770,32 @@ function handleCanvasDrop(
     });
 }
 
-function SelectionInfo(props: { selectedComponent: ReturnType<typeof findComponent> }): React.ReactElement {
-    const { selectedComponent } = props;
-    if (selectedComponent === null) {
+function SelectionInfo(props: {
+    selectedComponent: ReturnType<typeof findComponent>;
+    selectedWireId: string | null;
+}): React.ReactElement {
+    const { selectedComponent, selectedWireId } = props;
+    if (selectedComponent === null && selectedWireId === null) {
         return (
             <p className="mt-2 text-xs text-muted-foreground">
-                Drag a symbol from the library, or click any component to select. Background click deselects.
+                Click to select · drag from a terminal to draw a wire · Shift+click a wire to add a bend, Shift+click a bend to remove it · Delete removes the selection.
             </p>
+        );
+    }
+    if (selectedWireId !== null) {
+        return (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span><span className="font-medium text-foreground">Selected wire:</span> {selectedWireId}</span>
+                <span className="text-muted-foreground">Press Delete to remove.</span>
+            </div>
         );
     }
     return (
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span><span className="font-medium text-foreground">Selected:</span> {selectedComponent.id}</span>
-            <span>kind: <span className="font-mono">{selectedComponent.kind}</span></span>
-            <span>origin: <span className="font-mono">({selectedComponent.origin.x}, {selectedComponent.origin.y})</span></span>
-            <span>terminals: <span className="font-mono">{selectedComponent.terminals.length}</span></span>
+            <span><span className="font-medium text-foreground">Selected:</span> {selectedComponent!.id}</span>
+            <span>kind: <span className="font-mono">{selectedComponent!.kind}</span></span>
+            <span>origin: <span className="font-mono">({selectedComponent!.origin.x}, {selectedComponent!.origin.y})</span></span>
+            <span>terminals: <span className="font-mono">{selectedComponent!.terminals.length}</span></span>
         </div>
     );
 }

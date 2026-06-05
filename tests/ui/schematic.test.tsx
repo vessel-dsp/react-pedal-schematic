@@ -216,13 +216,13 @@ describe('SchematicView rendering — component cards', () => {
         expect(selectedMarkup).not.toMatch(/<rect[^>]*data-component-card="true"[^>]*stroke-width="2"/);
     });
 
-    test('renders terminal connection dots and attached wires on the card perimeter', () => {
+    test('renders potentiometers as square component cards with card-edge terminals', () => {
         const document: CircuitDocument = {
             ...EMPTY_DOCUMENT,
             components: [{
-                id: 'Volume',
+                id: 'RV1',
                 kind: 'potentiometer',
-                name: 'Volume',
+                name: 'RV1',
                 origin: { x: 0, y: 0 },
                 rotation: 0,
                 flipped: false,
@@ -243,6 +243,12 @@ describe('SchematicView rendering — component cards', () => {
 
         const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
 
+        expect(markup).toContain('data-component-kind="potentiometer"');
+        expect(markup).toContain('data-component-card="true"');
+        expect(markup).toContain('data-component-label-area="true"');
+        expect(markup).toContain('component-card-clip-RV1');
+        expect(markup).not.toContain('data-component-symbol="true"');
+        expect(markup).toMatch(/<rect[^>]*data-component-card="true"[^>]*x="-20"[^>]*y="-20"[^>]*width="40"[^>]*height="40"/);
         expect(markup).toMatch(/<circle[^>]*cx="-10"[^>]*cy="-20"[^>]*r="2\.5"/);
         expect(markup).toMatch(/<circle[^>]*cx="20"[^>]*cy="0"[^>]*r="2\.5"/);
         expect(markup).toMatch(/<circle[^>]*cx="-10"[^>]*cy="20"[^>]*r="2\.5"/);
@@ -251,6 +257,7 @@ describe('SchematicView rendering — component cards', () => {
         expect(markup).toContain('points="-40,-40 -10,-40 -10,-20"');
         expect(markup).toContain('points="20,0 50,0"');
         expect(markup).toContain('points="-10,20 -10,60"');
+        expect(markup).toContain('>RV1</text>');
     });
 
     test('moves center terminals to the card edge that faces the attached wire', () => {
@@ -279,6 +286,36 @@ describe('SchematicView rendering — component cards', () => {
         expect(markup).not.toMatch(/<circle[^>]*cx="0"[^>]*cy="0"[^>]*r="2\.5"/);
         expect(markup).toContain('points="0,-60 0,-20"');
         expect(markup).not.toContain('points="0,-60 0,0"');
+    });
+
+    test('uses the projected card-edge terminal for edit-mode port handles', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'GND1',
+                kind: 'ground',
+                name: 'GND1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [{ name: 't', position: { x: 0, y: 0 } }],
+                properties: {},
+                sourceTypeName: null,
+            }],
+            wires: [{
+                id: 'ground-lead',
+                endpoints: [{ x: 0, y: -60 }, { x: 0, y: 0 }],
+            }],
+        };
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, {
+            document,
+            editMode: true,
+            onCreateWire: () => undefined,
+        }));
+
+        expect(markup).toMatch(/<circle[^>]*data-port-handle="true"[^>]*cx="0"[^>]*cy="-20"/);
+        expect(markup).not.toMatch(/<circle[^>]*data-port-handle="true"[^>]*cx="0"[^>]*cy="0"/);
     });
 });
 

@@ -144,3 +144,81 @@ describe('lpb-1-style-boost electrical connectivity', () => {
         expect(node).toBe(0);
     });
 });
+
+describe('spdt-bypass-pedal electrical connectivity', () => {
+    test('+9V rail joins BAT1.+, VCC.t, RLED.a, RB1.a, RC.a', async () => {
+        const doc = await loadFixture('spdt-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['BAT1', '+'], ['VCC', 't'], ['RLED', 'a'], ['RB1', 'a'], ['RC', 'a']]);
+    });
+
+    test('bypass tap shares the input signal between CIN.a and the SPDT bypass throw (SW1.emitter)', async () => {
+        const doc = await loadFixture('spdt-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['IN', 'a'], ['CIN', 'a'], ['SW1', 'emitter']]);
+    });
+
+    test('SPDT effect throw (SW1.collector) is fed by COUT.b', async () => {
+        const doc = await loadFixture('spdt-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['COUT', 'b'], ['SW1', 'collector']]);
+    });
+
+    test('SPDT pole (SW1.base) drives OUT.a', async () => {
+        const doc = await loadFixture('spdt-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['SW1', 'base'], ['OUT', 'a']]);
+    });
+
+    test('LED indicator is always wired between +9V and ground via RLED + LED1', async () => {
+        const doc = await loadFixture('spdt-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['RLED', 'b'], ['LED1', 'anode']]);
+        const cathodeNode = expectPinsShareNode(c, [['LED1', 'cathode'], ['GND_LED', 't']]);
+        expect(cathodeNode).toBe(0);
+    });
+});
+
+describe('3pdt-true-bypass-pedal electrical connectivity', () => {
+    test('input pole receives IN.a; effect throw routes to CIN.a', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['IN', 'a'], ['SW1', 'p1']]);
+        expectPinsShareNode(c, [['SW1', 't1a'], ['CIN', 'a']]);
+    });
+
+    test('output pole drives OUT.a; effect throw is fed by COUT.b', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['SW1', 'p2'], ['OUT', 'a']]);
+        expectPinsShareNode(c, [['SW1', 't2a'], ['COUT', 'b']]);
+    });
+
+    test('bypass bridge ties SW1.t1b and SW1.t2b on a single node', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['SW1', 't1b'], ['SW1', 't2b']]);
+    });
+
+    test('LED-pole grounds the LED only via the switch: LED1.cathode → SW1.t3a, SW1.p3 → GND bus', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['LED1', 'cathode'], ['SW1', 't3a']]);
+        const poleNode = expectPinsShareNode(c, [['SW1', 'p3'], ['GND_OUT', 't']]);
+        expect(poleNode).toBe(0);
+    });
+
+    test('SW1.t3b stays floating (not on the ground node)', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        const floatingNode = getPinNode(c, { componentId: 'SW1', terminalName: 't3b' });
+        expect(floatingNode).toBeDefined();
+        expect(floatingNode).not.toBe(0);
+    });
+
+    test('+9V rail joins BAT1.+, VCC.t, RLED.a, RB1.a, RC.a', async () => {
+        const doc = await loadFixture('3pdt-true-bypass-pedal');
+        const c = resolveConnectivity(doc);
+        expectPinsShareNode(c, [['BAT1', '+'], ['VCC', 't'], ['RLED', 'a'], ['RB1', 'a'], ['RC', 'a']]);
+    });
+});

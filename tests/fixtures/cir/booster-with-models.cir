@@ -1,0 +1,53 @@
+.TITLE Single-stage BJT booster with .MODEL / .SUBCKT / .PARAM coverage
+* Pedal-style boost on a 9V single supply.
+* Exercises .MODEL for transistor + diode, .SUBCKT for an op-amp follower,
+* .PARAM for tunable values, and a sub-circuit instance.
+
+.PARAM RB1_VAL = 1MEG
+.PARAM RB2_VAL = 220K
+.PARAM CIN_VAL = 100N
+
+* --- Power rails ---
+VCC vcc 0 DC 9
+VEE 0 vee DC 0
+
+* --- Input source (small-signal AC stimulus) ---
+VIN in 0 AC 0.1 SIN(0 0.1 1k)
+
+* --- Input coupling + bias network ---
+CIN in nbase {CIN_VAL}
+RB1 vcc nbase {RB1_VAL}
+RB2 nbase 0 {RB2_VAL}
+
+* --- Common-emitter BJT stage ---
+Q1 ncol nbase nemit QN5088
+RC vcc ncol 10K
+RE nemit 0 390
+CE nemit 0 47U
+
+* --- Output coupling ---
+COUT ncol nout 100N
+
+* --- Op-amp follower buffers the boost output ---
+XBUF nout 0 vcc 0 nbuf OP_FOLLOWER
+
+* --- Clipping diode pair (for variants that add diodes) ---
+D1 nout 0 DSILICON
+D2 0 nout DSILICON
+
+* --- Models ---
+.MODEL QN5088 NPN (IS=1E-13 BF=350 BR=2 VAF=100)
+.MODEL DSILICON D (IS=1E-14 N=1.7)
+
+* --- Op-amp follower subcircuit (very approximate) ---
+.SUBCKT OP_FOLLOWER vin+ vin- vcc vee vout
+EGAIN vmid 0 vin+ vin- 100K
+RGAIN vmid vout 1K
+RLOAD vout 0 100K
+.ENDS OP_FOLLOWER
+
+* --- Analysis directives (preserved verbatim by the serializer) ---
+.AC DEC 10 10 100K
+.OP
+
+.END

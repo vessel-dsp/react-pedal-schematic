@@ -113,6 +113,14 @@ const KIND_RULES: Partial<Record<ComponentKind, readonly PropertyRule[]>> = {
     'tube-diode': [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
     optocoupler: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
     transformer: [{ kind: 'string', name: 'model', required: false, aliases: [...MODEL_ALIASES] }],
+    ota: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    bbd: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    'delay-ic': [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    'power-amp': [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    regulator: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    'analog-switch': [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    flipflop: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
+    ic: [{ kind: 'string', name: 'model', required: true, aliases: [...MODEL_ALIASES] }],
 };
 
 export function getRulesForKind(kind: ComponentKind): readonly PropertyRule[] {

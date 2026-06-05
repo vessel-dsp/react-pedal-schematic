@@ -4,6 +4,7 @@ import { applyDocumentCommand, type DocumentCommand } from './commands';
 export type EditorState = Readonly<{
     document: CircuitDocument;
     selectedId: string | null;
+    selectedWireId: string | null;
     past: readonly CircuitDocument[];
     future: readonly CircuitDocument[];
 }>;
@@ -11,6 +12,7 @@ export type EditorState = Readonly<{
 export type EditorCommand =
     | DocumentCommand
     | Readonly<{ type: 'select'; componentId: string | null }>
+    | Readonly<{ type: 'select-wire'; wireId: string | null }>
     | Readonly<{ type: 'undo' }>
     | Readonly<{ type: 'redo' }>;
 
@@ -20,6 +22,7 @@ export function createEditorState(document: CircuitDocument): EditorState {
     return {
         document,
         selectedId: null,
+        selectedWireId: null,
         past: [],
         future: [],
     };
@@ -28,7 +31,15 @@ export function createEditorState(document: CircuitDocument): EditorState {
 export function applyEditorCommand(state: EditorState, command: EditorCommand): EditorState {
     switch (command.type) {
         case 'select':
-            return state.selectedId === command.componentId ? state : { ...state, selectedId: command.componentId };
+            if (state.selectedId === command.componentId && state.selectedWireId === null) {
+                return state;
+            }
+            return { ...state, selectedId: command.componentId, selectedWireId: null };
+        case 'select-wire':
+            if (state.selectedWireId === command.wireId && state.selectedId === null) {
+                return state;
+            }
+            return { ...state, selectedWireId: command.wireId, selectedId: null };
         case 'undo':
             return undo(state);
         case 'redo':
@@ -59,12 +70,30 @@ function applyAndPush(state: EditorState, command: DocumentCommand): EditorState
     const selectedId = command.type === 'delete-component' && state.selectedId === command.componentId
         ? null
         : state.selectedId;
+    const selectedWireId = wireSelectionAfterCommand(state.selectedWireId, command);
     return {
         document: nextDocument,
         selectedId,
+        selectedWireId,
         past,
         future: [],
     };
+}
+
+function wireSelectionAfterCommand(
+    selectedWireId: string | null,
+    command: DocumentCommand,
+): string | null {
+    if (selectedWireId === null) {
+        return null;
+    }
+    if (command.type === 'delete-wire' && command.wireId === selectedWireId) {
+        return null;
+    }
+    if (command.type === 'delete-wires' && command.wireIds.includes(selectedWireId)) {
+        return null;
+    }
+    return selectedWireId;
 }
 
 function undo(state: EditorState): EditorState {
@@ -75,6 +104,7 @@ function undo(state: EditorState): EditorState {
     return {
         document: previous,
         selectedId: state.selectedId,
+        selectedWireId: state.selectedWireId,
         past: state.past.slice(0, -1),
         future: [state.document, ...state.future],
     };
@@ -88,6 +118,7 @@ function redo(state: EditorState): EditorState {
     return {
         document: next,
         selectedId: state.selectedId,
+        selectedWireId: state.selectedWireId,
         past: [...state.past, state.document],
         future: state.future.slice(1),
     };

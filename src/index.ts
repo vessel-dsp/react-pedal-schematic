@@ -1,4 +1,4 @@
-export const VERSION = '0.1.2';
+export const VERSION = '0.2.0';
 
 export type {
     CircuitDocument,
@@ -61,3 +61,35 @@ export { computeDocumentBounds, viewBoxString } from './preview/bounds';
 export { colorForKind } from './preview/colors';
 export type { SymbolDef } from './preview/symbols';
 export { symbolFor, COMPONENT_KINDS } from './preview/symbols';
+export type { HangingEndpoint } from './preview/hanging';
+export { findHangingEndpoints } from './preview/hanging';
+export type { Port, WireBodyHit } from './preview/ports';
+export { collectPorts, findNearestPort, findNearestWireBodyHit } from './preview/ports';
+export { findChainCorners, findWireChain } from './preview/wire-chains';
+
+export type {
+    ControlState,
+    ControlValue,
+    JackPort,
+    JackRole,
+    Knob,
+    KnobTaper,
+    KnobValue,
+    LedIndicator,
+    LedValue,
+    Panel,
+    PanelMessage,
+    SwitchControl,
+    SwitchKind,
+    SwitchValue,
+} from './panel';
+export {
+    applyControlMessage,
+    defaultControlState,
+    extractPanel,
+    isKnob,
+    isLed,
+    isSwitch,
+    PANEL_PROTOCOL_VERSION,
+    validateMessage,
+} from './panel';

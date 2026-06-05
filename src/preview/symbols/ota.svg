@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-35 -25 70 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: ota (operational transconductance amplifier — LM13700 / CA3080 family)
+    terminals: vin+ (SVG -30,-10), vin- (SVG -30,10), ibias (SVG -30,-20), iout (SVG 30,0), vcc (SVG 0,-20), vee (SVG 0,20)
+    Same triangle as op-amp but with a bias-current input lead labeled "Ib".
+  -->
+  <g stroke-width="0.95">
+    <line x1="-30" y1="-10" x2="-11" y2="-10"/>
+    <line x1="-30" y1="10" x2="-11" y2="10"/>
+    <line x1="-30" y1="-20" x2="-3" y2="-15"/>
+    <line x1="10" y1="0" x2="30" y2="0"/>
+    <line x1="0" y1="-20" x2="0" y2="-5"/>
+    <line x1="0" y1="5" x2="0" y2="20"/>
+  </g>
+  <path d="M -11 -10 L 10 0 L -11 10 Z"/>
+  <line x1="-9" y1="-12" x2="-5" y2="-12"/>
+  <line x1="-7" y1="-14" x2="-7" y2="-10"/>
+  <line x1="-9" y1="10" x2="-5" y2="10"/>
+  <text x="-1" y="-14" font-size="4" font-family="ui-sans-serif, system-ui, sans-serif" fill="currentColor" stroke="none" text-anchor="middle">Ib</text>
+</svg>

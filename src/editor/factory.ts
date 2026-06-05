@@ -25,9 +25,19 @@ export function buildComponent(args: CreateComponentArgs): Component {
         rotation: 0,
         flipped: false,
         terminals,
-        properties: {},
+        properties: defaultPropertiesForKind(args.kind),
         sourceTypeName: args.sourceTypeName ?? null,
     };
+}
+
+function defaultPropertiesForKind(kind: ComponentKind): Readonly<Record<string, string>> {
+    // Labels are pure annotation — without a Text property they render their
+    // auto-generated id (e.g. "LBL1") which is confusing. Seed Text so the
+    // Inspector has something editable the moment the label lands.
+    if (kind === 'label') {
+        return { Text: 'Note' };
+    }
+    return {};
 }
 
 function resolveDef(kind: ComponentKind, sourceTypeName: string | null): SchxComponentDef {
@@ -70,6 +80,7 @@ const ID_PREFIX: Readonly<Record<ComponentKind, string>> = {
     jfet: 'J',
     mosfet: 'M',
     opamp: 'U',
+    ota: 'U',
     triode: 'VT',
     pentode: 'VP',
     'tube-diode': 'VD',
@@ -84,6 +95,13 @@ const ID_PREFIX: Readonly<Record<ComponentKind, string>> = {
     ground: 'GND',
     rail: 'RAIL',
     jack: 'JK',
+    bbd: 'U',
+    'delay-ic': 'U',
+    'power-amp': 'U',
+    regulator: 'REG',
+    'analog-switch': 'SW',
+    flipflop: 'FF',
+    ic: 'U',
     label: 'LBL',
     'named-wire': 'NW',
     port: 'P',

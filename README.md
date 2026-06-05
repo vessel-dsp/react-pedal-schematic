@@ -70,6 +70,27 @@ export function CircuitPreview(props: { document: CircuitDocument }) {
 
 `wireFlow="all"` is a visual overlay only. It dims the base wires to light gray and animates light-blue dashes along wires so users can trace connectivity; it does not claim simulated current direction. Override the colors with `--cpe-wire-flow-base` and `--cpe-wire-flow` on the `SchematicView` host element.
 
+## Live Control State
+
+The panel helpers can extract schematic controls and drive render-time state without mutating the circuit document:
+
+```tsx
+import { useReducer } from 'react';
+import {
+    applyControlMessage,
+    defaultControlState,
+    extractPanel,
+} from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
+
+const panel = extractPanel(document);
+const [controlState, dispatch] = useReducer(applyControlMessage, defaultControlState(panel));
+
+return <SchematicView document={document} controlState={controlState} />;
+```
+
+`controlState` lights LED components, moves potentiometer wiper indicators, and highlights active switch throws when ids match `Component.id`. Unknown ids are ignored, so hosts can carry virtual indicators. Use `controlOverlay` for HUD-style host widgets, or append a synthetic render-only component with a stable id if the indicator should appear inside the schematic.
+
 ## Development
 
 ```bash

@@ -8,6 +8,8 @@ const FIXTURES: readonly string[] = [
     'passive-divider',
     'passive-lowpass',
     'lpb-1-style-boost',
+    'spdt-bypass-pedal',
+    '3pdt-true-bypass-pedal',
 ];
 
 async function loadFixture(name: string): Promise<string> {

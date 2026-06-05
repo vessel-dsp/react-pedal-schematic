@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 50 50" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    kind: ic (generic opaque IC — DIP-8 layout)
+    terminals: p1..p4 left side (top→bottom), p5..p8 right side (bottom→top)
+  -->
+  <g stroke-width="0.95">
+    <line x1="-20" y1="-15" x2="-13" y2="-15"/>
+    <line x1="-20" y1="-5" x2="-13" y2="-5"/>
+    <line x1="-20" y1="5" x2="-13" y2="5"/>
+    <line x1="-20" y1="15" x2="-13" y2="15"/>
+    <line x1="13" y1="-15" x2="20" y2="-15"/>
+    <line x1="13" y1="-5" x2="20" y2="-5"/>
+    <line x1="13" y1="5" x2="20" y2="5"/>
+    <line x1="13" y1="15" x2="20" y2="15"/>
+  </g>
+  <rect x="-13" y="-18" width="26" height="36" rx="2"/>
+  <circle cx="-9" cy="-15" r="1.2" fill="currentColor" stroke="none"/>
+  <text x="0" y="2" font-size="5" font-family="ui-sans-serif, system-ui, sans-serif" fill="currentColor" stroke="none" text-anchor="middle">IC</text>
+</svg>

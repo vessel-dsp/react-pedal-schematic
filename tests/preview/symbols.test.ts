@@ -97,11 +97,12 @@ describe('symbolFor', () => {
         expect(ledLines - diodeLines).toBeGreaterThanOrEqual(4);
     });
 
-    test('keeps potentiometer icon lead stubs short so it matches card icon scale', () => {
+    test('keeps potentiometer icon lead stubs short so it matches square card scale', () => {
         const def = symbolFor('potentiometer');
 
         expect(def.content).toContain('<line x1="-10" y1="-24" x2="-10" y2="-10"');
         expect(def.content).toContain('<line x1="-10" y1="10" x2="-10" y2="24"');
+        expect(def.content).toContain('<line x1="10" y1="0" x2="-3" y2="0"');
         expect(def.content).not.toContain('y1="-40" x2="-10" y2="-10"');
         expect(def.content).not.toContain('y1="10" x2="-10" y2="40"');
     });

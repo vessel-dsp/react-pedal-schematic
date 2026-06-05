@@ -137,4 +137,59 @@ describe('applyEditorCommand', () => {
         });
         expect(next).toBe(initial);
     });
+
+    test('select-wire sets selectedWireId and clears component selection', () => {
+        const initial = { ...createEditorState(EMPTY_DOCUMENT), selectedId: 'R1' };
+        const next = applyEditorCommand(initial, { type: 'select-wire', wireId: 'wire-1' });
+        expect(next.selectedWireId).toBe('wire-1');
+        expect(next.selectedId).toBeNull();
+    });
+
+    test('select clears any wire selection', () => {
+        const initial = { ...createEditorState(EMPTY_DOCUMENT), selectedWireId: 'wire-1' };
+        const next = applyEditorCommand(initial, { type: 'select', componentId: 'R1' });
+        expect(next.selectedId).toBe('R1');
+        expect(next.selectedWireId).toBeNull();
+    });
+
+    test('delete-wire clears the selection when it deletes the selected wire', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const initial = { ...createEditorState(doc), selectedWireId: 'wire-1' };
+        const next = applyEditorCommand(initial, { type: 'delete-wire', wireId: 'wire-1' });
+        expect(next.document.wires).toHaveLength(0);
+        expect(next.selectedWireId).toBeNull();
+    });
+
+    test('delete-wire preserves an unrelated wire selection', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 0, y: 10 }, { x: 10, y: 10 }] },
+            ] as const,
+        };
+        const initial = { ...createEditorState(doc), selectedWireId: 'wire-2' };
+        const next = applyEditorCommand(initial, { type: 'delete-wire', wireId: 'wire-1' });
+        expect(next.selectedWireId).toBe('wire-2');
+    });
+
+    test('delete-wires clears the selection when the batch contains the selected wire', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            wires: [
+                { id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+                { id: 'wire-2', endpoints: [{ x: 10, y: 0 }, { x: 10, y: 10 }] },
+            ] as const,
+        };
+        const initial = { ...createEditorState(doc), selectedWireId: 'wire-1' };
+        const next = applyEditorCommand(initial, {
+            type: 'delete-wires',
+            wireIds: ['wire-1', 'wire-2'],
+        });
+        expect(next.document.wires).toHaveLength(0);
+        expect(next.selectedWireId).toBeNull();
+    });
 });

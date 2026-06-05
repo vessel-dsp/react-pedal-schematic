@@ -170,6 +170,34 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('parseCircuitDocument');
     });
 
+    test('renders a Live Panel demo driven by SchematicView controlState', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'empty',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('trigger-live-panel');
+        expect(markup).toContain('data-live-panel-demo="true"');
+        expect(markup).toContain('data-component-id="status-led"');
+        expect(markup).toContain('data-control-kind="knob"');
+        expect(markup).toContain('data-control-kind="switch"');
+        expect(markup).toContain('data-control-kind="led"');
+    });
+
     test('deduplicates repeated unsupported-component diagnostics in the warnings UI', () => {
         const document: CircuitDocument = {
             ...EMPTY_DOCUMENT,

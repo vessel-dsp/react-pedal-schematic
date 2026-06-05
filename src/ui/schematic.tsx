@@ -13,13 +13,18 @@ import {
 import { computeComponentBox } from '../preview/box-layout';
 import { computeDocumentBounds, type Bounds, viewBoxString } from '../preview/bounds';
 import { colorForKind } from '../preview/colors';
+import { findHangingEndpoints } from '../preview/hanging';
 import { findJunctions } from '../preview/junctions';
 import { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from '../preview/label-layout';
+import { collectPorts, findNearestPort, findNearestWireBodyHit, type Port, type WireBodyHit } from '../preview/ports';
+import { findChainCorners, findWireChain } from '../preview/wire-chains';
 import { buildRenderableWires } from '../preview/renderable-wires';
 import { orthogonalPath, pointsToSvg } from '../preview/routing';
 import { findSnap } from '../preview/snap';
 import { symbolFor } from '../preview/symbols';
 import type { CircuitDocument, Component, Point, PropertyValue, Wire } from '../model/types';
+import { extractPanel } from '../panel/extract';
+import type { ControlState, ControlValue } from '../panel/types';
 
 export type SchematicViewProps = Readonly<{
     document: CircuitDocument;
@@ -30,13 +35,33 @@ export type SchematicViewProps = Readonly<{
     wireFlow?: WireFlowMode;
     editMode?: boolean;
     selectedId?: string | null;
+    selectedWireId?: string | null;
     onSelect?: (id: string | null) => void;
+    onSelectWire?: (wireId: string | null) => void;
     onMoveComponent?: (id: string, origin: Point) => void;
     onCanvasDrop?: (event: DragEvent<SVGSVGElement>, origin: Point) => void;
+    onCreateWire?: (from: Point, to: Point) => void;
+    onSplitWire?: (wireId: string, at: Point) => void;
+    onMergeCorner?: (at: Point) => void;
     snapTo?: number;
     snapRadius?: number;
     minZoom?: number;
     maxZoom?: number;
+    showHangingEndpoints?: boolean;
+    controlState?: ControlState;
+    controlOverlay?: (ctx: ControlOverlayContext) => ReactNode;
+}>;
+
+export type ControlOverlayContext = Readonly<{
+    document: CircuitDocument;
+    controlState: ControlState;
+    componentPositions: ReadonlyMap<string, Point>;
+    viewBox: Readonly<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    }>;
 }>;
 
 export type WireFlowMode = 'none' | 'all';
@@ -56,6 +81,32 @@ type PanState = Readonly<{
     active: boolean;
 }>;
 
+type WireSnapTarget =
+    | Readonly<{ kind: 'port'; port: VisualPort }>
+    | Readonly<{ kind: 'wire-body'; hit: WireBodyHit }>;
+
+type WireCreateState = Readonly<{
+    pointerId: number;
+    fromComponentId: string;
+    fromTerminalName: string;
+    from: Point;
+    fromModel: Point;
+    cursor: Point;
+    snappedTo: WireSnapTarget | null;
+}>;
+
+type VisualPort = Port & Readonly<{
+    modelPosition: Point;
+}>;
+
+function snapTargetVisualPoint(target: WireSnapTarget): Point {
+    return target.kind === 'port' ? target.port.position : target.hit.position;
+}
+
+function snapTargetModelPoint(target: WireSnapTarget): Point {
+    return target.kind === 'port' ? target.port.modelPosition : target.hit.position;
+}
+
 const PAN_THRESHOLD = 3;
 const SCHEMATIC_TEXT_FONT =
     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
@@ -64,6 +115,8 @@ const COMPONENT_CARD_LABEL_FONT_SIZE = 5.5;
 const COMPONENT_CARD_LABEL_MAX_WIDTH_PADDING = 5;
 const COMPONENT_CARD_STROKE_WIDTH = 0.75;
 const COMPONENT_CARD_SELECTED_STROKE_WIDTH = 1.25;
+const EMPTY_CONTROL_STATE: ControlState = Object.freeze({});
+const CONTROL_ACCENT = 'var(--cpe-control-accent, #2563eb)';
 
 export function SchematicView(props: SchematicViewProps): ReactElement {
     const {
@@ -75,16 +128,32 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
         wireFlow = 'none',
         editMode = false,
         selectedId = null,
+        selectedWireId = null,
         onSelect,
+        onSelectWire,
         onMoveComponent,
         onCanvasDrop,
+        onCreateWire,
+        onSplitWire,
+        onMergeCorner,
         snapTo = 10,
         snapRadius = 12,
         minZoom = 0.1,
         maxZoom = 10,
+        showHangingEndpoints = true,
+        controlState = EMPTY_CONTROL_STATE,
+        controlOverlay,
     } = props;
 
     const contentBounds = useMemo(() => computeDocumentBounds(document, padding), [document, padding]);
+    const modelPorts = useMemo(() => collectPorts(document.components), [document.components]);
+    const ledColors = useMemo(() => {
+        const colors = new Map<string, string>();
+        for (const led of extractPanel(document).leds) {
+            colors.set(led.id, led.color ?? 'red');
+        }
+        return colors;
+    }, [document]);
     const initialBoundsRef = useRef<Bounds>(contentBounds);
     const [viewBox, setViewBox] = useState<Bounds>(contentBounds);
 
@@ -95,6 +164,7 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const [drag, setDrag] = useState<DragState | null>(null);
     const [pan, setPan] = useState<PanState | null>(null);
+    const [wireCreate, setWireCreate] = useState<WireCreateState | null>(null);
 
     function svgPoint(
         event: PointerEvent<SVGElement> | WheelEvent<SVGElement> | DragEvent<SVGElement>,
@@ -181,6 +251,26 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
             if (!pan.active) {
                 setPan({ ...pan, active: true });
             }
+            return;
+        }
+        if (wireCreate !== null && wireCreate.pointerId === event.pointerId) {
+            const cursor = svgPoint(event);
+            if (cursor === null) {
+                return;
+            }
+            const portHit = findNearestPort(visualPorts, cursor, snapRadius, {
+                componentId: wireCreate.fromComponentId,
+                terminalName: wireCreate.fromTerminalName,
+            });
+            // Prefer a port match; fall back to snapping onto a wire's body so
+            // dropping there auto-forms a T-junction via the connectivity layer.
+            const snappedTo: WireSnapTarget | null = portHit !== null
+                ? { kind: 'port', port: portHit }
+                : (() => {
+                    const hit = findNearestWireBodyHit(document.wires, cursor, snapRadius, null);
+                    return hit === null ? null : { kind: 'wire-body', hit };
+                })();
+            setWireCreate({ ...wireCreate, cursor, snappedTo });
         }
     }
 
@@ -189,9 +279,66 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
             event.currentTarget.releasePointerCapture(event.pointerId);
             const wasPan = pan.active;
             setPan(null);
-            if (!wasPan && onSelect) {
-                onSelect(null);
+            if (!wasPan) {
+                onSelect?.(null);
+                onSelectWire?.(null);
             }
+            return;
+        }
+        if (wireCreate !== null && wireCreate.pointerId === event.pointerId) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            const target = wireCreate.snappedTo;
+            const from = wireCreate.fromModel;
+            setWireCreate(null);
+            if (target !== null && onCreateWire) {
+                onCreateWire(from, snapTargetModelPoint(target));
+            }
+        }
+    }
+
+    function handlePortPointerDown(port: VisualPort, event: PointerEvent<SVGCircleElement>): void {
+        if (!editMode || onCreateWire === undefined) {
+            return;
+        }
+        event.stopPropagation();
+        const cursor = svgPoint(event);
+        if (cursor === null) {
+            return;
+        }
+        const svg = svgRef.current;
+        if (svg !== null) {
+            svg.setPointerCapture(event.pointerId);
+        }
+        setWireCreate({
+            pointerId: event.pointerId,
+            fromComponentId: port.componentId,
+            fromTerminalName: port.terminalName,
+            from: port.position,
+            fromModel: port.modelPosition,
+            cursor,
+            snappedTo: null,
+        });
+    }
+
+    function handleWirePointerDown(wireId: string, event: PointerEvent<SVGGElement>): void {
+        event.stopPropagation();
+        if (event.shiftKey && onSplitWire !== undefined) {
+            const cursor = svgPoint(event);
+            if (cursor === null) {
+                return;
+            }
+            onSplitWire(wireId, snap(cursor, snapTo));
+            return;
+        }
+        if (onSelectWire) {
+            onSelectWire(wireId);
+        }
+    }
+
+    function handleCornerPointerDown(at: Point, event: PointerEvent<SVGCircleElement>): void {
+        event.stopPropagation();
+        if (event.shiftKey && onMergeCorner !== undefined) {
+            onMergeCorner(at);
         }
     }
 
@@ -314,6 +461,7 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
         wires: renderWires,
     };
     const visualTerminalMap = buildVisualTerminalMap(renderComponents, renderWires);
+    const visualPorts = buildVisualPorts(modelPorts, visualTerminalMap);
     const visualComponents = renderComponents.map((component) => withVisualTerminalPositions(component, visualTerminalMap));
     const visualWires = renderWires
         .map((wire) => remapWireForVisualTerminals(wire, visualTerminalMap))
@@ -323,6 +471,26 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
         .filter((wire) => !pointEquals(wire.endpoints[0], wire.endpoints[1]));
     const terminalPositions = visualComponents.flatMap((c) => c.terminals.map((t) => t.position));
     const junctions = findJunctions(visualWires, terminalPositions);
+    const hangingEndpoints = showHangingEndpoints
+        ? findHangingEndpoints({ ...renderDocument, components: visualComponents, wires: visualWires })
+        : [];
+    const selectedChain: ReadonlySet<string> = useMemo(() => {
+        if (selectedWireId === null) {
+            return new Set();
+        }
+        return new Set(findWireChain(selectedWireId, document));
+    }, [selectedWireId, document]);
+    const chainCorners = useMemo(() => findChainCorners(document), [document]);
+    const componentPositions = useMemo(
+        () => new Map(visualComponents.map((c) => [c.id, c.origin] as const)),
+        [visualComponents],
+    );
+    const overlayViewBox = {
+        x: viewBox.minX,
+        y: viewBox.minY,
+        width: viewBox.width,
+        height: viewBox.height,
+    };
 
     return (
         <div className={className} style={{ position: 'relative', ...style }}>
@@ -348,6 +516,9 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                         key={wire.id}
                         wire={wire}
                         flow={wireFlow === 'all'}
+                        selected={selectedChain.has(wire.id)}
+                        interactive={onSelectWire !== undefined}
+                        onPointerDown={(event) => handleWirePointerDown(wire.id, event)}
                     />
                 ))}
             </g>
@@ -363,6 +534,8 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                             selected={selectedId === renderComponent.id}
                             editMode={editMode}
                             isDragging={isDragging}
+                            controlValue={isDragging ? undefined : controlState[renderComponent.id]}
+                            ledColor={ledColors.get(renderComponent.id) ?? 'red'}
                             onPointerDown={(event) => handleComponentPointerDown(sourceComponent, event)}
                             onPointerMove={handleComponentPointerMove}
                             onPointerUp={handleComponentPointerUp}
@@ -370,6 +543,16 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                     );
                 })}
             </g>
+            {controlOverlay !== undefined && (
+                <g data-control-overlay="true" pointerEvents="none">
+                    {controlOverlay({
+                        document: renderDocument,
+                        controlState,
+                        componentPositions,
+                        viewBox: overlayViewBox,
+                    })}
+                </g>
+            )}
             <g pointerEvents="none">
                 {junctions.map((point, index) => (
                     <circle
@@ -381,6 +564,51 @@ export function SchematicView(props: SchematicViewProps): ReactElement {
                     />
                 ))}
             </g>
+            <g pointerEvents="none" data-hanging-endpoints>
+                {hangingEndpoints.map((endpoint, index) => (
+                    <circle
+                        key={`hanging-${endpoint.wireId}-${endpoint.endpointIndex}-${index}`}
+                        cx={endpoint.point.x}
+                        cy={endpoint.point.y}
+                        r={6}
+                        fill="none"
+                        stroke="#ef4444"
+                        strokeWidth={1.5}
+                        strokeOpacity={0.9}
+                    >
+                        <title>Hanging wire endpoint (not connected to any terminal or wire)</title>
+                    </circle>
+                ))}
+            </g>
+            {editMode && onCreateWire !== undefined && (
+                <g data-ports-layer>
+                    {visualPorts.map((port) => (
+                        <PortHandle
+                            key={`port-${port.componentId}-${port.terminalName}`}
+                            position={port.position}
+                            onPointerDown={(event) => handlePortPointerDown(port, event)}
+                        />
+                    ))}
+                </g>
+            )}
+            {editMode && onMergeCorner !== undefined && (
+                <g data-corners-layer>
+                    {chainCorners.map((corner, index) => (
+                        <CornerHandle
+                            key={`corner-${corner.x}-${corner.y}-${index}`}
+                            position={corner}
+                            onPointerDown={(event) => handleCornerPointerDown(corner, event)}
+                        />
+                    ))}
+                </g>
+            )}
+            {wireCreate !== null && (
+                <GhostWire
+                    from={wireCreate.from}
+                    to={wireCreate.snappedTo ? snapTargetVisualPoint(wireCreate.snappedTo) : wireCreate.cursor}
+                    locked={wireCreate.snappedTo !== null}
+                />
+            )}
             {drag?.snappedTo && (
                 <SnapIndicator point={drag.snappedTo} />
             )}
@@ -490,6 +718,14 @@ function buildVisualTerminalMap(components: readonly Component[], wires: readonl
         }
     }
     return terminals;
+}
+
+function buildVisualPorts(ports: readonly Port[], visualTerminals: ReadonlyMap<string, Point>): readonly VisualPort[] {
+    return ports.map((port) => ({
+        ...port,
+        modelPosition: port.position,
+        position: visualTerminals.get(pointKey(port.position)) ?? port.position,
+    }));
 }
 
 function withVisualTerminalPositions(
@@ -629,15 +865,47 @@ function clamp(value: number, min: number, max: number): number {
     return value;
 }
 
-function WireGlyph({ wire, flow }: { wire: Wire; flow: boolean }): ReactElement {
+function formatNumber(value: number): string {
+    if (Object.is(value, -0)) {
+        return '0';
+    }
+    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
+}
+
+function roundOpacity(value: number): number {
+    return Number(value.toFixed(3));
+}
+
+function WireGlyph(props: {
+    wire: Wire;
+    flow: boolean;
+    selected?: boolean;
+    interactive?: boolean;
+    onPointerDown?: (event: PointerEvent<SVGGElement>) => void;
+}): ReactElement {
+    const { wire, flow, selected = false, interactive = false, onPointerDown } = props;
     const path = orthogonalPath(wire.endpoints[0], wire.endpoints[1]);
     const points = pointsToSvg(path);
+    const cursor: CSSProperties = interactive ? { cursor: 'pointer' } : {};
     return (
-        <>
+        <g
+            data-wire-id={wire.id}
+            onPointerDown={onPointerDown}
+            style={cursor}
+        >
+            {/* Wider transparent hit target so clicking thin wires is easy. */}
+            {interactive && (
+                <polyline
+                    points={points}
+                    stroke="transparent"
+                    strokeWidth={8}
+                    fill="none"
+                />
+            )}
             <polyline
                 points={points}
-                stroke={flow ? 'var(--cpe-wire-flow-base, #cbd5e1)' : 'currentColor'}
-                strokeWidth={0.95}
+                stroke={selected ? 'var(--cpe-wire-selected, #2563eb)' : flow ? 'var(--cpe-wire-flow-base, #cbd5e1)' : 'currentColor'}
+                strokeWidth={selected ? 1.8 : 0.95}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -665,7 +933,7 @@ function WireGlyph({ wire, flow }: { wire: Wire; flow: boolean }): ReactElement 
                     />
                 </polyline>
             )}
-        </>
+        </g>
     );
 }
 
@@ -678,19 +946,140 @@ function SnapIndicator({ point }: { point: Point }): ReactElement {
     );
 }
 
+function CornerHandle(props: {
+    position: Point;
+    onPointerDown: (event: PointerEvent<SVGCircleElement>) => void;
+}): ReactElement {
+    // Corners are routing bends, not junctions, so by EDA convention they get
+    // no visible dot in the schematic itself. The handle is invisible at rest
+    // and lights up on hover so the bend stays interactive without polluting
+    // the printed-schematic look.
+    const { position, onPointerDown } = props;
+    return (
+        <circle
+            data-corner-handle
+            cx={position.x}
+            cy={position.y}
+            r={6}
+            fill="transparent"
+            stroke="currentColor"
+            strokeOpacity={0}
+            strokeWidth={1.5}
+            strokeDasharray="2 2"
+            style={{ cursor: 'pointer' }}
+            onPointerDown={onPointerDown}
+            onPointerEnter={(event) => {
+                event.currentTarget.setAttribute('stroke-opacity', '0.7');
+                event.currentTarget.setAttribute('fill', 'var(--cpe-bg, white)');
+            }}
+            onPointerLeave={(event) => {
+                event.currentTarget.setAttribute('stroke-opacity', '0');
+                event.currentTarget.setAttribute('fill', 'transparent');
+            }}
+        >
+            <title>Shift+click to remove this bend</title>
+        </circle>
+    );
+}
+
+function PortHandle(props: {
+    position: Point;
+    onPointerDown: (event: PointerEvent<SVGCircleElement>) => void;
+}): ReactElement {
+    const { position, onPointerDown } = props;
+    return (
+        <circle
+            data-port-handle
+            cx={position.x}
+            cy={position.y}
+            r={5}
+            fill="transparent"
+            stroke="currentColor"
+            strokeOpacity={0}
+            strokeWidth={1.5}
+            style={{ cursor: 'crosshair' }}
+            onPointerDown={onPointerDown}
+            onPointerEnter={(event) => {
+                event.currentTarget.setAttribute('stroke-opacity', '0.6');
+                event.currentTarget.setAttribute('fill', 'var(--cpe-bg, white)');
+            }}
+            onPointerLeave={(event) => {
+                event.currentTarget.setAttribute('stroke-opacity', '0');
+                event.currentTarget.setAttribute('fill', 'transparent');
+            }}
+        >
+            <title>Drag to another terminal to create a wire</title>
+        </circle>
+    );
+}
+
+function GhostWire(props: {
+    from: Point;
+    to: Point;
+    locked: boolean;
+    snapKind?: 'port' | 'wire-body' | null;
+}): ReactElement {
+    const { from, to, locked, snapKind = null } = props;
+    const path = orthogonalPath(from, to);
+    const points = pointsToSvg(path);
+    return (
+        <g pointerEvents="none" data-ghost-wire>
+            <polyline
+                points={points}
+                stroke={locked ? 'var(--cpe-wire-selected, #2563eb)' : 'currentColor'}
+                strokeOpacity={locked ? 0.95 : 0.55}
+                strokeWidth={locked ? 1.6 : 1.1}
+                strokeDasharray={locked ? undefined : '4 3'}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+            />
+            {locked && snapKind !== 'wire-body' && (
+                <>
+                    <circle cx={to.x} cy={to.y} r={6} fill="none" stroke="var(--cpe-wire-selected, #2563eb)" strokeWidth={1.4} />
+                    <circle cx={to.x} cy={to.y} r={2.5} fill="var(--cpe-wire-selected, #2563eb)" />
+                </>
+            )}
+            {locked && snapKind === 'wire-body' && (
+                // T-junction preview: dashed outer ring + filled center dot
+                // matches the post-commit junction look so the user knows
+                // "dropping here forms a T-junction on the wire under the
+                // cursor."
+                <>
+                    <circle cx={to.x} cy={to.y} r={7} fill="none" stroke="var(--cpe-wire-selected, #2563eb)" strokeWidth={1.4} strokeDasharray="2 2" />
+                    <circle cx={to.x} cy={to.y} r={2.5} fill="var(--cpe-wire-selected, #2563eb)" />
+                </>
+            )}
+        </g>
+    );
+}
+
 type ComponentGlyphProps = Readonly<{
     component: Component;
     showLabel: boolean;
     selected: boolean;
     editMode: boolean;
     isDragging: boolean;
+    controlValue: ControlValue | undefined;
+    ledColor: string;
     onPointerDown: (event: PointerEvent<SVGGElement>) => void;
     onPointerMove: (event: PointerEvent<SVGGElement>) => void;
     onPointerUp: (event: PointerEvent<SVGGElement>) => void;
 }>;
 
 function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
-    const { component, showLabel, selected, editMode, isDragging, onPointerDown, onPointerMove, onPointerUp } = props;
+    const {
+        component,
+        showLabel,
+        selected,
+        editMode,
+        isDragging,
+        controlValue,
+        ledColor,
+        onPointerDown,
+        onPointerMove,
+        onPointerUp,
+    } = props;
 
     if (component.kind === 'label') {
         return (
@@ -779,6 +1168,12 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
                         strokeWidth={1.5}
                         dangerouslySetInnerHTML={{ __html: def.content }}
                     />
+                    <LiveControlGlyph
+                        component={component}
+                        value={controlValue}
+                        symbolTransform={symbolTransform}
+                        ledColor={ledColor}
+                    />
                 </svg>
                 <rect
                     data-component-label-area="true"
@@ -813,6 +1208,180 @@ function ComponentGlyph(props: ComponentGlyphProps): ReactElement {
             ))}
         </g>
     );
+}
+
+function LiveControlGlyph(props: {
+    component: Component;
+    value: ControlValue | undefined;
+    symbolTransform: string;
+    ledColor: string;
+}): ReactElement | null {
+    const { component, value, symbolTransform, ledColor } = props;
+    if (value === undefined) {
+        return null;
+    }
+    if (component.kind === 'led' && value.kind === 'led') {
+        return <LiveLedGlyph id={component.id} value={value} color={ledColor} />;
+    }
+    if (component.kind === 'potentiometer' && value.kind === 'knob') {
+        return <LiveKnobGlyph id={component.id} position={value.position} symbolTransform={symbolTransform} />;
+    }
+    if (component.kind === 'switch' && value.kind === 'switch') {
+        return <LiveSwitchGlyph component={component} position={value.position} symbolTransform={symbolTransform} />;
+    }
+    return null;
+}
+
+function LiveLedGlyph(props: {
+    id: string;
+    value: Extract<ControlValue, { kind: 'led' }>;
+    color: string;
+}): ReactElement {
+    const intensity = props.value.on ? clamp(props.value.intensity ?? 1, 0, 1) : 0;
+    return (
+        <g
+            data-control-kind="led"
+            data-control-id={props.id}
+            data-control-on={props.value.on ? 'true' : undefined}
+            pointerEvents="none"
+        >
+            {props.value.on && intensity > 0 && (
+                <circle
+                    data-led-glow="true"
+                    cx={0}
+                    cy={0}
+                    r={16}
+                    fill={props.color}
+                    opacity={roundOpacity(0.18 * intensity)}
+                />
+            )}
+            <circle
+                data-led-fill="true"
+                cx={0}
+                cy={0}
+                r={8}
+                fill={props.color}
+                opacity={props.value.on ? roundOpacity(0.75 * intensity) : 0.08}
+            />
+        </g>
+    );
+}
+
+function LiveKnobGlyph(props: {
+    id: string;
+    position: number;
+    symbolTransform: string;
+}): ReactElement {
+    const position = clamp(props.position, 0, 1);
+    const angle = -120 + position * 240;
+    return (
+        <g
+            data-control-kind="knob"
+            data-control-id={props.id}
+            data-control-position={position}
+            transform={`${props.symbolTransform} rotate(${formatNumber(angle)})`}
+            pointerEvents="none"
+        >
+            <line
+                x1={0}
+                y1={0}
+                x2={0}
+                y2={-15}
+                stroke={CONTROL_ACCENT}
+                strokeWidth={2}
+                strokeLinecap="round"
+            />
+            <circle cx={0} cy={-15} r={2.4} fill={CONTROL_ACCENT} />
+        </g>
+    );
+}
+
+function LiveSwitchGlyph(props: {
+    component: Component;
+    position: number;
+    symbolTransform: string;
+}): ReactElement {
+    const active = activeSwitchTerminals(props.component, props.position);
+    const position = Math.max(0, Math.trunc(props.position));
+    return (
+        <g
+            data-control-kind="switch"
+            data-control-id={props.component.id}
+            data-control-position={position}
+            transform={props.symbolTransform}
+            pointerEvents="none"
+        >
+            {active.length === 0 ? (
+                <circle
+                    data-control-active-terminal="true"
+                    cx={0}
+                    cy={0}
+                    r={4}
+                    fill={CONTROL_ACCENT}
+                    opacity={0.85}
+                />
+            ) : active.map((terminal) => {
+                const local = localTerminalPoint(props.component, terminal);
+                return (
+                    <circle
+                        key={terminal.name}
+                        data-control-active-terminal="true"
+                        data-control-terminal-name={terminal.name}
+                        cx={local.x}
+                        cy={local.y}
+                        r={4}
+                        fill={CONTROL_ACCENT}
+                        opacity={0.9}
+                    />
+                );
+            })}
+        </g>
+    );
+}
+
+function activeSwitchTerminals(component: Component, position: number): readonly Component['terminals'][number][] {
+    const normalized = Math.max(0, Math.trunc(position));
+    const byName = new Map(component.terminals.map((terminal) => [terminal.name, terminal] as const));
+    const collector = byName.get('collector');
+    const emitter = byName.get('emitter');
+    if (collector !== undefined && emitter !== undefined) {
+        return [normalized === 0 ? collector : emitter];
+    }
+
+    const threePdt = activeThreePdtTerminals(byName, normalized);
+    if (threePdt.length > 0) {
+        return threePdt;
+    }
+
+    const nonCommon = component.terminals.filter((terminal) => !isCommonSwitchTerminalName(terminal.name));
+    return nonCommon[normalized] === undefined ? [] : [nonCommon[normalized]];
+}
+
+function activeThreePdtTerminals(
+    terminals: ReadonlyMap<string, Component['terminals'][number]>,
+    position: number,
+): readonly Component['terminals'][number][] {
+    const suffix = position === 0 ? 'a' : 'b';
+    const active: Component['terminals'][number][] = [];
+    for (const pole of [1, 2, 3]) {
+        const terminal = terminals.get(`t${pole}${suffix}`);
+        if (terminal === undefined) {
+            return [];
+        }
+        active.push(terminal);
+    }
+    return active;
+}
+
+function isCommonSwitchTerminalName(name: string): boolean {
+    return name === 'base' || /^p\d+$/.test(name) || name === 'pole' || name === 'common';
+}
+
+function localTerminalPoint(component: Component, terminal: Component['terminals'][number]): Point {
+    return {
+        x: terminal.position.x - component.origin.x,
+        y: terminal.position.y - component.origin.y,
+    };
 }
 
 function componentCardClipId(componentId: string): string {
@@ -853,21 +1422,30 @@ function LabelGlyph({ component, selected }: { component: Component; selected: b
     if (shouldRenderLabelTextBox(text, subtext)) {
         return <LabelTextBox origin={component.origin} text={text} subtext={subtext} selected={selected} />;
     }
+    // Estimate the bounding box of the rendered text so the whole label
+    // area is clickable, not just the painted glyphs. Width grows with the
+    // visible string length; height depends on whether a subtext line is
+    // present. The hit rect is invisible at rest and shows a dashed
+    // selection outline when selected.
+    const longest = Math.max(text.length, subtext?.length ?? 0, 4);
+    const hitWidth = Math.min(Math.max(longest * 8 + 16, 60), 200);
+    const hitX = component.origin.x - hitWidth / 2;
+    const hitY = component.origin.y - 14;
+    const hitHeight = subtext === null ? 22 : 38;
     return (
         <g>
-            {selected && (
-                <rect
-                    x={component.origin.x - 80}
-                    y={component.origin.y - 14}
-                    width={160}
-                    height={subtext === null ? 22 : 38}
-                    rx={4}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeDasharray="3 3"
-                />
-            )}
+            <rect
+                data-component-label-hit="true"
+                x={hitX}
+                y={hitY}
+                width={hitWidth}
+                height={hitHeight}
+                rx={4}
+                fill="transparent"
+                stroke={selected ? 'currentColor' : 'none'}
+                strokeWidth={selected ? 1.5 : 0}
+                strokeDasharray={selected ? '3 3' : undefined}
+            />
             <HaloText x={component.origin.x} y={component.origin.y} fontSize={14} fontWeight={700}>
                 {text}
             </HaloText>
