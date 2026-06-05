@@ -162,6 +162,50 @@ const LM386_TERMINALS: readonly SchxTerminalLocal[] = [
     { name: 'gain8', local: { x: 30, y: -20 } },
 ];
 
+const MICROBLOCK_STAGE_TERMINALS: readonly SchxTerminalLocal[] = [
+    { name: 'in', local: { x: 0, y: 20 } },
+    { name: 'out', local: { x: 0, y: -20 } },
+];
+
+const MICROBLOCK_STAGE_QUANTITY_PROPS: readonly string[] = [
+    'ClipThreshold',
+    'InputHighpassHz',
+    'OutputLowpassHz',
+    'MinDriveGain',
+    'MaxDriveGain',
+    'DriveControlWipe',
+    'MinOutputLevel',
+    'MaxOutputLevel',
+    'OutputControlWipe',
+    'MinToneHz',
+    'MaxToneHz',
+    'ToneControlWipe',
+    'DecaySeconds',
+    'PreDelaySeconds',
+    'DelaySeconds',
+    'MinDelaySeconds',
+    'MaxDelaySeconds',
+    'Feedback',
+    'FeedbackControlWipe',
+    'Mix',
+    'MixControlWipe',
+    'WetMix',
+    'DryMix',
+    'RoomSize',
+    'Damping',
+    'DampingHz',
+    'ModDepth',
+    'ModRateHz',
+    'SampleRateHz',
+];
+
+const MICROBLOCK_OVERDRIVE_STAGE_DEF: SchxComponentDef = {
+    shortType: 'MicroBlockOverdriveStage',
+    kind: 'ic',
+    terminals: MICROBLOCK_STAGE_TERMINALS,
+    quantityProps: MICROBLOCK_STAGE_QUANTITY_PROPS,
+};
+
 // 78L05 / 78xx 3-terminal linear regulator (TO-92 / TO-220 pinout: input / ground / output).
 const REGULATOR_TERMINALS: readonly SchxTerminalLocal[] = [
     { name: 'vin', local: { x: -20, y: 0 } },
@@ -229,6 +273,7 @@ const DEFS: readonly SchxComponentDef[] = [
     { shortType: 'AnalogSwitch', kind: 'analog-switch', terminals: ANALOG_SWITCH_TERMINALS, quantityProps: [] },
     { shortType: 'FlipFlop', kind: 'flipflop', terminals: FLIPFLOP_TERMINALS, quantityProps: [] },
     { shortType: 'IC', kind: 'ic', terminals: GENERIC_IC_TERMINALS, quantityProps: [] },
+    MICROBLOCK_OVERDRIVE_STAGE_DEF,
     { shortType: 'Triode', kind: 'triode', terminals: TRIODE_TERMINALS, quantityProps: ['Mu', 'K', 'Kp', 'Kvb', 'Ex'] },
     { shortType: 'Pentode', kind: 'pentode', terminals: PENTODE_TERMINALS, quantityProps: ['Mu', 'K', 'Kp', 'Kvb', 'Ex'] },
     { shortType: 'Transformer', kind: 'transformer', terminals: TRANSFORMER_TERMINALS, quantityProps: ['Lp', 'Ls', 'k'] },
@@ -272,7 +317,7 @@ export function shortenSchxType(fullType: string): string {
 }
 
 export function lookupSchxDef(shortType: string): SchxComponentDef | undefined {
-    return BY_SHORT_TYPE.get(shortType);
+    return BY_SHORT_TYPE.get(shortType) ?? lookupMicroBlockStageDef(shortType);
 }
 
 export function defaultDefForKind(kind: ComponentKind): SchxComponentDef | undefined {
@@ -289,4 +334,14 @@ export function fullSchxType(shortType: string): string {
     }
     const namespace = shortType === 'Pentode' ? 'Circuit.Components' : 'Circuit';
     return `${namespace}.${shortType}, ${CIRCUIT_ASSEMBLY}`;
+}
+
+function lookupMicroBlockStageDef(shortType: string): SchxComponentDef | undefined {
+    if (!/^MicroBlock[A-Za-z0-9_]*Stage$/.test(shortType)) {
+        return undefined;
+    }
+    return {
+        ...MICROBLOCK_OVERDRIVE_STAGE_DEF,
+        shortType,
+    };
 }

@@ -18,6 +18,7 @@ import {
     SchematicRightPanel,
     SchematicWorkspace,
 } from '../../playground/src/App';
+import type { Fixture } from '../../playground/src/lib/fixtures';
 
 const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';
 
@@ -139,6 +140,76 @@ describe('playground Schematic tab', () => {
 
         expect(markup).toContain('trigger-source');
         expect(markup).toContain('Source');
+        expect(markup).toContain('data-source-yaml-editor="true"');
+        expect(markup).toContain('data-source-yaml-apply="true"');
+        expect(markup).toContain('schema: circuit-interchange/v1');
+    });
+
+    test('renders Raw .schx as an editable source panel', () => {
+        const fixture: Fixture = {
+            id: 'empty-schx',
+            title: 'Empty SCHX',
+            description: 'Small editable LiveSPICE fixture.',
+            filename: 'empty.schx',
+            source: emptySchx,
+            group: 'custom',
+        };
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: fixture.id,
+                fixture,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('Raw .schx');
+        expect(markup).toContain('data-raw-schx-editor="true"');
+        expect(markup).toContain('data-raw-schx-apply="true"');
+        expect(markup).not.toContain('data-raw-source-readonly="true"');
+    });
+
+    test('keeps non-SCHX raw source read-only', () => {
+        const fixture: Fixture = {
+            id: 'example-asc',
+            title: 'Example ASC',
+            description: 'Read-only LTspice fixture.',
+            filename: 'example.asc',
+            source: 'Version 4\nSHEET 1 880 680\n',
+            group: 'custom',
+        };
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: fixture.id,
+                fixture,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('Raw .asc');
+        expect(markup).toContain('data-raw-source-readonly="true"');
+        expect(markup).not.toContain('data-raw-schx-editor="true"');
     });
 
     test('renders React integration documentation on the GH Pages surface', () => {
@@ -196,6 +267,46 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('data-control-kind="knob"');
         expect(markup).toContain('data-control-kind="switch"');
         expect(markup).toContain('data-control-kind="led"');
+    });
+
+    test('renders the current editor document inside the Live Panel', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'CURRENT_PANEL_MARKER',
+                kind: 'resistor',
+                name: 'R_PANEL',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: 0, y: -20 } },
+                    { name: 'b', position: { x: 0, y: 20 } },
+                ],
+                properties: { Resistance: '10 kΩ' },
+                sourceTypeName: 'Circuit.Resistor, Circuit',
+            }],
+        };
+        const editorState = createEditorState(document);
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'current',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        const renderedMarkers = markup.match(/data-component-id="CURRENT_PANEL_MARKER"/g) ?? [];
+        expect(renderedMarkers).toHaveLength(2);
     });
 
     test('deduplicates repeated unsupported-component diagnostics in the warnings UI', () => {

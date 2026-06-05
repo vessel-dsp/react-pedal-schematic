@@ -46,6 +46,49 @@ describe('applyEditorCommand', () => {
         expect(canRedo(next)).toBe(false);
     });
 
+    test('replace-document swaps the whole document and remains undoable', () => {
+        const originalDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [makeComponent('R1')],
+            wires: [{ id: 'wire-1', endpoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }] as const,
+        };
+        const replacementDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: { name: 'Raw edit', description: '', partNumber: '' },
+            components: [makeComponent('C1', 'capacitor')],
+        };
+        const initial = {
+            ...createEditorState(originalDocument),
+            selectedId: 'R1',
+            selectedWireId: 'wire-1',
+            future: [EMPTY_DOCUMENT],
+        };
+
+        const next = applyEditorCommand(initial, {
+            type: 'replace-document',
+            document: replacementDocument,
+        });
+
+        expect(next.document).toBe(replacementDocument);
+        expect(next.selectedId).toBeNull();
+        expect(next.selectedWireId).toBeNull();
+        expect(canUndo(next)).toBe(true);
+        expect(canRedo(next)).toBe(false);
+
+        const undone = applyEditorCommand(next, { type: 'undo' });
+        expect(undone.document).toBe(originalDocument);
+    });
+
+    test('replace-document returns the same state when the document is unchanged', () => {
+        const initial = createEditorState({ ...EMPTY_DOCUMENT, components: [makeComponent('R1')] });
+        const next = applyEditorCommand(initial, {
+            type: 'replace-document',
+            document: initial.document,
+        });
+
+        expect(next).toBe(initial);
+    });
+
     test('undo restores the previous document', () => {
         const initial = createEditorState({ ...EMPTY_DOCUMENT, components: [makeComponent('R1')] });
         const renamed = applyEditorCommand(initial, {

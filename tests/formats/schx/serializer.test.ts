@@ -84,6 +84,24 @@ describe('serializeSchx', () => {
         expect(reparsed.components[0]?.kind).toBe('led');
     });
 
+    test('emits constructed opaque ICs as generic Circuit.IC when no source type is present', () => {
+        const component: Component = {
+            id: 'U1',
+            kind: 'ic',
+            name: 'U1',
+            origin: { x: 20, y: 40 },
+            rotation: 0,
+            flipped: false,
+            terminals: [],
+            properties: { PartNumber: 'opaque block' },
+            sourceTypeName: null,
+        };
+        const xml = serializeSchx({ ...EMPTY_DOCUMENT, components: [component] });
+
+        expect(xml).toContain('_Type="Circuit.IC,');
+        expect(xml).not.toContain('MicroBlockOverdriveStage');
+    });
+
     test('output is reparseable into an equivalent document', () => {
         const original: CircuitDocument = {
             metadata: { name: 'Roundtrip', description: '', partNumber: '' },

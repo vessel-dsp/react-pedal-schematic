@@ -162,6 +162,33 @@ describe('SchematicView rendering — LTspice I/O jacks', () => {
     });
 });
 
+describe('SchematicView rendering — LiveSPICE microblocks', () => {
+    test('does not mark wires attached to opaque MicroBlock stages as hanging', () => {
+        const assembly = 'Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
+        const xml = `<?xml version="1.0" encoding="utf-8"?>
+<Schematic Name="Boss RV-3-style Reverb" Description="" PartNumber="">
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="-300,140">
+    <Component _Type="Circuit.Input, ${assembly}" Name="V1" />
+  </Element>
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="0,140">
+    <Component _Type="Circuit.MicroBlockReverbStage, ${assembly}" Algorithm="DigitalHall" Name="U1" />
+  </Element>
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="200,140">
+    <Component _Type="Circuit.Speaker, ${assembly}" Name="S1" />
+  </Element>
+  <Element Type="Circuit.Wire, ${assembly}" A="-300,120" B="0,120" />
+  <Element Type="Circuit.Wire, ${assembly}" A="0,160" B="200,120" />
+</Schematic>`;
+        const document = parseSchx(xml);
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toContain('data-component-id="U1" data-component-kind="ic"');
+        expect(markup).not.toContain('Hanging wire endpoint');
+        expect(markup).not.toContain('stroke="#ef4444"');
+    });
+});
+
 describe('SchematicView rendering — component cards', () => {
     test('renders symbol components as square cards with a centered icon area and solid name band', () => {
         const document: CircuitDocument = {

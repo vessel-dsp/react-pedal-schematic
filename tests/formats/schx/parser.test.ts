@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parseSchx } from '../../../src/formats/schx/parser';
+import { getPinNode, resolveConnectivity } from '../../../src/model/connectivity';
 
 const ASSEMBLY = 'Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
 const SYMBOL_T = `Circuit.Symbol, ${ASSEMBLY}`;
@@ -109,6 +110,81 @@ describe('parseSchx', () => {
         expect(saturationCurrent.value).toBeCloseTo(1e-14);
         expect(saturationCurrent.unit).toBe('A');
         expect(led.terminals.map((terminal) => terminal.name)).toEqual(['anode', 'cathode']);
+    });
+
+    test('maps MicroBlockOverdriveStage as an opaque two-terminal IC descriptor', () => {
+        const xml = makeSchx(`  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="-300,140">
+    <Component _Type="Circuit.Input, ${ASSEMBLY}" V0dBFS="1 V" Name="V1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="-300,240">
+    <Component _Type="Circuit.Ground, ${ASSEMBLY}" Name="GND1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="0,140">
+    <Component _Type="Circuit.MicroBlockOverdriveStage, ${ASSEMBLY}" Chip="JRC4558D" ClipMode="FeedbackSoftClip" ClipThreshold="0.65 V" InputHighpassHz="16 Hz" OutputLowpassHz="1500 Hz" MinDriveGain="1" MaxDriveGain="110" DriveControl="Drive" DriveControlWipe="0.4" DriveControlSweep="Logarithmic" MinToneHz="500" MaxToneHz="5000" ToneControl="Tone" ToneControlWipe="0.5" ToneControlSweep="Linear" Name="U1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="200,140">
+    <Component _Type="Circuit.Speaker, ${ASSEMBLY}" V0dBFS="1 V" Impedance="∞ Ω" Name="S1" />
+  </Element>
+  <Element Type="${WIRE_T}" A="-300,160" B="-300,240" />
+  <Element Type="${WIRE_T}" A="-300,240" B="200,240" />
+  <Element Type="${WIRE_T}" A="200,160" B="200,240" />
+  <Element Type="${WIRE_T}" A="-300,120" B="0,120" />
+  <Element Type="${WIRE_T}" A="0,160" B="40,160" />
+  <Element Type="${WIRE_T}" A="40,160" B="40,120" />
+  <Element Type="${WIRE_T}" A="40,120" B="200,120" />`);
+
+        const doc = parseSchx(xml);
+        const microblock = doc.components.find((component) => component.id === 'U1');
+
+        expect(microblock?.kind).toBe('ic');
+        expect(microblock?.sourceTypeName).toContain('Circuit.MicroBlockOverdriveStage');
+        expect(microblock?.terminals).toEqual([
+            { name: 'in', position: { x: 0, y: 120 } },
+            { name: 'out', position: { x: 0, y: 160 } },
+        ]);
+        expect(doc.warnings.some((warning) => warning.code === 'unknown-component-type')).toBe(false);
+        expect(microblock?.properties.Chip).toBe('JRC4558D');
+        expect(microblock?.properties.ClipMode).toBe('FeedbackSoftClip');
+        expect(microblock?.properties.ClipThreshold).toMatchObject({ value: 0.65, unit: 'V' });
+        expect(microblock?.properties.DriveControl).toBe('Drive');
+        expect(microblock?.properties.DriveControlWipe).toMatchObject({ value: 0.4, unit: '' });
+
+        const connectivity = resolveConnectivity(doc);
+        expect(getPinNode(connectivity, { componentId: 'U1', terminalName: 'in' })).toBe(
+            getPinNode(connectivity, { componentId: 'V1', terminalName: 'a' }),
+        );
+        expect(getPinNode(connectivity, { componentId: 'U1', terminalName: 'out' })).toBe(
+            getPinNode(connectivity, { componentId: 'S1', terminalName: 'a' }),
+        );
+    });
+
+    test('maps other MicroBlock stage descriptors as opaque two-terminal ICs', () => {
+        const xml = makeSchx(`  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="-300,140">
+    <Component _Type="Circuit.Input, ${ASSEMBLY}" Name="V1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="0,140">
+    <Component _Type="Circuit.MicroBlockReverbStage, ${ASSEMBLY}" Algorithm="DigitalHall" DecaySeconds="2.4 s" MixControl="Mix" MixControlWipe="0.35" Name="U1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="200,140">
+    <Component _Type="Circuit.Speaker, ${ASSEMBLY}" Name="S1" />
+  </Element>
+  <Element Type="${WIRE_T}" A="-300,120" B="0,120" />
+  <Element Type="${WIRE_T}" A="0,160" B="200,120" />`);
+
+        const doc = parseSchx(xml);
+        const microblock = doc.components.find((component) => component.id === 'U1');
+
+        expect(microblock?.kind).toBe('ic');
+        expect(microblock?.sourceTypeName).toContain('Circuit.MicroBlockReverbStage');
+        expect(microblock?.terminals).toEqual([
+            { name: 'in', position: { x: 0, y: 120 } },
+            { name: 'out', position: { x: 0, y: 160 } },
+        ]);
+        expect(microblock?.properties.Algorithm).toBe('DigitalHall');
+        expect(microblock?.properties.DecaySeconds).toMatchObject({ value: 2.4, unit: 's' });
+        expect(microblock?.properties.MixControl).toBe('Mix');
+        expect(microblock?.properties.MixControlWipe).toMatchObject({ value: 0.35, unit: '' });
+        expect(doc.warnings.some((warning) => warning.code === 'unknown-component-type')).toBe(false);
     });
 
     test('assigns unique ids when multiple components share a name', () => {

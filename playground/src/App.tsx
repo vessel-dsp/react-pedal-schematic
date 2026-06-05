@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
 import {
     applyControlMessage,
     applyEditorCommand,
@@ -10,6 +10,7 @@ import {
     extractPanel,
     findWireChain,
     parseCircuitDocument,
+    parseInterchangeYaml,
     serializeSchx,
     serializeInterchangeYaml,
     toNetlistView,
@@ -53,15 +54,9 @@ type SelectedComponent = SelectedSchematicComponent;
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
 const controlReducer = (state: ControlState, message: PanelMessage): ControlState => applyControlMessage(state, message);
-const livePanelFallbackSchx = `<?xml version="1.0" encoding="utf-8"?>
-<Schematic Name="Live panel demo" Description="Minimal SPDT fixture for server-rendered playground tests." PartNumber="">
-  <Element Type="Circuit.Symbol, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" Rotation="0" Flip="false" Position="0,0">
-    <Component _Type="Circuit.SPDT, Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" PartNumber="SPDT footswitch" Name="SW1" />
-  </Element>
-</Schematic>`;
-const LIVE_PANEL_FIXTURE_ID = 'spdt-bypass-pedal';
 const LIVE_PANEL_LED_ID = 'status-led';
 const LIVE_PANEL_KNOB_ID = 'virtual-level';
+const LIVE_PANEL_SWITCH_ID = 'virtual-bypass';
 const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
 
 const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
@@ -88,7 +83,6 @@ export function App(): React.ReactElement {
 
     return (
         <FixtureSession
-            key={fixtureId}
             fixtureId={fixtureId}
             onFixtureChange={setFixtureId}
         />
@@ -108,7 +102,15 @@ function FixtureSession(props: {
         [fixture],
     );
 
-    const [editorState, dispatch] = useReducer(editorReducer, initialDocument, createEditorState);
+    const [editorState, setEditorState] = useState(() => createEditorState(initialDocument));
+    const dispatch = useCallback<React.Dispatch<EditorCommand>>((command) => {
+        setEditorState((state) => editorReducer(state, command));
+    }, []);
+
+    useEffect(() => {
+        setEditorState(createEditorState(initialDocument));
+    }, [initialDocument]);
+
     const document = editorState.document;
     const view: NetlistView = useMemo(() => toNetlistView(document), [document]);
     const issues: readonly ValidationIssue[] = useMemo(() => validateDocument(document), [document]);
@@ -242,7 +244,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                     </TabsContent>
 
                     <TabsContent value="live-panel" className="m-0" forceMount>
-                        <LivePanelDemo />
+                        <LivePanelDemo document={document} />
                     </TabsContent>
 
                     <TabsContent value="integration" className="m-0" forceMount>
@@ -253,14 +255,8 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         <NetlistPanel netlist={view} />
                     </TabsContent>
 
-                    <TabsContent value="source" className="m-0">
-                        <Card>
-                            <CardContent className="p-0">
-                                <pre className="max-h-140 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
-                                    {sourceYaml(fixture, document)}
-                                </pre>
-                            </CardContent>
-                        </Card>
+                    <TabsContent value="source" className="m-0" forceMount>
+                        <SourceYamlPanel fixture={fixture} document={document} dispatch={dispatch} />
                     </TabsContent>
 
                     <TabsContent value="warnings" className="m-0" forceMount>
@@ -271,14 +267,8 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         />
                     </TabsContent>
 
-                    <TabsContent value="raw" className="m-0">
-                        <Card>
-                            <CardContent className="p-0">
-                                <pre className="max-h-140 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground">
-                                    {rawSource(fixture, document)}
-                                </pre>
-                            </CardContent>
-                        </Card>
+                    <TabsContent value="raw" className="m-0" forceMount>
+                        <RawSourcePanel fixture={fixture} document={document} dispatch={dispatch} />
                     </TabsContent>
                 </Tabs>
             </main>
@@ -324,6 +314,160 @@ function IntegrationDocs(): React.ReactElement {
             </CardContent>
         </Card>
     );
+}
+
+function SourceYamlPanel(props: {
+    fixture: ReturnType<typeof findFixture>;
+    document: EditorState['document'];
+    dispatch: React.Dispatch<EditorCommand>;
+}): React.ReactElement {
+    const { fixture, document, dispatch } = props;
+    const source = sourceYaml(fixture, document);
+    const [draft, setDraft] = useState(source);
+    const [parseError, setParseError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setDraft(source);
+        setParseError(null);
+    }, [source]);
+
+    const canApply = draft !== source;
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base">Source</CardTitle>
+                <Button
+                    type="button"
+                    data-source-yaml-apply="true"
+                    disabled={!canApply}
+                    onClick={() => {
+                        try {
+                            const nextDocument = parseInterchangeYaml(draft);
+                            dispatch({ type: 'replace-document', document: nextDocument });
+                            setParseError(null);
+                        } catch (error: unknown) {
+                            setParseError(errorMessage(error));
+                        }
+                    }}
+                >
+                    Apply
+                </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <Label htmlFor="source-yaml" className="sr-only">Source YAML</Label>
+                <textarea
+                    id="source-yaml"
+                    data-source-yaml-editor="true"
+                    value={draft}
+                    spellCheck={false}
+                    aria-invalid={parseError !== null}
+                    onChange={(event) => {
+                        setDraft(event.currentTarget.value);
+                        if (parseError !== null) {
+                            setParseError(null);
+                        }
+                    }}
+                    className="min-h-140 w-full resize-y rounded-md border border-input bg-muted p-4 font-mono text-xs text-muted-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40"
+                />
+                {parseError !== null && (
+                    <p data-source-yaml-error="true" className="text-sm text-destructive">
+                        {parseError}
+                    </p>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function RawSourcePanel(props: {
+    fixture: ReturnType<typeof findFixture>;
+    document: EditorState['document'];
+    dispatch: React.Dispatch<EditorCommand>;
+}): React.ReactElement {
+    const { fixture, document, dispatch } = props;
+    const source = rawSource(fixture, document);
+    const [draft, setDraft] = useState(source);
+    const [parseError, setParseError] = useState<string | null>(null);
+    const isSchx = fixture !== undefined && detectCircuitFormat(fixture.filename) === 'schx';
+
+    useEffect(() => {
+        setDraft(source);
+        setParseError(null);
+    }, [source]);
+
+    if (!isSchx) {
+        return (
+            <Card>
+                <CardContent className="p-0">
+                    <pre
+                        data-raw-source-readonly="true"
+                        className="max-h-140 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground"
+                    >
+                        {source}
+                    </pre>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    const canApply = draft !== source;
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base">Raw .schx</CardTitle>
+                <Button
+                    type="button"
+                    data-raw-schx-apply="true"
+                    disabled={!canApply}
+                    onClick={() => {
+                        try {
+                            const nextDocument = parseCircuitDocument(draft, {
+                                format: 'schx',
+                                filename: fixture.filename,
+                            });
+                            dispatch({ type: 'replace-document', document: nextDocument });
+                            setParseError(null);
+                        } catch (error: unknown) {
+                            setParseError(errorMessage(error));
+                        }
+                    }}
+                >
+                    Apply
+                </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <Label htmlFor="raw-schx-source" className="sr-only">Raw .schx source</Label>
+                <textarea
+                    id="raw-schx-source"
+                    data-raw-schx-editor="true"
+                    value={draft}
+                    spellCheck={false}
+                    aria-invalid={parseError !== null}
+                    onChange={(event) => {
+                        setDraft(event.currentTarget.value);
+                        if (parseError !== null) {
+                            setParseError(null);
+                        }
+                    }}
+                    className="min-h-140 w-full resize-y rounded-md border border-input bg-muted p-4 font-mono text-xs text-muted-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40"
+                />
+                {parseError !== null && (
+                    <p data-raw-schx-error="true" className="text-sm text-destructive">
+                        {parseError}
+                    </p>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
 }
 
 function rawTabLabel(fixture: ReturnType<typeof findFixture>): string {
@@ -378,17 +522,15 @@ function sourceYaml(
     });
 }
 
-function LivePanelDemo(): React.ReactElement {
-    const fixture = findFixture(LIVE_PANEL_FIXTURE_ID);
-    const baseDocument = useMemo(
-        () => (fixture && sourceLooksLikeSchx(fixture.source)
-            ? parseCircuitDocument(fixture.source, { filename: fixture.filename })
-            : parseCircuitDocument(livePanelFallbackSchx, { format: 'schx' })),
-        [fixture],
-    );
-    const document = useMemo(() => withLivePanelSyntheticControls(baseDocument), [baseDocument]);
+function LivePanelDemo(props: { document: EditorState['document'] }): React.ReactElement {
+    const document = useMemo(() => withLivePanelSyntheticControls(props.document), [props.document]);
     const panel = useMemo(() => extractPanel(document), [document]);
     const [controlState, dispatchControl] = useReducer(controlReducer, panel, defaultControlState);
+
+    useEffect(() => {
+        dispatchControl({ type: 'panel/load', panel });
+    }, [panel]);
+
     const knob = panel.knobs.find((item) => item.id === LIVE_PANEL_KNOB_ID) ?? panel.knobs[0];
     const switchControl = panel.switches[0];
     const knobValue = knob === undefined ? undefined : controlState[knob.id];
@@ -488,10 +630,6 @@ function LivePanelDemo(): React.ReactElement {
     );
 }
 
-function sourceLooksLikeSchx(source: string): boolean {
-    return source.trimStart().startsWith('<?xml') || source.includes('<Schematic');
-}
-
 function withLivePanelSyntheticControls(document: EditorState['document']): EditorState['document'] {
     const existingIds = new Set(document.components.map((component) => component.id));
     const components: Component[] = [];
@@ -515,6 +653,26 @@ function withLivePanelSyntheticControls(document: EditorState['document']): Edit
                 Description: 'Render-only live panel level control',
             },
             sourceTypeName: 'Circuit.Potentiometer, Circuit',
+        });
+    }
+    if (!existingIds.has(LIVE_PANEL_SWITCH_ID)) {
+        components.push({
+            id: LIVE_PANEL_SWITCH_ID,
+            kind: 'switch',
+            name: 'BYPASS',
+            origin: { x: 440, y: 250 },
+            rotation: 0,
+            flipped: false,
+            terminals: [
+                { name: 'collector', position: { x: 440, y: 230 } },
+                { name: 'base', position: { x: 420, y: 250 } },
+                { name: 'emitter', position: { x: 450, y: 270 } },
+            ],
+            properties: {
+                PartNumber: 'SPDT footswitch',
+                Description: 'Render-only host bypass switch',
+            },
+            sourceTypeName: 'Circuit.SPDT, Circuit',
         });
     }
     if (!existingIds.has(LIVE_PANEL_LED_ID)) {

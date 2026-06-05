@@ -11,6 +11,7 @@ export type EditorState = Readonly<{
 
 export type EditorCommand =
     | DocumentCommand
+    | Readonly<{ type: 'replace-document'; document: CircuitDocument }>
     | Readonly<{ type: 'select'; componentId: string | null }>
     | Readonly<{ type: 'select-wire'; wireId: string | null }>
     | Readonly<{ type: 'undo' }>
@@ -40,6 +41,8 @@ export function applyEditorCommand(state: EditorState, command: EditorCommand): 
                 return state;
             }
             return { ...state, selectedWireId: command.wireId, selectedId: null };
+        case 'replace-document':
+            return replaceDocument(state, command.document);
         case 'undo':
             return undo(state);
         case 'redo':
@@ -75,6 +78,20 @@ function applyAndPush(state: EditorState, command: DocumentCommand): EditorState
         document: nextDocument,
         selectedId,
         selectedWireId,
+        past,
+        future: [],
+    };
+}
+
+function replaceDocument(state: EditorState, document: CircuitDocument): EditorState {
+    if (document === state.document) {
+        return state;
+    }
+    const past = [...state.past, state.document].slice(-HISTORY_LIMIT);
+    return {
+        document,
+        selectedId: null,
+        selectedWireId: null,
         past,
         future: [],
     };
