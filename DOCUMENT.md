@@ -27,6 +27,58 @@ const netlist = toNetlistView(document);
 
 Pass a `filename` when possible. The dispatcher uses the extension to choose `.schx`, `.asc`, or SPICE netlist parsing.
 
+Use `parseCircuitDocumentFile()` when the input may also be a project-native `.vdsp` or `.yaml` document:
+
+```ts
+import { parseCircuitDocumentFile } from '@vessel-dsp/react-pedal-schematic/core';
+
+const document = parseCircuitDocumentFile(sourceText, {
+    filename: 'example.vdsp',
+});
+```
+
+## Format Conversion
+
+Conversion goes through the normalized `CircuitDocument` model:
+
+```text
+.schx / .asc / .cir / .net / .vdsp
+  -> CircuitDocument
+  -> .vdsp / .schx / .cir
+```
+
+`.vdsp` is the project-native Source format. It is strict `circuit-interchange/v1` YAML around a `CircuitDocument`, intended for inspection, copy/paste, light edits, LLM review, and downstream handoff. The schema id remains `circuit-interchange/v1`; `.vdsp` is the product file extension.
+
+```ts
+import {
+    parseCircuitDocumentFile,
+    serializeSchx,
+    serializeSpiceNetlist,
+    serializeVdspCircuitDocument,
+} from '@vessel-dsp/react-pedal-schematic/core';
+
+const document = parseCircuitDocumentFile(inputText, {
+    filename: 'pedal.schx',
+});
+
+const vdspSource = serializeVdspCircuitDocument(document, {
+    filename: 'pedal.vdsp',
+});
+const schxSource = serializeSchx(document);
+const spiceNetlist = serializeSpiceNetlist(document);
+```
+
+Current support:
+
+| Format | Import | Export | Notes |
+| --- | --- | --- | --- |
+| `.vdsp` / `.yaml` | `parseCircuitDocumentFile()` | `serializeVdspCircuitDocument()` | Strict `circuit-interchange/v1` YAML for Source view and handoff. |
+| `.schx` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | `serializeSchx()` | Best current graphical round-trip target. |
+| `.asc` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | Not yet supported | LTspice import preserves supported semantic layout, but exact ASC round-trip is not implemented. |
+| `.cir` / `.net` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | `serializeSpiceNetlist()` | Connectivity-first; graphical layout is not preserved in netlists. |
+
+Conversion is semantic, not byte-for-byte source regeneration. Unsupported components, source-specific graphics, synthesized layout, dropped directives, or missing serializer support should be surfaced through diagnostics or warnings instead of being silently hidden.
+
 ## Render A Schematic
 
 ```tsx

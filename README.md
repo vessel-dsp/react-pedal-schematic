@@ -34,7 +34,7 @@ import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-
 - LTspice `.asc`
 - SPICE-style `.cir` / `.net`
 
-Use the dispatcher for consumer integrations:
+Use the source-format dispatcher for `.schx`, `.asc`, `.cir`, and `.net` consumer integrations:
 
 ```ts
 import { parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
@@ -43,6 +43,20 @@ const document = parseCircuitDocument(sourceText, {
     filename: 'pedal.asc',
 });
 ```
+
+Use `parseCircuitDocumentFile()` when accepting project-native `.vdsp` Source files as well as source schematics:
+
+```ts
+import { parseCircuitDocumentFile, serializeVdspCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
+
+const document = parseCircuitDocumentFile(sourceText, {
+    filename: 'pedal.vdsp',
+});
+
+const vdspSource = serializeVdspCircuitDocument(document);
+```
+
+Format conversion is documented in [DOCUMENT.md](./DOCUMENT.md#format-conversion). It is semantic through `CircuitDocument`, not byte-for-byte source regeneration.
 
 ## React Preview
 
