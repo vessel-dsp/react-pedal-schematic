@@ -13,6 +13,9 @@ import cd4066BufferBypass from '../fixtures/cd4066-buffer-bypass.schx?raw';
 import cd4013Suboctave from '../fixtures/cd4013-suboctave.schx?raw';
 import lm13700Compressor from '../fixtures/lm13700-compressor.schx?raw';
 import ltspiceRcLowpass from '../fixtures/ltspice-rc-lowpass.asc?raw';
+import lpb1BoostVdsp from '../fixtures/lpb-1-style-boost.vdsp?raw';
+import simpleRcVdsp from '../fixtures/simple-rc-vdsp.vdsp?raw';
+import voltageDividerVdsp from '../fixtures/voltage-divider-vdsp.vdsp?raw';
 
 // `import.meta.glob` is a Vite-only feature transformed at build time.
 // Under Bun's test runner the property is undefined, so we wrap each call
@@ -193,6 +196,30 @@ const CUSTOM_FIXTURES: readonly Fixture[] = [
         description: 'Small .asc fixture exercising SYMBOL, WIRE, FLAG, IOPIN, TEXT.',
         filename: 'ltspice-rc-lowpass.asc',
         source: ltspiceRcLowpass,
+        group: 'custom',
+    },
+    {
+        id: 'lpb-1-boost-vdsp',
+        title: 'LPB-1 boost (.vdsp)',
+        description: 'Same LPB-1 boost exported to .vdsp interchange format.',
+        filename: 'lpb-1-style-boost.vdsp',
+        source: lpb1BoostVdsp,
+        group: 'custom',
+    },
+    {
+        id: 'simple-rc-vdsp',
+        title: 'Simple RC filter (.vdsp)',
+        description: 'Hand-written minimal RC circuit in .vdsp format.',
+        filename: 'simple-rc-vdsp.vdsp',
+        source: simpleRcVdsp,
+        group: 'custom',
+    },
+    {
+        id: 'voltage-divider-vdsp',
+        title: 'Voltage divider (.vdsp)',
+        description: 'Simple resistive voltage divider in .vdsp interchange format.',
+        filename: 'voltage-divider-vdsp.vdsp',
+        source: voltageDividerVdsp,
         group: 'custom',
     },
 ];

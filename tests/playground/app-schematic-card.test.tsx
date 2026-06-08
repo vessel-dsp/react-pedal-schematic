@@ -11,12 +11,14 @@ import {
     type EditorCommand,
 } from '@vessel-dsp/react-pedal-schematic';
 import {
+    parseFixtureDocument,
     PlaygroundShell,
     SchematicCanvasPanel,
     SchematicCard,
     SchematicLeftPanel,
     SchematicRightPanel,
     SchematicWorkspace,
+    sourceTextForFormat,
 } from '../../playground/src/App';
 import type { Fixture } from '../../playground/src/lib/fixtures';
 
@@ -118,34 +120,7 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('Semiconductors');
     });
 
-    test('renders a Source tab with the intermediary YAML document', () => {
-        const editorState = createEditorState(parseSchx(emptySchx));
-        const document = editorState.document;
-        const dispatch = (_command: EditorCommand): void => {};
-        const noop = (): void => {};
-
-        const markup = renderToStaticMarkup(
-            createElement(PlaygroundShell, {
-                fixtureId: 'empty',
-                fixture: undefined,
-                onFixtureChange: noop,
-                editorState,
-                dispatch,
-                document,
-                view: toNetlistView(document),
-                issues: validateDocument(document),
-                selectedComponent: null,
-            }),
-        );
-
-        expect(markup).toContain('trigger-source');
-        expect(markup).toContain('Source');
-        expect(markup).toContain('data-source-yaml-editor="true"');
-        expect(markup).toContain('data-source-yaml-apply="true"');
-        expect(markup).toContain('schema: circuit-interchange/v1');
-    });
-
-    test('renders Raw .schx as an editable source panel', () => {
+    test('renders Source as a generated .vdsp document by default', () => {
         const fixture: Fixture = {
             id: 'empty-schx',
             title: 'Empty SCHX',
@@ -173,19 +148,24 @@ describe('playground Schematic tab', () => {
             }),
         );
 
-        expect(markup).toContain('Raw .schx');
-        expect(markup).toContain('data-raw-schx-editor="true"');
-        expect(markup).toContain('data-raw-schx-apply="true"');
-        expect(markup).not.toContain('data-raw-source-readonly="true"');
+        expect(markup).toContain('trigger-source');
+        expect(markup).toContain('Source');
+        expect(markup).toContain('data-source-format-select="true"');
+        expect(markup).toContain('data-source-format-value=".vdsp"');
+        expect(markup).toContain('data-source-output-view="true"');
+        expect(markup).toContain('schema: circuit-interchange/v1');
+        expect(markup).toContain('filename: empty.vdsp');
+        expect(markup).not.toContain('data-source-vdsp-apply="true"');
+        expect(markup).not.toContain('Export');
     });
 
-    test('keeps non-SCHX raw source read-only', () => {
+    test('does not render a raw source tab or raw source editor', () => {
         const fixture: Fixture = {
-            id: 'example-asc',
-            title: 'Example ASC',
-            description: 'Read-only LTspice fixture.',
-            filename: 'example.asc',
-            source: 'Version 4\nSHEET 1 880 680\n',
+            id: 'empty-schx',
+            title: 'Empty SCHX',
+            description: 'Small editable LiveSPICE fixture.',
+            filename: 'empty.schx',
+            source: emptySchx,
             group: 'custom',
         };
         const editorState = createEditorState(parseSchx(emptySchx));
@@ -207,9 +187,79 @@ describe('playground Schematic tab', () => {
             }),
         );
 
-        expect(markup).toContain('Raw .asc');
-        expect(markup).toContain('data-raw-source-readonly="true"');
+        expect(markup).not.toContain('trigger-raw');
+        expect(markup).not.toContain('Raw .schx');
+        expect(markup).not.toContain('Raw .vdsp');
+        expect(markup).not.toContain('Raw .asc');
         expect(markup).not.toContain('data-raw-schx-editor="true"');
+        expect(markup).not.toContain('data-raw-schx-apply="true"');
+        expect(markup).not.toContain('data-raw-source-readonly="true"');
+    });
+
+    test('renders .vdsp fixtures as parsed documents with generated source output', () => {
+        const fixture: Fixture = {
+            id: 'simple-rc-vdsp',
+            title: 'Simple RC filter (.vdsp)',
+            description: 'Hand-written minimal RC circuit in .vdsp format.',
+            filename: 'simple-rc-vdsp.vdsp',
+            source: `schema: circuit-interchange/v1
+metadata:
+  name: RC Low-Pass Filter
+  description: ''
+  partNumber: ''
+source:
+  format: interchange
+  filename: simple-rc-vdsp.vdsp
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`,
+            group: 'custom',
+        };
+        const document = parseFixtureDocument(fixture);
+        const editorState = createEditorState(document);
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: fixture.id,
+                fixture,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(document.metadata.name).toBe('RC Low-Pass Filter');
+        expect(markup).toContain('data-source-output-view="true"');
+        expect(markup).toContain('data-source-format-value=".vdsp"');
+        expect(markup).toContain('schema: circuit-interchange/v1');
+        expect(markup).toContain('filename: simple-rc-vdsp.vdsp');
+        expect(markup).not.toContain('Raw .vdsp');
+    });
+
+    test('converts Source output when the selected format changes', () => {
+        const document = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'Copyable Source' },
+        };
+
+        const schx = sourceTextForFormat('schx', undefined, document);
+        const vdsp = sourceTextForFormat('vdsp', undefined, document);
+        const spice = sourceTextForFormat('spice', undefined, document);
+
+        expect(schx).toContain('<Schematic');
+        expect(vdsp).toContain('schema: circuit-interchange/v1');
+        expect(vdsp).toContain('filename: copyable-source.vdsp');
+        expect(spice).toContain('.TITLE Copyable Source');
+        expect(spice).toContain('.END');
     });
 
     test('renders React integration documentation on the GH Pages surface', () => {

@@ -127,10 +127,10 @@ describe('npm package contract', () => {
         expect(pkg.files).toContain('LICENSE.md');
     });
 
-    test('publishes GitHub repository metadata for the npm package page', async () => {
+    test('publishes package homepage and GitHub repository metadata for the npm package page', async () => {
         const pkg = await readPackageJson();
 
-        expect(pkg.homepage).toBe('https://github.com/vessel-dsp/react-pedal-schematic#readme');
+        expect(pkg.homepage).toBe('https://vessel-dsp.github.io/react-pedal-schematic/');
 
         expect(isRecord(pkg.repository)).toBe(true);
         if (isRecord(pkg.repository)) {
@@ -189,10 +189,10 @@ describe('release metadata', () => {
         const pkg = await readPackageJson();
         const changelog = await readChangelog();
 
-        expect(pkg.version).toBe('0.2.2');
-        expect(VERSION).toBe('0.2.2');
-        expect(UI_VERSION).toBe('0.2.2');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.2.2\n\n');
+        expect(pkg.version).toBe('0.2.3');
+        expect(VERSION).toBe('0.2.3');
+        expect(UI_VERSION).toBe('0.2.3');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.2.3\n\n');
     });
 });
 

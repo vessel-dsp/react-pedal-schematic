@@ -1,22 +1,27 @@
 {
     "name": "@vessel-dsp/react-pedal-schematic",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "React schematic editor library for guitar pedal circuits with LiveSPICE, LTspice, and SPICE import helpers.",
-    "license": "MIT",
-    "homepage": "https://github.com/vessel-dsp/react-pedal-schematic#readme",
+    "keywords": [
+        "react",
+        "schematic",
+        "guitar-pedal",
+        "electronics",
+        "spice",
+        "ltspice",
+        "livespice"
+    ],
+    "homepage": "https://vessel-dsp.github.io/react-pedal-schematic/",
+    "bugs": {
+        "url": "https://github.com/vessel-dsp/react-pedal-schematic/issues"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/vessel-dsp/react-pedal-schematic.git"
     },
-    "bugs": {
-        "url": "https://github.com/vessel-dsp/react-pedal-schematic/issues"
-    },
-    "type": "module",
-    "packageManager": "bun@1.2.2",
+    "license": "MIT",
     "sideEffects": false,
-    "main": "./dist/ui/index.js",
-    "module": "./dist/ui/index.js",
-    "types": "./dist/ui/index.d.ts",
+    "type": "module",
     "exports": {
         ".": {
             "types": "./dist/ui/index.d.ts",
@@ -34,6 +39,9 @@
             "default": "./package.json"
         }
     },
+    "main": "./dist/ui/index.js",
+    "module": "./dist/ui/index.js",
+    "types": "./dist/ui/index.d.ts",
     "files": [
         "dist",
         "README.md",
@@ -43,32 +51,20 @@
         "docs/images",
         "examples"
     ],
-    "keywords": [
-        "react",
-        "schematic",
-        "guitar-pedal",
-        "electronics",
-        "spice",
-        "ltspice",
-        "livespice"
-    ],
-    "publishConfig": {
-        "access": "public"
-    },
     "scripts": {
-        "dev": "vite",
-        "preview": "vite preview",
-        "build:playground": "vite build",
-        "test": "bun test",
-        "typecheck": "tsc --noEmit",
         "build": "tsc -p tsconfig.build.json && bun run scripts/fix-dist-imports.ts && bun run check:dist",
+        "build:playground": "vite build",
         "check:dist": "node scripts/check-dist-entrypoints.mjs",
-        "clean:dist": "rm -rf dist",
         "clean": "rm -rf dist gh-pages",
+        "clean:dist": "rm -rf dist",
+        "dev": "vite",
+        "generate:canvas-bg": "bun run scripts/generate-canvas-bg.ts",
+        "generate:symbols": "bun run scripts/generate-symbol-content.ts",
         "prepack": "bun run clean:dist && bun run typecheck && bun test && bun run build",
         "pack:dry-run": "npm pack --dry-run",
-        "generate:symbols": "bun run scripts/generate-symbol-content.ts",
-        "generate:canvas-bg": "bun run scripts/generate-canvas-bg.ts"
+        "preview": "vite preview",
+        "test": "bun test",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
         "@joint/core": "4.2.4",
@@ -100,5 +96,9 @@
         "react-dom": {
             "optional": true
         }
-    }
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "packageManager": "bun@1.2.2"
 }

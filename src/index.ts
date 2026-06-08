@@ -1,4 +1,4 @@
-export const VERSION = '0.2.2';
+export const VERSION = '0.2.3';
 
 export type {
     CircuitDocument,
@@ -40,8 +40,24 @@ export { serializeSpiceNetlist } from './formats/spice/serializer';
 export type { InterchangeSourceFormat, SerializeInterchangeYamlOptions } from './formats/interchange/serializer';
 export { parseInterchangeYaml } from './formats/interchange/parser';
 export { serializeInterchangeYaml } from './formats/interchange/serializer';
-export type { CircuitFormat, ParseCircuitDocumentOptions } from './formats/document';
-export { detectCircuitFormat, parseCircuitDocument } from './formats/document';
+export type {
+    CircuitFormat,
+    CircuitDocumentFileFormat,
+    ParseCircuitDocumentOptions,
+    ParseCircuitDocumentFileOptions,
+    SerializeVdspCircuitDocumentOptions,
+} from './formats/document';
+export {
+    detectCircuitFormat,
+    parseCircuitDocument,
+    vdspFileExtension,
+    isVdspFilename,
+    detectCircuitDocumentFileFormat,
+    vdspFilenameFromName,
+    parseVdspCircuitDocument,
+    parseCircuitDocumentFile,
+    serializeVdspCircuitDocument,
+} from './formats/document';
 export { parseLtspiceAsc } from './formats/ltspice/parser';
 
 export type { CreateComponentArgs, DocumentCommand, EditorCommand, EditorState } from './editor';

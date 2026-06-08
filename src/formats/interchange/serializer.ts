@@ -236,19 +236,26 @@ function formatScalar(value: YamlScalar): string {
     if (typeof value === 'number' || typeof value === 'boolean') {
         return String(value);
     }
-    if (isPlainScalar(value) && !isReservedScalar(value)) {
+    if (isPlainScalar(value) && !isReservedScalar(value) && !looksLikeNumber(value)) {
         return value;
     }
     return JSON.stringify(value);
 }
 
 function isPlainScalar(value: string): boolean {
-    return /^[A-Za-z0-9_.+/-]+$/.test(value);
+    return /^[A-Za-z_][A-Za-z0-9_./\-]*$/.test(value);
 }
 
 function isReservedScalar(value: string): boolean {
     const lower = value.toLowerCase();
     return lower === 'null' || lower === 'true' || lower === 'false';
+}
+
+function looksLikeNumber(value: string): boolean {
+    // Quote values that look like bare numbers (would be parsed as numbers by YAML)
+    // This includes scientific notation like "1e-12", "1.0e-7"
+    // But NOT version strings like "v1" or "1.0" that are meant to be strings
+    return /^-?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][+-]?\d+)?$/.test(value);
 }
 
 function spaces(count: number): string {

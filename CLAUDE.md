@@ -13,7 +13,7 @@ Target formats:
 - LiveSPICE `.schx` schematic XML (primary, graphical);
 - LTspice `.asc` schematic (graphical, SYMBOL/WIRE/FLAG/IOPIN/TEXT);
 - SPICE-style `.cir` / `.net` netlists (connectivity);
-- project-native intermediary YAML Source view (editable in the playground through a strict `circuit-interchange/v1` parser; LLM-friendly, schema name intentionally rename-safe);
+- project-native `.vdsp` Source format (strict `circuit-interchange/v1` YAML; LLM-friendly, schema name intentionally rename-safe);
 - later KiCad schematic/netlist formats;
 - later tscircuit / Circuit JSON interop for PCB and web preview workflows.
 
@@ -46,21 +46,23 @@ source file (.schx / .cir / etc.)
   -> parsed source-specific AST
   -> normalized circuit document model
   -> editor operations
-  -> optional serialized Source/interchange YAML view
+  -> optional serialized Source `.vdsp` view
   -> preview/export adapters
 ```
 
-## Intermediary Interchange Format
+## `.vdsp` Interchange Format
 
-The project needs an intermediary YAML Source view so `.schx`, `.asc`, `.cir`, `.net`, and future formats can be inspected and lightly edited through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Keep using a neutral versioned schema id such as `circuit-interchange/v1`.
+The project-owned `.vdsp` format is the YAML Source view for `.schx`, `.asc`, `.cir`, `.net`, and future formats. It lets users inspect and lightly edit the normalized document through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Keep using a neutral versioned schema id such as `circuit-interchange/v1`.
 
-The in-memory source of truth remains `CircuitDocument`; the intermediary YAML is a serialized, LLM-friendly wrapper around that model plus source metadata. It should be easy for humans and LLMs to read, diff, inspect, edit, and discuss.
+The in-memory source of truth remains `CircuitDocument`; `.vdsp` is a serialized, LLM-friendly YAML wrapper around that model plus source metadata. It should be easy for humans and LLMs to read, diff, inspect, edit, and discuss.
 
 Current implementation status:
 
 - `src/formats/interchange/serializer.ts` exports `serializeInterchangeYaml(doc, options)` through the headless API.
 - `src/formats/interchange/parser.ts` exports `parseInterchangeYaml(source)` through the headless API. It is a strict parser for the project serializer's YAML subset, not a general YAML import surface.
-- The playground top tab row includes **Source**, which shows the current edited `CircuitDocument` as intermediary YAML and can apply valid `circuit-interchange/v1` edits back into editor state.
+- `src/formats/document.ts` exports `.vdsp` helpers: `parseVdspCircuitDocument`, `serializeVdspCircuitDocument`, `parseCircuitDocumentFile`, `detectCircuitDocumentFileFormat`, and filename helpers.
+- The playground top tab row includes **Source**, which shows the current edited `CircuitDocument` as copyable generated text. Its format dropdown defaults to `.vdsp` and can switch to `.schx` or `.cir`.
+- The previous **Raw .schx** tab was removed; Source is now the single copy/paste conversion surface.
 - The YAML view uses `schema: circuit-interchange/v1`, `metadata`, `source`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
 - `tests/formats/interchange/fixture-coverage.test.ts` verifies current serialization coverage across all supported fixtures in the workspace.
 - `tests/formats/interchange/parser.test.ts` verifies the strict YAML parser can rebuild a `CircuitDocument` from the project's own serialized shape and preserves string-valued scalar properties.
@@ -77,12 +79,12 @@ Current format shape:
 
 Do not use compact tuple-heavy data for the persisted interchange format. Prefer self-describing objects like `{ "x": 120, "y": 80 }` over `[120, 80]`, and `{ "componentId": "R1", "terminalName": "a" }` over `"R1:a"` except in derived indexes.
 
-The interchange YAML is an inspection/edit/export artifact, not the canonical model and not a source-format round-trip path. Do not add source-format regeneration or cross-format conversion requirements unless the user explicitly reopens that scope. If future target-format exporters are added, they should consume `CircuitDocument` directly, with the YAML used as an audit/debug/source-edit view.
+`.vdsp` is an inspection/edit/export artifact, not the canonical model and not a source-format round-trip path. Do not add source-format regeneration or cross-format conversion requirements unless the user explicitly reopens that scope. If future target-format exporters are added, they should consume `CircuitDocument` directly, with `.vdsp` used as an audit/debug/source-edit view.
 
 ```text
 .schx / .asc / .cir / .net
   -> CircuitDocument
-  -> interchange YAML
+  -> .vdsp
   -> CircuitDocument (strict Source editor parser only)
 ```
 
@@ -171,21 +173,21 @@ Surface unsupported keywords (`WINDOW`, `LINE`, `RECTANGLE`, etc.) as warnings, 
 
 ### Interchangeability Review
 
-Current conversion and Source YAML confidence by format:
+Current conversion and Source `.vdsp` confidence by format:
 
-| Format | Import status | Export status | Source YAML / conversion notes |
+| Format | Import status | Export status | Source `.vdsp` / conversion notes |
 | --- | --- | --- | --- |
 | `.schx` LiveSPICE | Implemented for graphical symbols, wires, labels, rotations/flips, properties, root attributes | Implemented | Best current round-trip target. Risk remains around unknown element internals and unsupported source-specific component data. |
 | `.asc` LTspice | Implemented for common schematic records and catalogued symbols | Not yet implemented | Import can preserve semantic layout, but ignored drawing records and missing `.asy` pin geometry can make strict round-trip impossible until an ASC serializer and symbol-file support exist. |
 | `.cir` / `.net` SPICE | Implemented for flat common primitives and preserved directives | Implemented through `toNetlistView()` | Connectivity-first only. Comments, original ordering details, unsupported subcircuit instances, and graphical layout are lossy. |
-| Interchange YAML | Strict `circuit-interchange/v1` YAML parser implemented for the project's serialized shape | `CircuitDocument -> YAML` serialization implemented | Current fixtures serialize to YAML for Source-tab coverage. YAML edits can rebuild `CircuitDocument`, but this is not source-format regeneration. |
+| `.vdsp` | Strict `circuit-interchange/v1` YAML parser implemented for the project's serialized shape | `CircuitDocument -> .vdsp` serialization implemented | Current fixtures serialize to `.vdsp` for Source-tab coverage. `.vdsp` edits can rebuild `CircuitDocument`, but this is not source-format regeneration. |
 
 Cross-format conversion rules:
 
 - `.schx` ↔ `.asc`: target semantic schematic interchange, but do not promise exact visual or source-file round-trip until both serializers and fixture baselines exist. LTspice symbol-path models and LiveSPICE component `_Type` values need explicit source metadata.
 - Graphical formats (`.schx`, `.asc`) → `.cir` / `.net`: preserve electrical connectivity, component values, models, and directives where supported. Expect loss of layout, labels that are not electrical nets, unsupported view-only components, and source-specific visual metadata.
 - `.cir` / `.net` → graphical formats: generate deterministic layout and preserve connectivity, but mark the layout as synthesized. Never imply that a generated schematic is the original drawing.
-- Any format → interchange YAML: this is an inspection/edit path for `CircuitDocument`. Do not require `interchange YAML -> source format` or `interchange YAML -> other format`.
+- Any format → `.vdsp`: this is an inspection/edit path for `CircuitDocument`. Do not require `.vdsp -> source format` or `.vdsp -> other format`.
 - Cross-format conversion, if implemented later, should go through `CircuitDocument` and target-specific serializers directly, not through YAML as a source-format bridge.
 
 ### Multi-format dispatcher
@@ -198,17 +200,17 @@ Cross-format conversion rules:
 
 Use the dispatcher in playground / consumer code rather than calling format-specific parsers directly, so adding a new format only needs a new branch in one place.
 
-The interchange YAML serializer/parser does not require a `CircuitFormat` dispatcher branch because it is not a source file format. Keep it under `src/formats/interchange/` as a Source/export/edit adapter around `CircuitDocument`.
+The strict YAML serializer/parser lives under `src/formats/interchange/`; the project-owned file format helpers in `src/formats/document.ts` expose that shape as `.vdsp`. Keep source-format dispatch (`.schx`, `.asc`, `.cir`, `.net`) separate from `.vdsp` document-file dispatch.
 
 ### Fixture Corpus Strategy
 
-Fixture coverage is the acceptance target for parser compatibility, source-format export where supported, and Source YAML coverage. Collect fixtures by format and by purpose:
+Fixture coverage is the acceptance target for parser compatibility, source-format export where supported, and Source `.vdsp` coverage. Collect fixtures by format and by purpose:
 
 - **Minimal fixtures**: small hand-written circuits that isolate one parser feature or edge case.
 - **Real pedal fixtures**: complete guitar-pedal schematics that exercise common audio components and naming conventions.
 - **Stress fixtures**: larger amp, tone-stack, filter, and utility circuits that reveal compatibility gaps without shifting product scope away from pedals.
 - **Round-trip baselines**: expected parse → serialize → parse invariants for source formats that support export.
-- **Source YAML baselines**: source → `CircuitDocument` → interchange YAML checks, plus focused interchange YAML → `CircuitDocument` parser checks. Coverage should focus on explicit node ids, component kind, terminal names, values, models, directives, diagnostics, and string-valued scalar properties.
+- **Source `.vdsp` baselines**: source → `CircuitDocument` → `.vdsp` checks, plus focused `.vdsp` → `CircuitDocument` parser checks. Coverage should focus on explicit node ids, component kind, terminal names, values, models, directives, diagnostics, and string-valued scalar properties.
 
 Every external fixture corpus must include provenance next to the files: source URL, license, date vendored, encoding if non-UTF-8, known unsupported symbols/components, and why the corpus matters. Do not add downloaded generic EDA symbol packs as fixture substitutes; fixture files should represent real circuits or targeted parser cases.
 
@@ -217,17 +219,17 @@ Current and target fixture organization:
 - `tests/fixtures/schx/`: hand-written LiveSPICE fixtures plus the vendored upstream LiveSPICE example corpus.
 - `tests/fixtures/asc/`: small LTspice fixtures; accepted pedal corpora should live under named subdirectories such as `ltspice-guitar-pedals/` with a README/provenance file.
 - `tests/fixtures/cir/`: hand-written SPICE fixtures; needs larger pedal-style `.cir` / `.net` examples with `.model`, `.subckt`, `.include`, and parameter coverage.
-- Future `tests/fixtures/interchange/`: optional expected YAML snapshots or focused examples for the Source tab and strict parser.
+- Future `tests/fixtures/interchange/`: optional expected `.vdsp` YAML snapshots or focused examples for the Source tab and strict parser.
 
 Fixture tests should cover five layers:
 
 1. Parser smoke: every vendored fixture parses without crashes.
 2. Unsupported inventory: unknown symbols/components are either fixed or explicitly allowlisted.
 3. Same-format round-trip: component counts, wire counts, terminal names, values, directives, and resolved nodes remain stable.
-4. Source YAML coverage: source → `CircuitDocument` → interchange YAML succeeds for every supported fixture, with no unresolved terminal nodes; focused parser tests cover YAML → `CircuitDocument`.
+4. Source `.vdsp` coverage: source → `CircuitDocument` → `.vdsp` succeeds for every supported fixture, with no unresolved terminal nodes; focused parser tests cover `.vdsp` → `CircuitDocument`.
 5. Cross-format semantics: only needed for future target serializers; do not route this through YAML import.
 
-Current interchange coverage satisfies broad serialization coverage for layer 4, and focused parser tests cover the editable Source YAML path. Add more parser fixtures only when new YAML shapes or edge cases are introduced.
+Current interchange coverage satisfies broad serialization coverage for layer 4, and focused parser tests cover the editable Source `.vdsp` path. Add more parser fixtures only when new YAML shapes or edge cases are introduced.
 
 ### tscircuit
 
@@ -444,9 +446,9 @@ Success criteria:
 - A pedal-style LTspice `.asc` (input/output jacks, ground, R/C/L, diode/BJT) imports with correct components, wires, and electrical nodes.
 - Unknown LTspice symbols surface as `unsupported` with `sourceTypeName` preserved, never silently dropped.
 
-### Phase 4c: Editable Intermediary YAML + Fixture Matrix
+### Phase 4c: Editable `.vdsp` Source + Fixture Matrix
 
-Goal: define a project-native YAML Source view that turns any parsed `CircuitDocument` from `.schx`, `.asc`, `.cir`, `.net`, and future formats into an explicit, LLM-friendly representation, and allows strict `circuit-interchange/v1` edits to rebuild `CircuitDocument`. Back-conversion to source/fixture formats is not required.
+Goal: define the project-native `.vdsp` Source view that turns any parsed `CircuitDocument` from `.schx`, `.asc`, `.cir`, `.net`, and future formats into an explicit, LLM-friendly YAML representation, and allows strict `circuit-interchange/v1` edits to rebuild `CircuitDocument`. Back-conversion to source/fixture formats is not required.
 
 Tasks:
 
@@ -454,7 +456,8 @@ Tasks:
 - [x] Add YAML serialization with a persisted schema id that does not depend on the temporary `circuit-preview-ir` codename.
 - [x] Implement first-pass `CircuitDocument -> interchange YAML` serialization with explicit node ids derived from `resolveConnectivity()` (`serializeInterchangeYaml`).
 - [x] Implement strict `interchange YAML -> CircuitDocument` parsing for the project's own serialized shape (`parseInterchangeYaml`).
-- [x] Show editable YAML in the playground **Source** tab from the current edited `CircuitDocument`, with Apply dispatching an undoable document replacement.
+- [x] Show copyable generated source text in the playground **Source** tab from the current edited `CircuitDocument`, with a format selector that defaults to `.vdsp` and can switch to `.schx` or `.cir`.
+- [x] Remove the separate Raw `.schx` tab so Source is the single copy/paste conversion surface.
 - [ ] Add focused YAML output tests for edge cases: unsupported components, parser diagnostics, named wires/labels, source metadata, directives, unitless quantities, and string-valued properties that are not parseable quantities.
 - [x] Add focused YAML parser tests for metadata edits, components, terminals, wires, schema rejection, and numeric-looking scalar properties.
 - [x] Add broad fixture serialization coverage: every supported fixture currently visible under `tests/fixtures` serializes to interchange YAML without unresolved terminal nodes.
@@ -462,10 +465,10 @@ Tasks:
 
 Success criteria:
 
-- The interchange YAML represents every current `CircuitDocument` field needed for LLM inspection plus derived nodes and source metadata.
-- Every supported fixture can be serialized to YAML with stable schema id, component data, wire data, diagnostics, and no unresolved terminal nodes.
-- The playground Source tab reflects the current edited document, not only the original fixture text, and can apply valid Source YAML edits back to `CircuitDocument`.
-- There is no requirement to convert YAML back to `.schx`, `.asc`, `.cir`, `.net`, or any fixture source format.
+- `.vdsp` represents every current `CircuitDocument` field needed for LLM inspection plus derived nodes and source metadata.
+- Every supported fixture can be serialized to `.vdsp` with stable schema id, component data, wire data, diagnostics, and no unresolved terminal nodes.
+- The playground Source tab reflects the current edited document, not only the original fixture text, and can show copyable `.schx`, `.vdsp`, or `.cir` output.
+- There is no requirement to convert `.vdsp` back to `.schx`, `.asc`, `.cir`, `.net`, or any fixture source format.
 
 ### Phase 5: Preview Surface
 

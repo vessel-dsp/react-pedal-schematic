@@ -4,12 +4,12 @@ import {
     canRedo,
     canUndo,
     createEditorState,
-    detectCircuitFormat,
     findWireChain,
+    parseCircuitDocumentFile,
     parseCircuitDocument,
-    parseInterchangeYaml,
     serializeSchx,
-    serializeInterchangeYaml,
+    serializeSpiceNetlist,
+    serializeVdspCircuitDocument,
     toNetlistView,
     validateDocument,
     VERSION,
@@ -44,6 +44,13 @@ import canvasDotBg from '@/assets/canvas-dot-bg.png';
 type EditorReducer = (state: EditorState, command: EditorCommand) => EditorState;
 export type SelectedSchematicComponent = EditorState['document']['components'][number] | null;
 type SelectedComponent = SelectedSchematicComponent;
+export type SourceOutputFormat = 'schx' | 'vdsp' | 'spice';
+
+const sourceOutputFormats: ReadonlyArray<Readonly<{ value: SourceOutputFormat; label: string }>> = [
+    { value: 'vdsp', label: '.vdsp' },
+    { value: 'schx', label: '.schx' },
+    { value: 'spice', label: '.cir' },
+];
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
 const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
@@ -78,16 +85,14 @@ export function App(): React.ReactElement {
     );
 }
 
-function FixtureSession(props: {
+export function FixtureSession(props: {
     fixtureId: string;
     onFixtureChange: (id: string) => void;
 }): React.ReactElement {
     const { fixtureId, onFixtureChange } = props;
     const fixture = findFixture(fixtureId);
     const initialDocument = useMemo(
-        () => (fixture
-            ? parseCircuitDocument(fixture.source, { filename: fixture.filename })
-            : parseCircuitDocument('<?xml version="1.0"?><Schematic></Schematic>', { format: 'schx' })),
+        () => parseFixtureDocument(fixture),
         [fixture],
     );
 
@@ -120,6 +125,14 @@ function FixtureSession(props: {
             selectedComponent={selectedComponent}
         />
     );
+}
+
+export function parseFixtureDocument(fixture: ReturnType<typeof findFixture>): EditorState['document'] {
+    if (fixture === undefined) {
+        return parseCircuitDocument('<?xml version="1.0"?><Schematic></Schematic>', { format: 'schx' });
+    }
+
+    return parseCircuitDocumentFile(fixture.source, { filename: fixture.filename });
 }
 
 type PlaygroundShellProps = Readonly<{
@@ -220,7 +233,6 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         <TabsTrigger value="warnings">
                             Warnings <IssueBadge count={diagnostics.count} />
                         </TabsTrigger>
-                        <TabsTrigger value="raw">{rawTabLabel(fixture)}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="schematic" className="m-0">
@@ -240,7 +252,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                     </TabsContent>
 
                     <TabsContent value="source" className="m-0" forceMount>
-                        <SourceYamlPanel fixture={fixture} document={document} dispatch={dispatch} />
+                        <SourcePanel fixture={fixture} document={document} />
                     </TabsContent>
 
                     <TabsContent value="warnings" className="m-0" forceMount>
@@ -251,9 +263,6 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         />
                     </TabsContent>
 
-                    <TabsContent value="raw" className="m-0" forceMount>
-                        <RawSourcePanel fixture={fixture} document={document} dispatch={dispatch} />
-                    </TabsContent>
                 </Tabs>
             </main>
         </div>
@@ -300,209 +309,90 @@ function IntegrationDocs(): React.ReactElement {
     );
 }
 
-function SourceYamlPanel(props: {
+function SourcePanel(props: {
     fixture: ReturnType<typeof findFixture>;
     document: EditorState['document'];
-    dispatch: React.Dispatch<EditorCommand>;
 }): React.ReactElement {
-    const { fixture, document, dispatch } = props;
-    const source = sourceYaml(fixture, document);
-    const [draft, setDraft] = useState(source);
-    const [parseError, setParseError] = useState<string | null>(null);
-
-    useEffect(() => {
-        setDraft(source);
-        setParseError(null);
-    }, [source]);
-
-    const canApply = draft !== source;
+    const { fixture, document } = props;
+    const [sourceFormat, setSourceFormat] = useState<SourceOutputFormat>('vdsp');
+    const source = useMemo(
+        () => sourceTextForFormat(sourceFormat, fixture, document),
+        [sourceFormat, fixture, document],
+    );
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">Source</CardTitle>
-                <Button
-                    type="button"
-                    data-source-yaml-apply="true"
-                    disabled={!canApply}
-                    onClick={() => {
-                        try {
-                            const nextDocument = parseInterchangeYaml(draft);
-                            dispatch({ type: 'replace-document', document: nextDocument });
-                            setParseError(null);
-                        } catch (error: unknown) {
-                            setParseError(errorMessage(error));
-                        }
-                    }}
-                >
-                    Apply
-                </Button>
-            </CardHeader>
-            <CardContent className="space-y-2">
-                <Label htmlFor="source-yaml" className="sr-only">Source YAML</Label>
-                <textarea
-                    id="source-yaml"
-                    data-source-yaml-editor="true"
-                    value={draft}
-                    spellCheck={false}
-                    aria-invalid={parseError !== null}
-                    onChange={(event) => {
-                        setDraft(event.currentTarget.value);
-                        if (parseError !== null) {
-                            setParseError(null);
-                        }
-                    }}
-                    className="min-h-140 w-full resize-y rounded-md border border-input bg-muted p-4 font-mono text-xs text-muted-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40"
-                />
-                {parseError !== null && (
-                    <p data-source-yaml-error="true" className="text-sm text-destructive">
-                        {parseError}
-                    </p>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-function RawSourcePanel(props: {
-    fixture: ReturnType<typeof findFixture>;
-    document: EditorState['document'];
-    dispatch: React.Dispatch<EditorCommand>;
-}): React.ReactElement {
-    const { fixture, document, dispatch } = props;
-    const source = rawSource(fixture, document);
-    const [draft, setDraft] = useState(source);
-    const [parseError, setParseError] = useState<string | null>(null);
-    const isSchx = fixture !== undefined && detectCircuitFormat(fixture.filename) === 'schx';
-
-    useEffect(() => {
-        setDraft(source);
-        setParseError(null);
-    }, [source]);
-
-    if (!isSchx) {
-        return (
-            <Card>
-                <CardContent className="p-0">
-                    <pre
-                        data-raw-source-readonly="true"
-                        className="max-h-140 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md bg-muted p-4 font-mono text-xs text-muted-foreground"
+                <div className="flex items-center gap-2" data-source-format-value={labelForSourceFormat(sourceFormat)}>
+                    <Label htmlFor="source-format" className="sr-only">Source format</Label>
+                    <Select
+                        value={sourceFormat}
+                        onValueChange={(value) => {
+                            if (isSourceOutputFormat(value)) {
+                                setSourceFormat(value);
+                            }
+                        }}
                     >
-                        {source}
-                    </pre>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    const canApply = draft !== source;
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle className="text-base">Raw .schx</CardTitle>
-                <Button
-                    type="button"
-                    data-raw-schx-apply="true"
-                    disabled={!canApply}
-                    onClick={() => {
-                        try {
-                            const nextDocument = parseCircuitDocument(draft, {
-                                format: 'schx',
-                                filename: fixture.filename,
-                            });
-                            dispatch({ type: 'replace-document', document: nextDocument });
-                            setParseError(null);
-                        } catch (error: unknown) {
-                            setParseError(errorMessage(error));
-                        }
-                    }}
-                >
-                    Apply
-                </Button>
+                        <SelectTrigger id="source-format" data-source-format-select="true" className="w-28">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {sourceOutputFormats.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-                <Label htmlFor="raw-schx-source" className="sr-only">Raw .schx source</Label>
+            <CardContent>
+                <Label htmlFor="source-output" className="sr-only">Converted source</Label>
                 <textarea
-                    id="raw-schx-source"
-                    data-raw-schx-editor="true"
-                    value={draft}
+                    id="source-output"
+                    data-source-output-view="true"
+                    value={source}
+                    readOnly
                     spellCheck={false}
-                    aria-invalid={parseError !== null}
-                    onChange={(event) => {
-                        setDraft(event.currentTarget.value);
-                        if (parseError !== null) {
-                            setParseError(null);
-                        }
-                    }}
                     className="min-h-140 w-full resize-y rounded-md border border-input bg-muted p-4 font-mono text-xs text-muted-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40"
                 />
-                {parseError !== null && (
-                    <p data-raw-schx-error="true" className="text-sm text-destructive">
-                        {parseError}
-                    </p>
-                )}
             </CardContent>
         </Card>
     );
 }
 
-function errorMessage(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    return String(error);
+function isSourceOutputFormat(value: string): value is SourceOutputFormat {
+    return sourceOutputFormats.some((option) => option.value === value);
 }
 
-function rawTabLabel(fixture: ReturnType<typeof findFixture>): string {
-    if (fixture === undefined) {
-        return 'Raw source';
-    }
-    const format = detectCircuitFormat(fixture.filename);
-    if (format === 'schx') {
-        return 'Raw .schx';
-    }
-    if (format === 'ltspice-asc') {
-        return 'Raw .asc';
-    }
-    if (format === 'spice') {
-        return 'Raw .cir';
-    }
-    return 'Raw source';
+function labelForSourceFormat(format: SourceOutputFormat): string {
+    return sourceOutputFormats.find((option) => option.value === format)?.label ?? '.vdsp';
 }
 
-function rawSource(
+export function sourceTextForFormat(
+    format: SourceOutputFormat,
+    fixture: ReturnType<typeof findFixture>,
+    document: EditorState['document'],
+): string {
+    switch (format) {
+        case 'schx':
+            return serializeSchx(document);
+        case 'vdsp':
+            return sourceVdsp(fixture, document);
+        case 'spice':
+            return serializeSpiceNetlist(document);
+    }
+}
+
+function sourceVdsp(
     fixture: ReturnType<typeof findFixture>,
     document: EditorState['document'],
 ): string {
     if (fixture === undefined) {
-        return '';
-    }
-    if (detectCircuitFormat(fixture.filename) === 'schx') {
-        return serializeSchx(document);
-    }
-    return fixture.source;
-}
-
-function sourceYaml(
-    fixture: ReturnType<typeof findFixture>,
-    document: EditorState['document'],
-): string {
-    if (fixture === undefined) {
-        return serializeInterchangeYaml(document);
+        return serializeVdspCircuitDocument(document);
     }
 
-    const sourceFormat = detectCircuitFormat(fixture.filename);
-    if (sourceFormat === null) {
-        return serializeInterchangeYaml(document, {
-            filename: fixture.filename,
-            sourceFormat: 'unknown',
-        });
-    }
-
-    return serializeInterchangeYaml(document, {
+    return serializeVdspCircuitDocument(document, {
         filename: fixture.filename,
-        sourceFormat,
     });
 }
 

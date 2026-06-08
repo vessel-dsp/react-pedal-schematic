@@ -1,0 +1,100 @@
+schema: circuit-interchange/v1
+metadata:
+  name: RC Low-Pass Filter
+  description: Hand-written minimal RC circuit in .vdsp format.
+  partNumber: ""
+source:
+  format: interchange
+  filename: simple-rc-vdsp.vdsp
+components:
+  - id: R1
+    kind: resistor
+    name: R1
+    origin:
+      x: 0
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: a
+        node: 1
+        position:
+          x: -10
+          y: 0
+      - name: b
+        node: 2
+        position:
+          x: 10
+          y: 0
+    properties:
+      Resistance:
+        raw: "1 kΩ"
+        value: 1000
+        unit: Ω
+  - id: C1
+    kind: capacitor
+    name: C1
+    origin:
+      x: 20
+      y: 10
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: a
+        node: 2
+        position:
+          x: 20
+          y: 0
+      - name: b
+        node: 0
+        position:
+          x: 20
+          y: 20
+    properties:
+      Capacitance:
+        raw: "100 nF"
+        value: 100e-9
+        unit: F
+  - id: GND1
+    kind: ground
+    name: GND1
+    origin:
+      x: 20
+      y: 30
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: t
+        node: 0
+        position:
+          x: 20
+          y: 30
+    properties: {}
+nodes:
+  - id: 0
+    name: GND
+    isGround: true
+    members:
+      - componentId: C1
+        terminalName: b
+      - componentId: GND1
+        terminalName: t
+  - id: 1
+    name: ""
+    isGround: false
+    members:
+      - componentId: R1
+        terminalName: a
+  - id: 2
+    name: ""
+    isGround: false
+    members:
+      - componentId: R1
+        terminalName: b
+      - componentId: C1
+        terminalName: a
+wires: []
+directives: []
+diagnostics: []
+rawAttributes:
+  format: interchange

@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { detectCircuitFormat, parseCircuitDocument } from '../../src/formats/document';
+import {
+    detectCircuitFormat,
+    parseCircuitDocument,
+    detectCircuitDocumentFileFormat,
+    isVdspFilename,
+    vdspFilenameFromName,
+    parseCircuitDocumentFile,
+    serializeVdspCircuitDocument,
+    vdspFileExtension,
+} from '../../src/formats/document';
+import { EMPTY_DOCUMENT } from '../../src/model/types';
 
 const SIMPLE_ASC_URL = new URL('../fixtures/asc/simple-rc.asc', import.meta.url);
 
@@ -23,5 +33,116 @@ describe('circuit format dispatch', () => {
 
     test('throws on unsupported file extensions', () => {
         expect(() => parseCircuitDocument('', { filename: 'notes.txt' })).toThrow(/unsupported circuit format/i);
+    });
+});
+
+describe('vdsp file format', () => {
+    test('detects .vdsp extension', () => {
+        expect(vdspFileExtension).toBe('.vdsp');
+    });
+
+    test('isVdspFilename identifies .vdsp files', () => {
+        expect(isVdspFilename('preset.vdsp')).toBe(true);
+        expect(isVdspFilename('PRESET.VDSP')).toBe(true);
+        expect(isVdspFilename('  preset.vdsp  ')).toBe(true);
+        expect(isVdspFilename('preset.yaml')).toBe(false);
+        expect(isVdspFilename('preset.schx')).toBe(false);
+    });
+
+    test('vdspFilenameFromName slugifies names', () => {
+        expect(vdspFilenameFromName('Keeley Compressor Plus')).toBe('keeley-compressor-plus.vdsp');
+        expect(vdspFilenameFromName('Boss DS-1')).toBe('boss-ds-1.vdsp');
+        expect(vdspFilenameFromName('Custom  Pedal')).toBe('custom-pedal.vdsp');
+        expect(vdspFilenameFromName('Café')).toBe('cafe.vdsp');
+        expect(vdspFilenameFromName('---___')).toBe('untitled-preset.vdsp');
+        expect(vdspFilenameFromName('')).toBe('untitled-preset.vdsp');
+    });
+
+    test('detectCircuitDocumentFileFormat detects all formats', () => {
+        expect(detectCircuitDocumentFileFormat('preset.vdsp')).toBe('vdsp');
+        expect(detectCircuitDocumentFileFormat('circuit.yaml')).toBe('yaml');
+        expect(detectCircuitDocumentFileFormat('circuit.yml')).toBe('yaml');
+        expect(detectCircuitDocumentFileFormat('circuit.schx')).toBe('schx');
+        expect(detectCircuitDocumentFileFormat('circuit.asc')).toBe('ltspice-asc');
+        expect(detectCircuitDocumentFileFormat('circuit.cir')).toBe('spice');
+        expect(detectCircuitDocumentFileFormat('circuit.net')).toBe('spice');
+        expect(detectCircuitDocumentFileFormat('README.md')).toBeNull();
+    });
+
+    test('parseCircuitDocumentFile parses .vdsp via interchange YAML', async () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Test Circuit
+  description: ''
+  partNumber: ''
+source:
+  format: interchange
+  filename: test.vdsp
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+        const doc = parseCircuitDocumentFile(yaml, { filename: 'test.vdsp' });
+        expect(doc.metadata.name).toBe('Test Circuit');
+        expect(doc.components).toHaveLength(0);
+    });
+
+    test('parseCircuitDocumentFile parses .yaml via interchange YAML', async () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Test Circuit
+  description: ''
+  partNumber: ''
+source: {}
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+        const doc = parseCircuitDocumentFile(yaml, { filename: 'test.yaml' });
+        expect(doc.metadata.name).toBe('Test Circuit');
+    });
+
+    test('parseCircuitDocumentFile delegates to parseCircuitDocument for legacy formats', async () => {
+        const source = await Bun.file(SIMPLE_ASC_URL).text();
+        const doc = parseCircuitDocumentFile(source, { filename: 'simple-rc.asc' });
+
+        expect(doc.rawAttributes.format).toBe('ltspice-asc');
+        expect(doc.components.some((component) => component.id === 'R1' && component.kind === 'resistor')).toBe(true);
+    });
+
+    test('serializeVdspCircuitDocument sets source.format to interchange', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'Test Preset' },
+        };
+        const yaml = serializeVdspCircuitDocument(doc, { filename: 'test.vdsp' });
+        expect(yaml).toContain('source:');
+        expect(yaml).toContain("format: interchange");
+        expect(yaml).toContain('filename: test.vdsp');
+    });
+
+    test('serializeVdspCircuitDocument normalizes filename to .vdsp', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'My Preset' },
+        };
+        const yaml1 = serializeVdspCircuitDocument(doc, { filename: 'my-preset.yaml' });
+        expect(yaml1).toContain('filename: my-preset.vdsp');
+
+        const yaml2 = serializeVdspCircuitDocument(doc, { filename: 'my-preset' });
+        expect(yaml2).toContain('filename: my-preset.vdsp');
+    });
+
+    test('serializeVdspCircuitDocument uses name for missing filename', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'Boss DS-1' },
+        };
+        const yaml = serializeVdspCircuitDocument(doc);
+        expect(yaml).toContain('filename: boss-ds-1.vdsp');
     });
 });

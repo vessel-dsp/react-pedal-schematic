@@ -2,13 +2,27 @@ import type { CircuitDocument } from '../model/types';
 import { parseLtspiceAsc } from './ltspice/parser';
 import { parseSchx } from './schx/parser';
 import { parseSpiceNetlist } from './spice/parser';
+import { parseInterchangeYaml } from './interchange/parser';
+import { serializeInterchangeYaml } from './interchange/serializer';
 
 export type CircuitFormat = 'schx' | 'spice' | 'ltspice-asc';
+
+export type CircuitDocumentFileFormat = CircuitFormat | 'vdsp' | 'yaml';
 
 export type ParseCircuitDocumentOptions = Readonly<{
     filename?: string;
     format?: CircuitFormat;
 }>;
+
+export type ParseCircuitDocumentFileOptions = Readonly<{
+    filename: string;
+}>;
+
+export type SerializeVdspCircuitDocumentOptions = Readonly<{
+    filename?: string;
+}>;
+
+export const vdspFileExtension = '.vdsp';
 
 export function detectCircuitFormat(filename: string): CircuitFormat | null {
     const lower = filename.toLowerCase();
@@ -63,4 +77,72 @@ function detectFormat(source: string, filename: string | undefined): CircuitForm
         return 'spice';
     }
     return null;
+}
+
+export function isVdspFilename(filename: string): boolean {
+    return filename.trim().toLowerCase().endsWith(vdspFileExtension);
+}
+
+export function detectCircuitDocumentFileFormat(filename: string): CircuitDocumentFileFormat | null {
+    const lower = filename.trim().toLowerCase();
+    if (lower.endsWith('.vdsp')) {
+        return 'vdsp';
+    }
+    if (lower.endsWith('.yaml') || lower.endsWith('.yml')) {
+        return 'yaml';
+    }
+    return detectCircuitFormat(filename);
+}
+
+export function vdspFilenameFromName(name: string): string {
+    const slug = name
+        .normalize('NFKD')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-');
+    return `${slug || 'untitled-preset'}${vdspFileExtension}`;
+}
+
+export function parseVdspCircuitDocument(source: string): CircuitDocument {
+    return parseInterchangeYaml(source);
+}
+
+export function parseCircuitDocumentFile(
+    source: string,
+    options: ParseCircuitDocumentFileOptions,
+): CircuitDocument {
+    const format = detectCircuitDocumentFileFormat(options.filename);
+    if (format === null) {
+        throw new Error(`unsupported circuit document file extension: ${options.filename}`);
+    }
+    if (format === 'vdsp' || format === 'yaml') {
+        return parseInterchangeYaml(source);
+    }
+    return parseCircuitDocument(source, {
+        filename: options.filename,
+        format,
+    });
+}
+
+export function serializeVdspCircuitDocument(
+    document: CircuitDocument,
+    options: SerializeVdspCircuitDocumentOptions = {},
+): string {
+    return serializeInterchangeYaml(document, {
+        sourceFormat: 'interchange',
+        filename: normalizeVdspFilename(options.filename, document.metadata.name),
+    });
+}
+
+function normalizeVdspFilename(filename: string | undefined, fallbackName: string): string {
+    const trimmed = filename?.trim() ?? '';
+    if (trimmed.length === 0) {
+        return vdspFilenameFromName(fallbackName);
+    }
+    if (isVdspFilename(trimmed)) {
+        return trimmed;
+    }
+    const withoutExtension = trimmed.replace(/\.[^.\\\/]+$/, '');
+    return `${withoutExtension || 'untitled-preset'}${vdspFileExtension}`;
 }
