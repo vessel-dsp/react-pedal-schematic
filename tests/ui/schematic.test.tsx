@@ -187,6 +187,37 @@ describe('SchematicView rendering — LiveSPICE microblocks', () => {
         expect(markup).not.toContain('Hanging wire endpoint');
         expect(markup).not.toContain('stroke="#ef4444"');
     });
+
+    test('renders audio-engine runtime descriptors as connected opaque IC blocks', () => {
+        const assembly = 'Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
+        const xml = `<?xml version="1.0" encoding="utf-8"?>
+<Schematic Name="Boss CE-5-style Chorus" Description="" PartNumber="">
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="-300,140">
+    <Component _Type="Circuit.Input, ${assembly}" Name="V1" />
+  </Element>
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="0,140">
+    <Component _Type="Circuit.MicroBlockDelayChip, ${assembly}" Profile="BbdMn3007Style" StereoOutputMode="WetDry" Name="U1" />
+  </Element>
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="200,140">
+    <Component _Type="Circuit.MicroBlockReverb, ${assembly}" Profile="hall-style" StereoOutputMode="Spread" Name="U2" />
+  </Element>
+  <Element Type="Circuit.Symbol, ${assembly}" Rotation="0" Flip="false" Position="400,140">
+    <Component _Type="Circuit.Speaker, ${assembly}" Name="S1" />
+  </Element>
+  <Element Type="Circuit.Wire, ${assembly}" A="-300,120" B="0,120" />
+  <Element Type="Circuit.Wire, ${assembly}" A="0,160" B="200,120" />
+  <Element Type="Circuit.Wire, ${assembly}" A="200,160" B="400,120" />
+</Schematic>`;
+        const document = parseSchx(xml);
+
+        const markup = renderToStaticMarkup(createElement(SchematicView, { document }));
+
+        expect(markup).toContain('data-component-id="U1" data-component-kind="ic"');
+        expect(markup).toContain('data-component-id="U2" data-component-kind="ic"');
+        expect(markup).not.toContain('data-component-id="U1" data-component-kind="unsupported"');
+        expect(markup).not.toContain('Hanging wire endpoint');
+        expect(markup).not.toContain('stroke="#ef4444"');
+    });
 });
 
 describe('SchematicView rendering — component cards', () => {

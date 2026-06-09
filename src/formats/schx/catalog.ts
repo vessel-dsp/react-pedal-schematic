@@ -167,6 +167,11 @@ const MICROBLOCK_STAGE_TERMINALS: readonly SchxTerminalLocal[] = [
     { name: 'out', local: { x: 0, y: -20 } },
 ];
 
+const RUNTIME_DESCRIPTOR_TERMINALS: readonly SchxTerminalLocal[] = [
+    { name: 'input', local: { x: 0, y: 20 } },
+    { name: 'output', local: { x: 0, y: -20 } },
+];
+
 const MICROBLOCK_STAGE_QUANTITY_PROPS: readonly string[] = [
     'ClipThreshold',
     'InputHighpassHz',
@@ -197,6 +202,52 @@ const MICROBLOCK_STAGE_QUANTITY_PROPS: readonly string[] = [
     'ModDepth',
     'ModRateHz',
     'SampleRateHz',
+];
+
+const RUNTIME_DESCRIPTOR_QUANTITY_PROPS: readonly string[] = [
+    ...MICROBLOCK_STAGE_QUANTITY_PROPS,
+    'MinDelayMs',
+    'MaxDelayMs',
+    'DelayMs',
+    'PreDelayMs',
+    'Decay',
+    'Damping',
+    'Size',
+    'Tone',
+    'ModDepthMs',
+    'MinModDepthMs',
+    'MaxModDepthMs',
+    'ModRateHz',
+    'MinModRateHz',
+    'MaxModRateHz',
+    'InputDrive',
+    'Headroom',
+    'Sensitivity',
+    'MinSensitivity',
+    'MaxSensitivity',
+    'AttackMs',
+    'MinAttackMs',
+    'MaxAttackMs',
+    'ReleaseMs',
+    'TriggerThreshold',
+    'MinGain',
+    'MinInputGain',
+    'MaxInputGain',
+    'BandFrequencyControlWipes',
+    'BandControlWipes',
+    'MinMix',
+    'MaxMix',
+    'ToneHz',
+    'RateHz',
+    'MinRateHz',
+    'MaxRateHz',
+    'Depth',
+    'StageCount',
+    'MinFeedback',
+    'MaxFeedback',
+    'SemitoneShift',
+    'MinSemitoneShift',
+    'MaxSemitoneShift',
 ];
 
 const MICROBLOCK_OVERDRIVE_STAGE_DEF: SchxComponentDef = {
@@ -317,7 +368,15 @@ export function shortenSchxType(fullType: string): string {
 }
 
 export function lookupSchxDef(shortType: string): SchxComponentDef | undefined {
-    return BY_SHORT_TYPE.get(shortType) ?? lookupMicroBlockStageDef(shortType);
+    return BY_SHORT_TYPE.get(shortType)
+        ?? lookupMicroBlockStageDef(shortType)
+        ?? lookupRuntimeDescriptorDef(shortType);
+}
+
+export function isSchxRuntimeDescriptor(shortType: string): boolean {
+    return /^MicroBlock[A-Za-z0-9_]*$/.test(shortType)
+        || shortType === 'MacroTremolo'
+        || shortType === 'MacroPhaser';
 }
 
 export function defaultDefForKind(kind: ComponentKind): SchxComponentDef | undefined {
@@ -343,5 +402,17 @@ function lookupMicroBlockStageDef(shortType: string): SchxComponentDef | undefin
     return {
         ...MICROBLOCK_OVERDRIVE_STAGE_DEF,
         shortType,
+    };
+}
+
+function lookupRuntimeDescriptorDef(shortType: string): SchxComponentDef | undefined {
+    if (!isSchxRuntimeDescriptor(shortType)) {
+        return undefined;
+    }
+    return {
+        shortType,
+        kind: 'ic',
+        terminals: RUNTIME_DESCRIPTOR_TERMINALS,
+        quantityProps: RUNTIME_DESCRIPTOR_QUANTITY_PROPS,
     };
 }

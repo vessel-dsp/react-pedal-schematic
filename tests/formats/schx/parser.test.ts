@@ -187,6 +187,74 @@ describe('parseSchx', () => {
         expect(doc.warnings.some((warning) => warning.code === 'unknown-component-type')).toBe(false);
     });
 
+    test('maps audio-engine runtime descriptors as stable opaque input/output ICs', () => {
+        const xml = makeSchx(`  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="-300,140">
+    <Component _Type="Circuit.Input, ${ASSEMBLY}" Name="V1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="0,140">
+    <Component _Type="Circuit.MicroBlockDelayChip, ${ASSEMBLY}" Profile="BbdMn3007Style" StereoOutputMode="WetDry" DelayMs="13" Level="1.0" Name="U1" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="200,140">
+    <Component _Type="Circuit.MicroBlockReverb, ${ASSEMBLY}" Profile="hall-style" StereoOutputMode="Spread" PreDelayMs="22" Decay="0.72" Name="U2" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="400,140">
+    <Component _Type="Circuit.MacroTremolo, ${ASSEMBLY}" RateHz="4" Level="1" Name="U3" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="600,140">
+    <Component _Type="Circuit.MacroPhaser, ${ASSEMBLY}" StageCount="4" Feedback="0.15" Name="U4" />
+  </Element>
+  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="800,140">
+    <Component _Type="Circuit.Speaker, ${ASSEMBLY}" Name="S1" />
+  </Element>
+  <Element Type="${WIRE_T}" A="-300,120" B="0,120" />
+  <Element Type="${WIRE_T}" A="0,160" B="200,120" />
+  <Element Type="${WIRE_T}" A="200,160" B="400,120" />
+  <Element Type="${WIRE_T}" A="400,160" B="600,120" />
+  <Element Type="${WIRE_T}" A="600,160" B="800,120" />`);
+
+        const doc = parseSchx(xml);
+        const runtimeDescriptors = ['U1', 'U2', 'U3', 'U4'].map((id) => {
+            const component = doc.components.find((candidate) => candidate.id === id);
+            if (component === undefined) {
+                throw new Error(`Missing runtime descriptor ${id}`);
+            }
+            return component;
+        });
+
+        expect(doc.warnings.some((warning) => warning.code === 'unknown-component-type')).toBe(false);
+        expect(doc.warnings.filter((warning) => warning.code === 'runtime-descriptor-imported').map((warning) => warning.componentId)).toEqual([
+            'U1',
+            'U2',
+            'U3',
+            'U4',
+        ]);
+
+        expect(runtimeDescriptors.map((component) => component?.kind)).toEqual(['ic', 'ic', 'ic', 'ic']);
+        expect(runtimeDescriptors.map((component) => component?.sourceTypeName)).toEqual([
+            'Circuit.MicroBlockDelayChip',
+            'Circuit.MicroBlockReverb',
+            'Circuit.MacroTremolo',
+            'Circuit.MacroPhaser',
+        ]);
+        for (const component of runtimeDescriptors) {
+            expect(component.terminals).toEqual([
+                { name: 'input', position: { x: component.origin.x, y: 120 } },
+                { name: 'output', position: { x: component.origin.x, y: 160 } },
+            ]);
+            expect(component.properties.RuntimeDescriptor).toBe('true');
+        }
+        expect(doc.components.find((component) => component.id === 'U1')?.properties.StereoOutputMode).toBe('WetDry');
+        expect(doc.components.find((component) => component.id === 'U2')?.properties.StereoOutputMode).toBe('Spread');
+
+        const connectivity = resolveConnectivity(doc);
+        expect(getPinNode(connectivity, { componentId: 'U1', terminalName: 'input' })).toBe(
+            getPinNode(connectivity, { componentId: 'V1', terminalName: 'a' }),
+        );
+        expect(getPinNode(connectivity, { componentId: 'U4', terminalName: 'output' })).toBe(
+            getPinNode(connectivity, { componentId: 'S1', terminalName: 'a' }),
+        );
+    });
+
     test('assigns unique ids when multiple components share a name', () => {
         const xml = makeSchx(`  <Element Type="${SYMBOL_T}" Rotation="0" Flip="false" Position="0,0">
     <Component _Type="Circuit.Resistor, ${ASSEMBLY}" Resistance="1k" Name="R" />

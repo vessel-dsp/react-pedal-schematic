@@ -12,7 +12,7 @@ import type {
     Wire,
 } from '../../model/types';
 import { splitWiresAtJunctions } from '../../model/wires';
-import { lookupSchxDef, shortenSchxType, type SchxComponentDef } from './catalog';
+import { isSchxRuntimeDescriptor, lookupSchxDef, shortenSchxType, type SchxComponentDef } from './catalog';
 import { mapTerminal, normalizeRotation } from './transforms';
 
 const ELEMENT_REGEX = /<Element\b([^>]*?)\/>|<Element\b([^>]*?)>([\s\S]*?)<\/Element>/g;
@@ -119,6 +119,7 @@ function parseSymbolElement(
     const shortType = shortenSchxType(fullType);
     const def = lookupSchxDef(shortType);
     const kind = resolveSchxKind(shortType, componentAttrs, def);
+    const runtimeDescriptor = isSchxRuntimeDescriptor(shortType);
 
     if (def === undefined && fullType.length > 0) {
         warnings.push({
@@ -134,12 +135,22 @@ function parseSymbolElement(
     const flipped = attrs.Flip === 'true';
 
     const propertyEntries = Object.entries(componentAttrs).filter(([k]) => k !== '_Type');
-    const properties = buildProperties(propertyEntries, def);
+    const properties = runtimeDescriptor
+        ? withRuntimeDescriptorProperties(buildProperties(propertyEntries, def))
+        : buildProperties(propertyEntries, def);
 
     const terminals = (def?.terminals ?? []).map((terminal) => ({
         name: terminal.name,
         position: mapTerminal(terminal.local, origin, rotation, flipped),
     }));
+
+    if (runtimeDescriptor) {
+        warnings.push({
+            code: 'runtime-descriptor-imported',
+            message: `${baseName} is an imported runtime descriptor from .schx compatibility data, not a source-visible builder primitive.`,
+            componentId: id,
+        });
+    }
 
     return {
         id,
@@ -150,7 +161,7 @@ function parseSymbolElement(
         flipped,
         terminals,
         properties,
-        sourceTypeName: fullType.length > 0 ? fullType : null,
+        sourceTypeName: sourceTypeNameForComponent(shortType, fullType, runtimeDescriptor),
     };
 }
 
@@ -182,6 +193,22 @@ function buildProperties(
         properties[key] = value;
     }
     return properties;
+}
+
+function withRuntimeDescriptorProperties(
+    properties: Readonly<Record<string, PropertyValue>>,
+): Readonly<Record<string, PropertyValue>> {
+    return {
+        ...properties,
+        RuntimeDescriptor: 'true',
+    };
+}
+
+function sourceTypeNameForComponent(shortType: string, fullType: string, runtimeDescriptor: boolean): string | null {
+    if (runtimeDescriptor) {
+        return `Circuit.${shortType}`;
+    }
+    return fullType.length > 0 ? fullType : null;
 }
 
 function parseAttributes(input: string): Readonly<Record<string, string>> {

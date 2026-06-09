@@ -142,6 +142,8 @@ Support:
 
 Do not silently drop unknown `.schx` data. Preserve unknown attributes where practical, and warn when round-tripping may lose information.
 
+Audio-engine runtime descriptors (`Circuit.MicroBlock*`, `Circuit.MacroTremolo`, `Circuit.MacroPhaser`) are recognized as opaque `kind: "ic"` runtime descriptors, not physical chips. Non-stage descriptors use terminals `input`/`output`, stable `sourceTypeName: "Circuit.<ShortType>"`, `RuntimeDescriptor: "true"`, and a `runtime-descriptor-imported` warning. Existing `MicroBlock*Stage` descriptors keep their legacy `in`/`out` terminals but also carry runtime descriptor metadata. Stereo fields such as `StereoOutputMode` stay component properties; do not synthesize extra schematic jacks unless the source schematic contains them.
+
 ### `.cir` / `.net`
 
 Treat SPICE netlists as connectivity-first documents, not graphical schematics.
@@ -399,6 +401,7 @@ Tasks:
 - [x] Build `.schx` serializer (`src/formats/schx/serializer.ts`). Emits well-formed XML with proper entity escaping, reconstructs the LiveSPICE `_Type` via the catalog when `sourceTypeName` is missing, and round-trips `Name`/`Description`/`PartNumber` plus all extra root attributes.
 - [x] Preserve positions, rotations, flips, raw attributes, wires, named wires, and labels. Negative LiveSPICE rotations (e.g. `-1`) normalize to `0..3`. Unparseable quantity values (e.g. `Impedance="∞ Ω"`) fall back to string storage so they round-trip verbatim.
 - [x] Map `.schx` element types to the audio component catalog (`src/formats/schx/catalog.ts`) — 36 entries covering passives, semis (incl. canonical `BipolarJunctionTransistor`), tubes, op-amps, transformers, switches/SPDT/SP3T/SP4T, sources, ground/rail, jacks (Input/Speaker), labels, named wires.
+- [x] Recognize audio-engine runtime descriptors (`Circuit.MicroBlock*`, `Circuit.MacroTremolo`, `Circuit.MacroPhaser`) as opaque ICs with stable source names, runtime diagnostics, and `input`/`output` terminal geometry for non-stage descriptors.
 - [x] Add focused fixture round-trip tests (`tests/fixtures/schx/`) for `passive-divider`, `passive-lowpass`, and `lpb-1-style-boost`. Round-trip asserts component count, wire count, kind, name, origin, rotation, flip, and terminal count are stable. Connectivity + netlist projection also exercised end-to-end on the fixtures.
 - [x] Vendor and test the upstream LiveSPICE example corpus under `tests/fixtures/schx/livespice-examples/` with provenance in README. Tests assert every expected `.schx` is present, parses without unknown component type warnings, covers real pedal/amp examples including op-amps and JFETs, and round-trips with stable component/wire counts.
 - [ ] Add additional focused minimal fixtures only when a broad example does not isolate the behavior being changed, especially diode clippers, tube triodes, switches, labels/named wires, and source-specific unknown-data preservation.
