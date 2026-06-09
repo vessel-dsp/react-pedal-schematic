@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.6
+
+- Add a headless Circuit JSON source-domain exporter for `CircuitDocument`, with fixture coverage against the official `circuit-json` schema.
+- Add playground keyboard shortcuts for undo, redo, and tidy layout while preserving normal shortcut behavior in editable inspector fields.
+
 ## 0.2.5
 
 - Preserve `.vdsp` source provenance fields such as `source.version` and `source.url` through interchange parse/serialize round trips.
