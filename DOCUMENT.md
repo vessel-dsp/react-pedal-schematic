@@ -49,6 +49,13 @@ Conversion goes through the normalized `CircuitDocument` model:
 
 `.vdsp` is the project-native Source format. It is strict `circuit-interchange/v1` YAML around a `CircuitDocument`, intended for inspection, copy/paste, light edits, LLM review, and downstream handoff. The schema id remains `circuit-interchange/v1`; `.vdsp` is the product file extension.
 
+Parsed `.vdsp` documents expose scalar source provenance on `document.source`.
+Fields such as `format`, `filename`, `version`, `url`, and host-specific
+provenance labels round-trip through `parseInterchangeYaml()` and
+`serializeInterchangeYaml()`. `serializeVdspCircuitDocument()` preserves an
+existing `document.source` block and defaults only missing fields to native
+`.vdsp` provenance (`format: interchange` and a `.vdsp` filename).
+
 ```ts
 import {
     parseCircuitDocumentFile,

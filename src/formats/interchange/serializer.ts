@@ -2,18 +2,19 @@ import { getPinNode, resolveConnectivity, type Connectivity } from '../../model/
 import type {
     CircuitDocument,
     Component,
+    DocumentSource,
     Point,
     PropertyValue,
     Terminal,
     Warning,
     Wire,
 } from '../../model/types';
-import type { CircuitFormat } from '../document';
 
-export type InterchangeSourceFormat = CircuitFormat | 'interchange' | 'unknown';
+export type InterchangeSourceFormat = string;
 
 export type SerializeInterchangeYamlOptions = Readonly<{
     filename?: string;
+    source?: DocumentSource | null;
     sourceFormat?: InterchangeSourceFormat | null;
 }>;
 
@@ -33,7 +34,7 @@ export function serializeInterchangeYaml(
             description: doc.metadata.description,
             partNumber: doc.metadata.partNumber,
         },
-        source: sourceBlock(options),
+        source: sourceBlock(doc.source, options),
         components: doc.components.map((component) => componentBlock(component, connectivity)),
         nodes: nodeBlocks(connectivity),
         wires: doc.wires.map(wireBlock),
@@ -45,10 +46,22 @@ export function serializeInterchangeYaml(
     return `${emitYaml(root, 0)}\n`;
 }
 
-function sourceBlock(options: SerializeInterchangeYamlOptions): MutableYamlObject {
+function sourceBlock(
+    documentSource: DocumentSource | undefined,
+    options: SerializeInterchangeYamlOptions,
+): MutableYamlObject {
     const source: MutableYamlObject = {};
+    for (const [key, value] of Object.entries(documentSource ?? {})) {
+        source[key] = value;
+    }
+    for (const [key, value] of Object.entries(options.source ?? {})) {
+        source[key] = value;
+    }
     if (options.sourceFormat !== undefined && options.sourceFormat !== null) {
         source.format = options.sourceFormat;
+    }
+    if (options.sourceFormat === null) {
+        delete source.format;
     }
     if (options.filename !== undefined && options.filename.length > 0) {
         source.filename = options.filename;

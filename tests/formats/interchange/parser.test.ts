@@ -90,6 +90,37 @@ describe('parseInterchangeYaml', () => {
         expect(parsed.warnings.filter((warning) => warning.code === 'runtime-descriptor-imported')).toHaveLength(2);
     });
 
+    test('preserves source provenance fields through parse and serialize', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Boss DM-3
+  description: Source-visible analog delay graph.
+  partNumber: ''
+source:
+  format: schx
+  filename: schematics/livespice/boss-dm-3.schx
+  version: "sha256:0123456789abcdef"
+  url: "https://example.test/BOSS-DM3_Schematic.pdf"
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const parsed = parseInterchangeYaml(yaml);
+        const serialized = serializeInterchangeYaml(parsed);
+        const reparsed = parseInterchangeYaml(serialized);
+
+        expect(parsed.source).toEqual({
+            format: 'schx',
+            filename: 'schematics/livespice/boss-dm-3.schx',
+            version: 'sha256:0123456789abcdef',
+            url: 'https://example.test/BOSS-DM3_Schematic.pdf',
+        });
+        expect(reparsed.source).toEqual(parsed.source);
+    });
+
     test('rejects YAML without the supported interchange schema', () => {
         expect(() => parseInterchangeYaml('schema: something-else\ncomponents: []\n')).toThrow(
             'unsupported interchange schema',

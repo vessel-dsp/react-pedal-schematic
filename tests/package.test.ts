@@ -189,10 +189,10 @@ describe('release metadata', () => {
         const pkg = await readPackageJson();
         const changelog = await readChangelog();
 
-        expect(pkg.version).toBe('0.2.4');
-        expect(VERSION).toBe('0.2.4');
-        expect(UI_VERSION).toBe('0.2.4');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.2.4\n\n');
+        expect(pkg.version).toBe('0.2.5');
+        expect(VERSION).toBe('0.2.5');
+        expect(UI_VERSION).toBe('0.2.5');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.2.5\n\n');
     });
 });
 

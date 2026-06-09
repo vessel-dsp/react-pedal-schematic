@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5
+
+- Preserve `.vdsp` source provenance fields such as `source.version` and `source.url` through interchange parse/serialize round trips.
+
 ## 0.2.4
 
 - Import LiveSPICE audio-engine runtime descriptors as stable opaque IC components with runtime metadata, diagnostics, and non-stage `input`/`output` terminal geometry.

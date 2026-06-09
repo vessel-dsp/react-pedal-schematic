@@ -1,10 +1,11 @@
-export const VERSION = '0.2.4';
+export const VERSION = '0.2.5';
 
 export type {
     CircuitDocument,
     Component,
     ComponentKind,
     DocumentMetadata,
+    DocumentSource,
     ParsedQuantity,
     Point,
     PropertyValue,

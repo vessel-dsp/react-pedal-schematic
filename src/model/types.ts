@@ -75,6 +75,8 @@ export type DocumentMetadata = Readonly<{
     partNumber: string;
 }>;
 
+export type DocumentSource = Readonly<Record<string, string>>;
+
 export type Warning = Readonly<{
     code: string;
     message: string;
@@ -84,6 +86,7 @@ export type Warning = Readonly<{
 
 export type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
+    source?: DocumentSource;
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];
@@ -93,6 +96,7 @@ export type CircuitDocument = Readonly<{
 
 export const EMPTY_DOCUMENT: CircuitDocument = {
     metadata: { name: '', description: '', partNumber: '' },
+    source: {},
     components: [],
     wires: [],
     directives: [],

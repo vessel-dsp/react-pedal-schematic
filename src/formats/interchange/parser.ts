@@ -2,6 +2,7 @@ import type {
     CircuitDocument,
     Component,
     ComponentKind,
+    DocumentSource,
     ParsedQuantity,
     Point,
     PropertyValue,
@@ -42,6 +43,7 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
 
     return {
         metadata: parseMetadata(root.metadata),
+        source: parseSource(root.source),
         components: parseComponents(root.components),
         wires: parseWires(root.wires),
         directives: parseStringArray(root.directives, 'directives'),
@@ -302,6 +304,10 @@ function parseMetadata(value: YamlValue | undefined): CircuitDocument['metadata'
         description: scalarText(metadata.description),
         partNumber: scalarText(metadata.partNumber),
     };
+}
+
+function parseSource(value: YamlValue | undefined): DocumentSource {
+    return parseStringRecord(value, 'source');
 }
 
 function parseComponents(value: YamlValue | undefined): readonly Component[] {

@@ -145,4 +145,43 @@ rawAttributes: {}`;
         const yaml = serializeVdspCircuitDocument(doc);
         expect(yaml).toContain('filename: boss-ds-1.vdsp');
     });
+
+    test('serializeVdspCircuitDocument preserves parsed source provenance when present', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'Boss DM-3' },
+            source: {
+                format: 'schx',
+                filename: 'schematics/livespice/boss-dm-3.schx',
+                version: 'sha256:0123456789abcdef',
+                url: 'https://example.test/BOSS-DM3_Schematic.pdf',
+            },
+        };
+
+        const yaml = serializeVdspCircuitDocument(doc);
+
+        expect(yaml).toContain('format: schx');
+        expect(yaml).toContain('filename: schematics/livespice/boss-dm-3.schx');
+        expect(yaml).toContain('version: "sha256:0123456789abcdef"');
+        expect(yaml).toContain('url: "https://example.test/BOSS-DM3_Schematic.pdf"');
+    });
+
+    test('serializeVdspCircuitDocument accepts explicit source provenance', () => {
+        const doc = {
+            ...EMPTY_DOCUMENT,
+            metadata: { ...EMPTY_DOCUMENT.metadata, name: 'Boss DM-3' },
+        };
+
+        const yaml = serializeVdspCircuitDocument(doc, {
+            source: {
+                format: 'pdf',
+                filename: 'BOSS-DM3_Schematic.pdf',
+                url: 'https://example.test/BOSS-DM3_Schematic.pdf',
+            },
+        });
+
+        expect(yaml).toContain('format: pdf');
+        expect(yaml).toContain('filename: BOSS-DM3_Schematic.pdf');
+        expect(yaml).toContain('url: "https://example.test/BOSS-DM3_Schematic.pdf"');
+    });
 });

@@ -1,4 +1,4 @@
-import type { CircuitDocument } from '../model/types';
+import type { CircuitDocument, DocumentSource } from '../model/types';
 import { parseLtspiceAsc } from './ltspice/parser';
 import { parseSchx } from './schx/parser';
 import { parseSpiceNetlist } from './spice/parser';
@@ -20,6 +20,7 @@ export type ParseCircuitDocumentFileOptions = Readonly<{
 
 export type SerializeVdspCircuitDocumentOptions = Readonly<{
     filename?: string;
+    source?: DocumentSource;
 }>;
 
 export const vdspFileExtension = '.vdsp';
@@ -130,9 +131,28 @@ export function serializeVdspCircuitDocument(
     options: SerializeVdspCircuitDocumentOptions = {},
 ): string {
     return serializeInterchangeYaml(document, {
-        sourceFormat: 'interchange',
-        filename: normalizeVdspFilename(options.filename, document.metadata.name),
+        source: vdspSource(document, options),
     });
+}
+
+function vdspSource(
+    document: CircuitDocument,
+    options: SerializeVdspCircuitDocumentOptions,
+): DocumentSource {
+    const source: Record<string, string> = {
+        ...(document.source ?? {}),
+        ...(options.source ?? {}),
+    };
+    if (source.format === undefined) {
+        source.format = 'interchange';
+    }
+    if (options.filename !== undefined) {
+        source.filename = normalizeVdspFilename(options.filename, document.metadata.name);
+    }
+    if (source.filename === undefined || source.filename.length === 0) {
+        source.filename = vdspFilenameFromName(document.metadata.name);
+    }
+    return source;
 }
 
 function normalizeVdspFilename(filename: string | undefined, fallbackName: string): string {
