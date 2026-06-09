@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Star } from 'lucide-react';
 import {
     applyEditorCommand,
     canRedo,
@@ -54,6 +55,7 @@ const sourceOutputFormats: ReadonlyArray<Readonly<{ value: SourceOutputFormat; l
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
 const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
+const githubRepositoryUrl = 'https://github.com/vessel-dsp/react-pedal-schematic';
 
 const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
 import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
@@ -172,7 +174,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
     return (
         <div className="min-h-screen bg-background text-foreground">
             <header className="border-b border-border">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+                <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                         <h1 className="break-words text-lg font-semibold tracking-tight">@vessel-dsp/react-pedal-schematic</h1>
                         <p className="text-sm text-muted-foreground">
@@ -180,6 +182,17 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <Button asChild variant="outline" size="sm">
+                            <a
+                                href={githubRepositoryUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label="Star @vessel-dsp/react-pedal-schematic on GitHub"
+                            >
+                                <Star aria-hidden="true" />
+                                Star
+                            </a>
+                        </Button>
                         <Badge variant="outline" className="font-mono">v{VERSION}</Badge>
                     </div>
                 </div>

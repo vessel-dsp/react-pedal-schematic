@@ -25,6 +25,33 @@ import type { Fixture } from '../../playground/src/lib/fixtures';
 const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';
 
 describe('playground Schematic tab', () => {
+    test('renders a GitHub star button in the playground header', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'empty',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('aria-label="Star @vessel-dsp/react-pedal-schematic on GitHub"');
+        expect(markup).toContain('href="https://github.com/vessel-dsp/react-pedal-schematic"');
+        expect(markup).toContain('target="_blank"');
+        expect(markup).toContain('rel="noreferrer"');
+        expect(markup).toContain('Star');
+    });
+
     test('does not expose the JointJS experiment as a playground tab', () => {
         const editorState = createEditorState(parseSchx(emptySchx));
         const document = editorState.document;
