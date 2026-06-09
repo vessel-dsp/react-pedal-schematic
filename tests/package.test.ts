@@ -4,10 +4,12 @@ import {
     UI_VERSION,
     VERSION,
     parseCircuitDocument,
+    serializeCircuitJsonDocument,
 } from '@vessel-dsp/react-pedal-schematic';
 import {
     VERSION as CORE_VERSION,
     parseCircuitDocument as parseCoreCircuitDocument,
+    serializeCircuitJsonDocument as serializeCoreCircuitJsonDocument,
 } from '@vessel-dsp/react-pedal-schematic/core';
 import { SchematicView as SchematicViewSubpath } from '@vessel-dsp/react-pedal-schematic/ui';
 import { rewriteRelativeEsmSpecifiers } from '../scripts/fix-dist-imports';
@@ -102,6 +104,22 @@ describe('npm package contract', () => {
         expect(isRecord(pkg.dependencies) && 'react-dom' in pkg.dependencies).toBe(false);
     });
 
+    test('keeps Circuit JSON and tscircuit tooling dev-only', async () => {
+        const pkg = await readPackageJson();
+
+        expect(isRecord(pkg.devDependencies)).toBe(true);
+        if (isRecord(pkg.devDependencies)) {
+            expect(pkg.devDependencies['circuit-json']).toBeDefined();
+            expect(pkg.devDependencies.zod).toBeDefined();
+        }
+
+        const runtimeDependencies = isRecord(pkg.dependencies) ? pkg.dependencies : {};
+        expect(runtimeDependencies['circuit-json']).toBeUndefined();
+        expect(runtimeDependencies['circuit-to-svg']).toBeUndefined();
+        expect(runtimeDependencies['@tscircuit/core']).toBeUndefined();
+        expect(runtimeDependencies.zod).toBeUndefined();
+    });
+
     test('runs checks and a library build before npm packing', async () => {
         const pkg = await readPackageJson();
 
@@ -149,6 +167,7 @@ describe('published import surface', () => {
     test('root import is the React UI surface plus core helpers', () => {
         expect(SchematicView).toBe(SchematicViewSubpath);
         expect(parseCircuitDocument).toBe(parseCoreCircuitDocument);
+        expect(serializeCircuitJsonDocument).toBe(serializeCoreCircuitJsonDocument);
         expect(VERSION).toBe(CORE_VERSION);
     });
 });

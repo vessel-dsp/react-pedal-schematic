@@ -61,6 +61,18 @@ export {
 } from './formats/document';
 export { parseLtspiceAsc } from './formats/ltspice/parser';
 
+export type {
+    CircuitJsonElement,
+    CircuitJsonExport,
+    CircuitJsonExportOptions,
+    CircuitJsonExportTarget,
+    CircuitJsonSourceComponent,
+    CircuitJsonSourceNet,
+    CircuitJsonSourcePort,
+    CircuitJsonSourceTrace,
+} from './formats/circuit-json/serializer';
+export { serializeCircuitJsonDocument } from './formats/circuit-json/serializer';
+
 export type { CreateComponentArgs, DocumentCommand, EditorCommand, EditorState } from './editor';
 export {
     applyDocumentCommand,

@@ -237,11 +237,21 @@ Current interchange coverage satisfies broad serialization coverage for layer 4,
 
 Use tscircuit as a preview and interop target for web-friendly board/schematic rendering, not as the canonical editor model.
 
+Current implementation status:
+
+- `src/formats/circuit-json/serializer.ts` exports `serializeCircuitJsonDocument(doc, options)` through the headless API.
+- The V1 exporter emits deterministic source-domain Circuit JSON elements (`source_net`, `source_component`, `source_port`, `source_trace`) plus separate warnings. It does not route PCB traces, choose footprints, or claim fabrication readiness.
+- `tests/formats/circuit-json/tscircuit-fixtures.test.ts` converts every bundled `.schx`, `.asc`, and `.cir` / `.net` fixture and validates each emitted element with the official `circuit-json` schema.
+- `circuit-json` and `zod` are dev dependencies for target-format alignment and schema validation. Do not move tscircuit-related packages into runtime `dependencies` unless a shipped public API genuinely requires it.
+
 Prefer standalone preview generation first:
 
 - built-in tscircuit elements only for generated previews;
 - CDN/browser preview where appropriate;
-- no package dependency unless there is a clear local build or test need.
+- any tscircuit, Circuit JSON renderer/type, autorouter, or related preview
+  package needed in this repo belongs in `devDependencies` unless a public
+  runtime API genuinely requires it.
+- no runtime package dependency unless there is a clear shipped-library need.
 
 Mark unsupported source components as comments or warnings instead of pretending they are supported.
 
@@ -497,7 +507,8 @@ Tasks:
 - [ ] Replace the temporary generic boxed schematic glyphs for supported pedal components with a hand-redrawn project-native schematic symbol set. Start from the observed pedal inventory and common guitar-pedal schematics: R, C, electrolytic C, inductor, diode, LED, BJT, JFET, MOSFET, op-amp, potentiometer, variable resistor, input/output jack, rail, ground, battery/DC source, SPDT/3PDT/footswitch, label/named wire/test point.
 - [ ] Treat wah filters as a recognized subcircuit/role annotation, not as a monolithic component. Keep the schematic as inductor + pot + R/C/transistor network.
 - [ ] Add simple auto-layout preview for netlist-only imports — waits for Phase 4 `.cir` parser.
-- [ ] Add tscircuit preview/export adapter for the subset of the catalog that maps cleanly.
+- [x] Add initial headless Circuit JSON source-domain exporter for the subset of the catalog that maps cleanly (`src/formats/circuit-json/serializer.ts`).
+- [ ] Add tscircuit preview/export adapter with footprint/pin mapping for the subset of the catalog that maps cleanly.
 - [ ] Expand op-amp / diode-clipper / tube-triode fixtures so the playground exercises every catalog branch.
 
 Success criteria:
