@@ -46,6 +46,9 @@ type EditorReducer = (state: EditorState, command: EditorCommand) => EditorState
 export type SelectedSchematicComponent = EditorState['document']['components'][number] | null;
 type SelectedComponent = SelectedSchematicComponent;
 export type SourceOutputFormat = 'schx' | 'vdsp' | 'spice';
+type SchematicShortcutCommand = Extract<EditorCommand, Readonly<{ type: 'undo' | 'redo' | 'tidy-layout' }>>;
+type SchematicShortcutEvent = Readonly<Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>>;
+type SchematicShortcutHandlingEvent = SchematicShortcutEvent & Readonly<Pick<KeyboardEvent, 'target' | 'preventDefault'>>;
 
 const sourceOutputFormats: ReadonlyArray<Readonly<{ value: SourceOutputFormat; label: string }>> = [
     { value: 'vdsp', label: '.vdsp' },
@@ -409,6 +412,37 @@ function sourceVdsp(
     });
 }
 
+export function commandForSchematicShortcut(event: SchematicShortcutEvent): SchematicShortcutCommand | null {
+    if (event.altKey || (!event.ctrlKey && !event.metaKey)) {
+        return null;
+    }
+
+    const key = event.key.toLowerCase();
+    if (key === 'z') {
+        return event.shiftKey ? { type: 'redo' } : { type: 'undo' };
+    }
+    if (key === 'f' && !event.shiftKey) {
+        return { type: 'tidy-layout' };
+    }
+    return null;
+}
+
+export function handleSchematicShortcutEvent(
+    event: SchematicShortcutHandlingEvent,
+    dispatch: (command: SchematicShortcutCommand) => void,
+): boolean {
+    const shortcutCommand = commandForSchematicShortcut(event);
+    if (shortcutCommand === null) {
+        return false;
+    }
+    if (isEditableKeyboardTarget(event.target)) {
+        return false;
+    }
+    event.preventDefault();
+    dispatch(shortcutCommand);
+    return true;
+}
+
 function findComponent(state: EditorState): SelectedComponent {
     if (state.selectedId === null) {
         return null;
@@ -504,12 +538,15 @@ export function SchematicCard(props: {
 
     useEffect(() => {
         function handleKey(event: KeyboardEvent): void {
+            if (handleSchematicShortcutEvent(event, dispatch)) {
+                return;
+            }
+
             if (event.key !== 'Delete' && event.key !== 'Backspace') {
                 return;
             }
-            const target = event.target as HTMLElement | null;
             // Don't steal Delete from form inputs in the Inspector.
-            if (target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+            if (isEditableKeyboardTarget(event.target)) {
                 return;
             }
             if (editorState.selectedWireId !== null) {
@@ -610,6 +647,21 @@ export function SchematicCard(props: {
             </CardContent>
         </Card>
     );
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+    if (target === null || !hasKeyboardTargetFields(target)) {
+        return false;
+    }
+    const tagName = target.tagName.toUpperCase();
+    return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable === true;
+}
+
+function hasKeyboardTargetFields(target: EventTarget): target is EventTarget & Readonly<{
+    tagName: string;
+    isContentEditable?: boolean;
+}> {
+    return 'tagName' in target && typeof target.tagName === 'string';
 }
 
 function handleMove(dispatch: React.Dispatch<EditorCommand>, id: string, origin: Point): void {

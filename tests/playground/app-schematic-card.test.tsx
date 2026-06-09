@@ -18,11 +18,49 @@ import {
     SchematicLeftPanel,
     SchematicRightPanel,
     SchematicWorkspace,
+    commandForSchematicShortcut,
+    handleSchematicShortcutEvent,
     sourceTextForFormat,
 } from '../../playground/src/App';
 import type { Fixture } from '../../playground/src/lib/fixtures';
 
 const emptySchx = '<?xml version="1.0"?><Schematic></Schematic>';
+type ShortcutEventInput = Readonly<{
+    key: string;
+    ctrlKey?: boolean;
+    metaKey?: boolean;
+    shiftKey?: boolean;
+    altKey?: boolean;
+}>;
+
+function shortcutEvent(input: ShortcutEventInput): Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'> {
+    return {
+        key: input.key,
+        ctrlKey: input.ctrlKey ?? false,
+        metaKey: input.metaKey ?? false,
+        shiftKey: input.shiftKey ?? false,
+        altKey: input.altKey ?? false,
+    };
+}
+
+function shortcutHandlingEvent(
+    input: ShortcutEventInput,
+    preventDefault: () => void,
+    target: EventTarget | null = null,
+): Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'target' | 'preventDefault'> {
+    return {
+        ...shortcutEvent(input),
+        target,
+        preventDefault,
+    };
+}
+
+function keyboardTarget(tagName: string, isContentEditable: boolean): EventTarget {
+    const target = new EventTarget();
+    Object.defineProperty(target, 'tagName', { value: tagName, enumerable: true });
+    Object.defineProperty(target, 'isContentEditable', { value: isContentEditable, enumerable: true });
+    return target;
+}
 
 describe('playground Schematic tab', () => {
     test('renders a GitHub star button in the playground header', () => {
@@ -103,6 +141,57 @@ describe('playground Schematic tab', () => {
         );
 
         expect(markup).toContain('Tidy up');
+    });
+
+    test('maps schematic keyboard shortcuts to editor commands', () => {
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'z', ctrlKey: true }))).toEqual({ type: 'undo' });
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'z', metaKey: true }))).toEqual({ type: 'undo' });
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'Z', ctrlKey: true, shiftKey: true }))).toEqual({ type: 'redo' });
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'Z', metaKey: true, shiftKey: true }))).toEqual({ type: 'redo' });
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'f', ctrlKey: true }))).toEqual({ type: 'tidy-layout' });
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'f', metaKey: true }))).toEqual({ type: 'tidy-layout' });
+    });
+
+    test('ignores non-schematic keyboard shortcuts', () => {
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'z' }))).toBeNull();
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'f' }))).toBeNull();
+        expect(commandForSchematicShortcut(shortcutEvent({ key: 'z', ctrlKey: true, altKey: true }))).toBeNull();
+    });
+
+    test('dispatches schematic shortcut commands and prevents the browser default', () => {
+        const commands: EditorCommand[] = [];
+        let preventDefaultCount = 0;
+
+        const handled = handleSchematicShortcutEvent(
+            shortcutHandlingEvent({ key: 'f', metaKey: true }, () => {
+                preventDefaultCount += 1;
+            }),
+            (command) => commands.push(command),
+        );
+
+        expect(handled).toBe(true);
+        expect(commands).toEqual([{ type: 'tidy-layout' }]);
+        expect(preventDefaultCount).toBe(1);
+    });
+
+    test('does not steal schematic shortcuts from editable inspector fields', () => {
+        const commands: EditorCommand[] = [];
+        let preventDefaultCount = 0;
+
+        const handled = handleSchematicShortcutEvent(
+            shortcutHandlingEvent(
+                { key: 'z', ctrlKey: true },
+                () => {
+                    preventDefaultCount += 1;
+                },
+                keyboardTarget('INPUT', false),
+            ),
+            (command) => commands.push(command),
+        );
+
+        expect(handled).toBe(false);
+        expect(commands).toEqual([]);
+        expect(preventDefaultCount).toBe(0);
     });
 
     test('renders a wire flow toggle in the schematic toolbar', () => {
