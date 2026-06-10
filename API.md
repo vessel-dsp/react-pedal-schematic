@@ -97,7 +97,7 @@ panel:
     rows: 2
     columns: 3
     indexing: one-based
-controls:
+  controls:
     - componentId: DRIVE
       controlKind: knob
       grid:
@@ -112,6 +112,47 @@ controls:
 interfaces such as DD-3-style trigger/reset inputs, DD-5 tempo tap, expression
 jacks, and future CTL/EXP ports. This block is behavioral metadata; keep it
 separate from `panel`, which only places controls on a grid.
+
+```ts
+type ControlInterface = Readonly<{
+    id: string;
+    name: string;
+    role: ControlInterfaceRole;
+    componentId?: string;
+    controlRole?: string;
+    interface?: string;
+    connector?: ControlInterfaceConnector;
+    assignmentHint?: ControlInterfaceAssignmentHint;
+    polarity?: ControlInterfacePolarity;
+    binding?: ControlInterfaceBinding;
+    description?: string;
+}>;
+
+type ControlInterfaceBinding = Readonly<{
+    sourceComponentId?: string;
+    controlId?: string;
+    controlName?: string;
+    property?: string;
+}>;
+```
+
+Allowed scalar values:
+
+| Type | Values |
+| --- | --- |
+| `ControlInterfaceRole` | `'external-control' | 'tempo-tap' | 'trigger' | 'reset' | 'sampler-trigger' | 'expression' | 'unknown'` |
+| `ControlInterfaceConnector` | `'1/4-inch-mono-ts' | '1/4-inch-trs' | '3.5mm-mono-ts' | '3.5mm-trs' | 'proprietary' | 'unknown'` |
+| `ControlInterfaceAssignmentHint` | `'momentary' | 'latching' | 'momentary-or-latching' | 'continuous'` |
+| `ControlInterfacePolarity` | `'normally-open' | 'normally-closed' | 'expression' | 'unknown'` |
+
+Producer contract:
+
+- `id` is the stable interface id. `name` is the user-facing label.
+- `role` is required and carries the product-level purpose of the interface.
+- `componentId` is optional. When it names an existing jack component, `extractPanel()` overlays the interface metadata onto that jack; otherwise the interface is exposed as a synthesized jack.
+- `controlRole` and `interface` preserve source or host semantics. When omitted, panel extraction supplies defaults for known roles.
+- `binding` is optional metadata that points to the runtime descriptor component/control/property driven by the external interface.
+- Do not put trigger/reset/tempo inputs in `panel.controls` as switches unless the hardware has a visible panel switch. Use `panel` for placement and `controlInterfaces` for behavior.
 
 Example `.vdsp` control interface block:
 
@@ -419,10 +460,42 @@ looks like `Circuit.Input`, and `ControlRole: "tempo-tap"` or
 
 `'input' | 'output' | 'send' | 'return' | 'expression' | 'tempo-tap' | 'external-control' | 'unknown'`.
 
-`JackPort` can include `sourceComponentId`, `controlRole`, `interface`,
-`connector`, `assignmentHint`, `polarity`, and `binding` for synthesized or
-semantic external-control ports. Tempo tap descriptor controls are exposed as
-jacks with `role: 'tempo-tap'` and `assignmentHint: 'momentary'`; DD-3 style
+```ts
+type JackPort = Readonly<{
+    id: string;
+    name: string;
+    role: JackRole;
+    impedance?: ParsedQuantity;
+    sourceTypeName?: string;
+    sourceComponentId?: string;
+    controlRole?: string;
+    interface?: string;
+    connector?: ControlInterfaceConnector;
+    assignmentHint?: ExternalControlAssignmentHint;
+    polarity?: ControlInterfacePolarity;
+    binding?: ControlInterfaceBinding;
+    description?: string;
+}>;
+```
+
+`extractPanel()` projects `document.controlInterfaces` into `panel.jacks` with
+these defaults when fields are omitted:
+
+| `ControlInterface.role` | `JackPort.role` | Default `controlRole` | Default `interface` |
+| --- | --- | --- | --- |
+| `tempo-tap` | `tempo-tap` | `tempo-tap` | `tap-tempo` |
+| `trigger` | `external-control` | `trigger` | `external-control-input` |
+| `reset` | `external-control` | `reset` | `external-control-input` |
+| `sampler-trigger` | `external-control` | `sampler-trigger` | `external-control-input` |
+| `expression` | `expression` | `expression` | `external-control-input` |
+| `external-control` | `external-control` | none | `external-control-input` |
+| `unknown` | `unknown` | none | none |
+
+If `componentId` matches an extracted jack id, the interface metadata is merged
+into that jack. Otherwise the panel jack id is `controlInterface.id`. When
+`binding.sourceComponentId` is present, it becomes `JackPort.sourceComponentId`.
+Tempo tap descriptor controls are exposed as jacks with
+`role: 'tempo-tap'` and `assignmentHint: 'momentary'`; DD-3 style
 `TRIGGER`/`RESET` interfaces are exposed as `external-control` jacks. These
 ports are not added to runtime switch state.
 

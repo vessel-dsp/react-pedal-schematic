@@ -6,3 +6,4 @@ output/
 *.tgz
 *.tsbuildinfo
 .playwright-cli/
+thoughts/

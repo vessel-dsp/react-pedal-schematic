@@ -61,6 +61,7 @@
         "dev": "vite",
         "generate:canvas-bg": "bun run scripts/generate-canvas-bg.ts",
         "generate:symbols": "bun run scripts/generate-symbol-content.ts",
+        "lint": "biome lint --diagnostic-level=error .",
         "prepack": "bun run clean:dist && bun run typecheck && bun test && bun run build",
         "pack:dry-run": "npm pack --dry-run",
         "preview": "vite preview",
@@ -68,6 +69,7 @@
         "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
+        "@biomejs/biome": "^2.4.16",
         "@joint/core": "4.2.4",
         "@tailwindcss/vite": "^4.3.0",
         "@types/bun": "latest",

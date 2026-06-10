@@ -137,10 +137,12 @@ describe('schx fixture round-trip', () => {
         expect(doc.rawAttributes.SourceFaithfulnessRating).toBe('3/5');
         expect(doc.rawAttributes.SourceFaithfulnessNotes).toContain('Dirtbox layout is marked unverified');
 
-        for (const id of ['IC2A', 'IC3A', 'IC3B', 'IC4A', 'IC4B']) {
+        const mc33178Sections = ['IC2A', 'IC2B', 'IC3A', 'IC3B', 'IC4A', 'IC4B'] as const;
+        for (const id of mc33178Sections) {
             expect(byId.get(id)?.kind).toBe('opamp');
             expect(byId.get(id)?.properties.PartNumber).toBe('MC33178');
         }
+        expect(doc.components.filter((component) => component.kind === 'opamp' && component.properties.PartNumber === 'MC33178')).toHaveLength(mc33178Sections.length);
 
         for (const id of ['D1', 'D2', 'D3', 'D4']) {
             expect(byId.get(id)?.kind).toBe('diode');

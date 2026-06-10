@@ -3,8 +3,10 @@
 ## 0.2.9
 
 - Add top-level `.vdsp` `controlInterfaces` metadata for external trigger/reset, tempo tap, expression, and similar control inputs.
-- Project `controlInterfaces` into extracted panel jacks with connector, assignment hint, polarity, and runtime binding metadata while keeping external controls out of panel switch state.
-- Document the producer contract for external control interfaces separately from layout-only stompbox panel placement.
+- Preserve `controlInterfaces` through strict `.vdsp` parse/serialize flows, including connector, assignment hint, polarity, description, optional visible jack component links, and runtime binding metadata.
+- Export the `ControlInterface*` model types from the core API so hosts can consume external control metadata without depending on panel extraction.
+- Project `controlInterfaces` into extracted `JackPort` descriptors while keeping external footswitch/control targets out of `SwitchControl` and runtime switch state.
+- Document the producer contract for external control interfaces separately from layout-only stompbox panel placement, including DD-3-style `TRIGGER`/`RESET` and DD-5-style tempo-tap semantics.
 
 ## 0.2.8
 

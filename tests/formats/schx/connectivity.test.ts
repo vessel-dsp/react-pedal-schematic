@@ -232,6 +232,17 @@ describe('tc-electronic-dark-matter source-faithful connectivity', () => {
         expectPinsShareNode(c, [['VREF', 't'], ['R5', 'a'], ['R11', 'a'], ['R18', 'a']]);
     });
 
+    test('power section buffers the 10k/10k divider into Vref through IC2B', async () => {
+        const doc = await loadFixture('tc-electronic-dark-matter');
+        const c = resolveConnectivity(doc);
+
+        expectPinsShareNode(c, [['D9', 'cathode'], ['VPOWER', 't'], ['C23', 'a'], ['C36', 'a'], ['R31', 'a']]);
+        expectPinsShareNode(c, [['R31', 'b'], ['R32', 'a'], ['C24', 'a'], ['IC2B', 'vin+']]);
+        expectPinsShareNode(c, [['IC2B', 'vin-'], ['IC2B', 'vout'], ['VREF', 't'], ['R5', 'a'], ['R11', 'a'], ['R18', 'a']]);
+        const powerGround = expectPinsShareNode(c, [['PWR', '-'], ['C23', 'b'], ['C36', 'b'], ['R32', 'b'], ['C24', 'b'], ['GND_PWR', 't']]);
+        expect(powerGround).toBe(0);
+    });
+
     test('gain stage drives a four-diode LL4148 clipping bridge', async () => {
         const doc = await loadFixture('tc-electronic-dark-matter');
         const c = resolveConnectivity(doc);
