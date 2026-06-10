@@ -1,8 +1,12 @@
 import { parseQuantity } from './quantity';
+import { extractPanel } from '../panel/extract';
 import type {
     CircuitDocument,
     Component,
     ComponentKind,
+    PanelControlKind,
+    PanelElementPlacement,
+    PanelFace,
     ParsedQuantity,
     PropertyValue,
 } from './types';
@@ -20,6 +24,10 @@ export type ValidationCode =
     | 'invalid-jack-interface'
     | 'descriptor-control-empty'
     | 'descriptor-mode-label-mismatch'
+    | 'panel-binding-unresolved'
+    | 'panel-control-unresolved'
+    | 'panel-kind-mismatch'
+    | 'panel-cell-collision'
     | 'duplicate-id'
     | 'degenerate-wire';
 
@@ -78,7 +86,17 @@ const RUNTIME_DESCRIPTOR_CONTROL_PROPERTIES = [
     'TempoTapControl',
     'TapTempoControl',
     'TempoControl',
+    'DirectOutputJack',
+    'DirectOutJack',
+    'DirectOutputControl',
+    'DirectOutControl',
 ] as const;
+
+type ResolvedPanelElement = Readonly<{
+    id: string;
+    componentId: string;
+    kind: PanelControlKind;
+}>;
 
 const KIND_RULES: Partial<Record<ComponentKind, readonly PropertyRule[]>> = {
     resistor: [{
@@ -264,6 +282,10 @@ export function validateDocument(doc: CircuitDocument): readonly ValidationIssue
         }
     }
 
+    for (const issue of validatePanel(doc, seen)) {
+        issues.push(issue);
+    }
+
     return issues;
 }
 
@@ -428,6 +450,10 @@ function isRecognizedJackRole(value: string): boolean {
         'input',
         'audio-input',
         'in',
+        'direct-output',
+        'direct-out',
+        'dry-output',
+        'dry-out',
         'output',
         'audio-output',
         'out',
@@ -487,6 +513,152 @@ function parsePositiveInteger(value: string | null): number | undefined {
 
 function normalizeToken(value: string): string {
     return value.trim().toLowerCase().replace(/[\s_]+/g, '-');
+}
+
+function validatePanel(
+    doc: CircuitDocument,
+    componentIds: ReadonlySet<string>,
+): readonly ValidationIssue[] {
+    if (doc.panel === undefined) {
+        return [];
+    }
+
+    const issues: ValidationIssue[] = [];
+    const resolvedElements = resolvePanelElements(doc);
+
+    for (const face of doc.panel.faces) {
+        for (const element of face.elements) {
+            const componentId = element.bind.componentId;
+            if (!componentIds.has(componentId)) {
+                issues.push({
+                    code: 'panel-binding-unresolved',
+                    severity: 'warning',
+                    message: `Panel element on face "${face.id}" references missing component "${componentId}"`,
+                    componentId,
+                });
+                continue;
+            }
+
+            const resolved = resolvePanelElement(resolvedElements, element);
+            if (element.bind.controlId !== undefined && resolved === undefined) {
+                issues.push({
+                    code: 'panel-control-unresolved',
+                    severity: 'warning',
+                    message: `Panel element on face "${face.id}" references missing control "${element.bind.controlId}" on component "${componentId}"`,
+                    componentId,
+                    property: element.bind.controlId,
+                });
+                continue;
+            }
+
+            if (resolved !== undefined && resolved.kind !== element.kind) {
+                issues.push({
+                    code: 'panel-kind-mismatch',
+                    severity: 'warning',
+                    message: `Panel element on face "${face.id}" binds component "${componentId}" as ${element.kind} but resolved kind is ${resolved.kind}`,
+                    componentId,
+                });
+            }
+        }
+
+        for (const issue of validatePanelCellCollisions(face)) {
+            issues.push(issue);
+        }
+    }
+
+    return issues;
+}
+
+function resolvePanelElements(doc: CircuitDocument): readonly ResolvedPanelElement[] {
+    const panel = extractPanel(doc);
+    const resolved: ResolvedPanelElement[] = [];
+
+    for (const knob of panel.knobs) {
+        resolved.push({
+            id: knob.id,
+            componentId: componentIdFromPanelElementId(knob.id),
+            kind: knob.id.endsWith(':mode') && knob.controlMode === 'stepped' ? 'switch' : 'knob',
+        });
+    }
+    for (const slider of panel.sliders ?? []) {
+        resolved.push({
+            id: slider.id,
+            componentId: componentIdFromPanelElementId(slider.id),
+            kind: 'slider',
+        });
+    }
+    for (const switchControl of panel.switches) {
+        resolved.push({
+            id: switchControl.id,
+            componentId: componentIdFromPanelElementId(switchControl.id),
+            kind: 'switch',
+        });
+    }
+    for (const led of panel.leds) {
+        resolved.push({
+            id: led.id,
+            componentId: componentIdFromPanelElementId(led.id),
+            kind: 'led',
+        });
+    }
+    for (const jack of panel.jacks) {
+        resolved.push({
+            id: jack.id,
+            componentId: jack.sourceComponentId ?? componentIdFromPanelElementId(jack.id),
+            kind: 'jack',
+        });
+    }
+
+    return resolved;
+}
+
+function resolvePanelElement(
+    resolvedElements: readonly ResolvedPanelElement[],
+    element: PanelElementPlacement,
+): ResolvedPanelElement | undefined {
+    if (element.bind.controlId !== undefined) {
+        return resolvedElements.find((resolved) =>
+            resolved.componentId === element.bind.componentId && resolved.id === element.bind.controlId,
+        );
+    }
+
+    return resolvedElements.find((resolved) =>
+        resolved.componentId === element.bind.componentId && resolved.id === element.bind.componentId,
+    );
+}
+
+function componentIdFromPanelElementId(id: string): string {
+    const separator = id.indexOf(':');
+    return separator <= 0 ? id : id.slice(0, separator);
+}
+
+function validatePanelCellCollisions(face: PanelFace): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const occupied = new Map<string, PanelElementPlacement>();
+
+    for (const element of face.elements) {
+        const rowSpan = element.grid.rowSpan ?? 1;
+        const columnSpan = element.grid.columnSpan ?? 1;
+        for (let rowOffset = 0; rowOffset < rowSpan; rowOffset += 1) {
+            for (let columnOffset = 0; columnOffset < columnSpan; columnOffset += 1) {
+                const row = element.grid.row + rowOffset;
+                const column = element.grid.column + columnOffset;
+                const key = `${row}:${column}`;
+                if (occupied.has(key)) {
+                    issues.push({
+                        code: 'panel-cell-collision',
+                        severity: 'warning',
+                        message: `Panel face "${face.id}" has overlapping elements at row ${row}, column ${column}`,
+                        componentId: element.bind.componentId,
+                    });
+                    continue;
+                }
+                occupied.set(key, element);
+            }
+        }
+    }
+
+    return issues;
 }
 
 function missingPropertyIssue(component: Component, rule: PropertyRule): ValidationIssue {

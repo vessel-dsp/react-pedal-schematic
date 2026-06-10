@@ -38,7 +38,7 @@ const runtimeDescriptorSource = `<?xml version="1.0" encoding="utf-8"?>
 </Schematic>`;
 
 describe('parseInterchangeYaml', () => {
-    test('round-trips stompbox grid panel placement metadata', () => {
+    test('round-trips named panel faces with bound element placement metadata', () => {
         const doc: CircuitDocument = {
             ...EMPTY_DOCUMENT,
             metadata: {
@@ -66,24 +66,31 @@ describe('parseInterchangeYaml', () => {
                 sourceTypeName: 'Circuit.Potentiometer',
             }],
             panel: {
-                layout: {
-                    kind: 'stompbox-grid',
-                    rows: 2,
-                    columns: 3,
-                    indexing: 'one-based',
-                    rowOrder: 'top-to-bottom',
-                    columnOrder: 'left-to-right',
-                },
-                controls: [{
-                    componentId: 'LEVEL',
-                    controlKind: 'knob',
-                    grid: {
-                        row: 1,
-                        column: 3,
-                        rowSpan: 1,
-                        columnSpan: 1,
+                faces: [{
+                    id: 'top',
+                    label: 'Top',
+                    layout: {
+                        kind: 'stompbox-grid',
+                        rows: 2,
+                        columns: 3,
+                        indexing: 'one-based',
+                        rowOrder: 'top-to-bottom',
+                        columnOrder: 'left-to-right',
                     },
-                    label: 'Level',
+                    elements: [{
+                        bind: {
+                            componentId: 'LEVEL',
+                            controlId: 'LEVEL',
+                        },
+                        kind: 'knob',
+                        grid: {
+                            row: 1,
+                            column: 3,
+                            rowSpan: 1,
+                            columnSpan: 1,
+                        },
+                        label: 'Level',
+                    }],
                 }],
             },
         };
@@ -92,11 +99,138 @@ describe('parseInterchangeYaml', () => {
         const parsed = parseInterchangeYaml(yaml);
 
         expect(yaml).toContain('panel:');
+        expect(yaml).toContain('faces:');
+        expect(yaml).toContain('elements:');
+        expect(yaml).toContain('bind:');
         expect(yaml).toContain('kind: stompbox-grid');
         expect(yaml).toContain('indexing: one-based');
         expect(yaml).toContain('componentId: LEVEL');
+        expect(yaml).toContain('controlId: LEVEL');
         expect(yaml).toContain('rowSpan: 1');
         expect(parsed.panel).toEqual(doc.panel);
+    });
+
+    test('parses panel faces with multi-control runtime descriptor bindings', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: DD-3 panel
+  description: ""
+  partNumber: ""
+source: {}
+panel:
+  faces:
+    - id: top
+      label: Top
+      layout:
+        kind: stompbox-grid
+        rows: 1
+        columns: 4
+        indexing: one-based
+      elements:
+        - bind:
+            componentId: U1
+            controlId: "U1:time"
+          kind: knob
+          label: D.TIME
+          grid:
+            row: 1
+            column: 3
+        - bind:
+            componentId: U1
+            controlId: "U1:mode"
+          kind: switch
+          label: MODE
+          grid:
+            row: 1
+            column: 4
+    - id: right-side
+      layout:
+        kind: stompbox-grid
+        rows: 2
+        columns: 1
+        indexing: one-based
+      elements:
+        - bind:
+            componentId: V1
+          kind: jack
+          label: Input
+          grid:
+            row: 1
+            column: 1
+        - bind:
+            componentId: U1
+            controlId: "U1:direct-out"
+          kind: jack
+          label: Direct Out
+          grid:
+            row: 2
+            column: 1
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(parsed.panel?.faces).toHaveLength(2);
+        expect(parsed.panel?.faces[0]?.elements.map((element) => element.bind.controlId)).toEqual([
+            'U1:time',
+            'U1:mode',
+        ]);
+        expect(parsed.panel?.faces[1]?.elements[1]).toMatchObject({
+            bind: { componentId: 'U1', controlId: 'U1:direct-out' },
+            kind: 'jack',
+            label: 'Direct Out',
+            grid: { row: 2, column: 1 },
+        });
+    });
+
+    test('normalizes legacy single-grid controls to one top face', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Legacy panel
+  description: ""
+  partNumber: ""
+source: {}
+panel:
+  layout:
+    kind: stompbox-grid
+    rows: 1
+    columns: 2
+    indexing: one-based
+  controls:
+    - componentId: LEVEL
+      controlKind: knob
+      grid:
+        row: 1
+        column: 2
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(parsed.panel).toEqual({
+            faces: [{
+                id: 'top',
+                layout: {
+                    kind: 'stompbox-grid',
+                    rows: 1,
+                    columns: 2,
+                    indexing: 'one-based',
+                },
+                elements: [{
+                    bind: { componentId: 'LEVEL' },
+                    kind: 'knob',
+                    grid: { row: 1, column: 2 },
+                }],
+            }],
+        });
     });
 
     test('round-trips external control interface metadata', () => {
@@ -175,6 +309,69 @@ rawAttributes: {}`;
         expect(() => parseInterchangeYaml(yaml)).toThrow('panel.layout.indexing');
     });
 
+    test('rejects malformed panel faces with missing binding component ids', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad panel binding
+  description: ""
+  partNumber: ""
+source: {}
+panel:
+  faces:
+    - id: top
+      layout:
+        kind: stompbox-grid
+        rows: 1
+        columns: 1
+        indexing: one-based
+      elements:
+        - bind: {}
+          kind: knob
+          grid:
+            row: 1
+            column: 1
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('panel.faces[0].elements[0].bind.componentId');
+    });
+
+    test('rejects out-of-bounds grid coordinates per panel face', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad face coordinate
+  description: ""
+  partNumber: ""
+source: {}
+panel:
+  faces:
+    - id: right-side
+      layout:
+        kind: stompbox-grid
+        rows: 2
+        columns: 1
+        indexing: one-based
+      elements:
+        - bind:
+            componentId: V1
+          kind: jack
+          grid:
+            row: 3
+            column: 1
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('panel.faces[0].elements[0].grid.row');
+    });
+
     test('validates panel grid coordinates against the declared indexing mode', () => {
         const oneBasedWithZero = `schema: circuit-interchange/v1
 metadata:
@@ -204,7 +401,7 @@ rawAttributes: {}`;
         const zeroBased = oneBasedWithZero.replace('indexing: one-based', 'indexing: zero-based').replace('column: 1', 'column: 0');
 
         expect(() => parseInterchangeYaml(oneBasedWithZero)).toThrow('panel.controls[0].grid.row');
-        expect(parseInterchangeYaml(zeroBased).panel?.controls[0]?.grid).toEqual({ row: 0, column: 0 });
+        expect(parseInterchangeYaml(zeroBased).panel?.faces[0]?.elements[0]?.grid).toEqual({ row: 0, column: 0 });
     });
 
     test('parses the project interchange YAML shape back into a CircuitDocument', () => {

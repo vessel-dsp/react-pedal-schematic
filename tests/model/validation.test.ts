@@ -279,6 +279,143 @@ describe('validateDocument', () => {
         });
     });
 
+    test('direct-output jack role metadata is recognized', () => {
+        const doc = withParts([
+            makeComponent('J_DIRECT', 'jack', { Role: 'direct-out', Interface: 'dry-output' }, 'Circuit.Speaker'),
+        ]);
+
+        expect(validateDocument(doc)).toEqual([]);
+    });
+
+    test('panel placement with missing component binding emits warning', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            panel: {
+                faces: [{
+                    id: 'top',
+                    layout: { kind: 'stompbox-grid', rows: 1, columns: 1, indexing: 'one-based' },
+                    elements: [{
+                        bind: { componentId: 'MISSING' },
+                        kind: 'knob',
+                        grid: { row: 1, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'panel-binding-unresolved');
+
+        expect(issue).toEqual({
+            code: 'panel-binding-unresolved',
+            severity: 'warning',
+            message: 'Panel element on face "top" references missing component "MISSING"',
+            componentId: 'MISSING',
+        });
+    });
+
+    test('panel placement with missing runtime control id emits warning', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('U1', 'ic', {
+                    RuntimeDescriptor: 'true',
+                    TimeControl: 'D.TIME',
+                }, 'Circuit.MicroBlockDelayChip'),
+            ],
+            panel: {
+                faces: [{
+                    id: 'top',
+                    layout: { kind: 'stompbox-grid', rows: 1, columns: 1, indexing: 'one-based' },
+                    elements: [{
+                        bind: { componentId: 'U1', controlId: 'U1:missing' },
+                        kind: 'knob',
+                        grid: { row: 1, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'panel-control-unresolved');
+
+        expect(issue).toEqual({
+            code: 'panel-control-unresolved',
+            severity: 'warning',
+            message: 'Panel element on face "top" references missing control "U1:missing" on component "U1"',
+            componentId: 'U1',
+            property: 'U1:missing',
+        });
+    });
+
+    test('panel placement kind mismatch emits warning', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('J1', 'jack', { Role: 'input' }, 'Circuit.Input'),
+            ],
+            panel: {
+                faces: [{
+                    id: 'right-side',
+                    layout: { kind: 'stompbox-grid', rows: 1, columns: 1, indexing: 'one-based' },
+                    elements: [{
+                        bind: { componentId: 'J1' },
+                        kind: 'knob',
+                        grid: { row: 1, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'panel-kind-mismatch');
+
+        expect(issue).toEqual({
+            code: 'panel-kind-mismatch',
+            severity: 'warning',
+            message: 'Panel element on face "right-side" binds component "J1" as knob but resolved kind is jack',
+            componentId: 'J1',
+        });
+    });
+
+    test('panel placement overlapping cells emit warning', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('J1', 'jack', { Role: 'input' }, 'Circuit.Input'),
+                makeComponent('J2', 'jack', { Role: 'output' }, 'Circuit.Speaker'),
+            ],
+            panel: {
+                faces: [{
+                    id: 'top',
+                    layout: { kind: 'stompbox-grid', rows: 2, columns: 2, indexing: 'one-based' },
+                    elements: [
+                        {
+                            bind: { componentId: 'J1' },
+                            kind: 'jack',
+                            grid: { row: 1, column: 1, columnSpan: 2 },
+                        },
+                        {
+                            bind: { componentId: 'J2' },
+                            kind: 'jack',
+                            grid: { row: 1, column: 2 },
+                        },
+                    ],
+                }],
+            },
+        };
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'panel-cell-collision');
+
+        expect(issue).toEqual({
+            code: 'panel-cell-collision',
+            severity: 'warning',
+            message: 'Panel face "top" has overlapping elements at row 1, column 2',
+            componentId: 'J2',
+        });
+    });
+
     test('potentiometer requires R but taper is optional', () => {
         const doc = withParts([makeComponent('VR1', 'potentiometer', { R: '500k' })]);
         expect(validateDocument(doc)).toEqual([]);

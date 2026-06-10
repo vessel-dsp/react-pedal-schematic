@@ -78,4 +78,54 @@ describe('serializeInterchangeYaml', () => {
         expect(yaml).toContain('controlName: TRIGGER');
         expect(yaml).toContain('property: SamplerTriggerControl');
     });
+
+    test('serializes panel placement with faces, elements, and explicit bindings', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'DD-3 panel',
+                description: 'Named panel faces.',
+                partNumber: '',
+            },
+            panel: {
+                faces: [{
+                    id: 'right-side',
+                    label: 'Right side',
+                    layout: {
+                        kind: 'stompbox-grid',
+                        rows: 2,
+                        columns: 1,
+                        indexing: 'one-based',
+                        rowOrder: 'top-to-bottom',
+                    },
+                    elements: [{
+                        bind: {
+                            componentId: 'U1',
+                            controlId: 'U1:direct-out',
+                            controlName: 'Direct Out',
+                            property: 'DirectOutputJack',
+                        },
+                        kind: 'jack',
+                        label: 'Direct Out',
+                        grid: { row: 2, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+
+        expect(yaml).toContain('panel:');
+        expect(yaml).toContain('faces:');
+        expect(yaml).toContain('id: right-side');
+        expect(yaml).toContain('elements:');
+        expect(yaml).toContain('bind:');
+        expect(yaml).toContain('componentId: U1');
+        expect(yaml).toContain('controlId: "U1:direct-out"');
+        expect(yaml).toContain('controlName: "Direct Out"');
+        expect(yaml).toContain('property: DirectOutputJack');
+        expect(yaml).toContain('kind: jack');
+        expect(yaml).not.toContain('controls:');
+        expect(yaml).not.toContain('controlKind:');
+    });
 });

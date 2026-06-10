@@ -5,7 +5,9 @@ import type {
     ControlInterface,
     ControlInterfaceBinding,
     DocumentSource,
-    PanelControlPlacement,
+    PanelElementBinding,
+    PanelElementPlacement,
+    PanelFace,
     PanelGridLayout,
     PanelGridPosition,
     PanelPlacementMetadata,
@@ -135,9 +137,20 @@ function sourceBlock(
 
 function panelBlock(panel: PanelPlacementMetadata): MutableYamlObject {
     return {
-        layout: panelLayoutBlock(panel.layout),
-        controls: panel.controls.map(panelControlBlock),
+        faces: panel.faces.map(panelFaceBlock),
     };
+}
+
+function panelFaceBlock(face: PanelFace): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: face.id,
+    };
+    if (face.label !== undefined) {
+        out.label = face.label;
+    }
+    out.layout = panelLayoutBlock(face.layout);
+    out.elements = face.elements.map(panelElementBlock);
+    return out;
 }
 
 function panelLayoutBlock(layout: PanelGridLayout): MutableYamlObject {
@@ -156,14 +169,30 @@ function panelLayoutBlock(layout: PanelGridLayout): MutableYamlObject {
     return out;
 }
 
-function panelControlBlock(control: PanelControlPlacement): MutableYamlObject {
+function panelElementBlock(element: PanelElementPlacement): MutableYamlObject {
     const out: MutableYamlObject = {
-        componentId: control.componentId,
-        controlKind: control.controlKind,
-        grid: panelGridPositionBlock(control.grid),
+        bind: panelElementBindingBlock(element.bind),
+        kind: element.kind,
+        grid: panelGridPositionBlock(element.grid),
     };
-    if (control.label !== undefined) {
-        out.label = control.label;
+    if (element.label !== undefined) {
+        out.label = element.label;
+    }
+    return out;
+}
+
+function panelElementBindingBlock(binding: PanelElementBinding): MutableYamlObject {
+    const out: MutableYamlObject = {
+        componentId: binding.componentId,
+    };
+    if (binding.controlId !== undefined) {
+        out.controlId = binding.controlId;
+    }
+    if (binding.controlName !== undefined) {
+        out.controlName = binding.controlName;
+    }
+    if (binding.property !== undefined) {
+        out.property = binding.property;
     }
     return out;
 }

@@ -72,6 +72,10 @@ export function extractPanel(doc: CircuitDocument): Panel {
                     if (tempoTap !== undefined) {
                         jacks.push(tempoTap);
                     }
+                    const directOut = runtimeDescriptorDirectOut(component);
+                    if (directOut !== undefined) {
+                        jacks.push(directOut);
+                    }
                 }
                 break;
         }
@@ -319,6 +323,42 @@ function runtimeDescriptorTempoTap(component: Component): JackPort | undefined {
     };
 }
 
+function runtimeDescriptorDirectOut(component: Component): JackPort | undefined {
+    const name = nonEmptyString(propertyStringAny(component, [
+        'DirectOutputJack',
+        'DirectOutJack',
+        'DirectOutputControl',
+        'DirectOutControl',
+    ]));
+    if (name === undefined) {
+        return undefined;
+    }
+
+    const sourceTypeName = component.sourceTypeName ?? undefined;
+    const description = nonEmptyString(propertyStringAny(component, [
+        'DirectOutputRuntimeBoundary',
+        'DirectOutputDescription',
+        'DirectOutDescription',
+    ]));
+    const controlId = `${component.id}:direct-out`;
+    return {
+        id: controlId,
+        name,
+        role: 'direct-output',
+        sourceComponentId: component.id,
+        controlRole: 'direct-output',
+        interface: 'audio-output',
+        binding: {
+            sourceComponentId: component.id,
+            controlId,
+            controlName: name,
+            property: 'DirectOutputJack',
+        },
+        ...(sourceTypeName !== undefined ? { sourceTypeName } : {}),
+        ...(description === undefined ? {} : { description }),
+    };
+}
+
 function isSliderControl(component: Component): boolean {
     const style = propertyStringAny(component, ['ControlStyle', 'ControlType', 'PanelControl', 'UiControl', 'Style']);
     if (style === null) {
@@ -448,6 +488,7 @@ function resolveSemanticJackRole(component: Component): JackRole | null {
 function normalizeJackRole(value: string): JackRole | null {
     const normalized = normalizeToken(value);
     if (['input', 'audio-input', 'in'].includes(normalized)) return 'input';
+    if (['direct-output', 'direct-out', 'dry-output', 'dry-out'].includes(normalized)) return 'direct-output';
     if (['output', 'audio-output', 'out'].includes(normalized)) return 'output';
     if (normalized === 'send') return 'send';
     if (normalized === 'return') return 'return';

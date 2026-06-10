@@ -61,38 +61,47 @@ existing `document.source` block and defaults only missing fields to native
 `.vdsp` can also carry optional stompbox panel placement metadata on
 `document.panel`. This is logical control-surface placement, not schematic
 placement: component `origin` remains the electrical drawing position, while
-`panel.controls[].grid` describes where knobs, switches, sliders, LEDs, and
-jacks should appear on a pedal faceplate grid.
+`panel.faces[].elements[].grid` describes where knobs, switches, sliders, LEDs,
+and jacks should appear on named physical surfaces such as `top`, `left-side`,
+`right-side`, `front`, or `rear`.
 
 ```yaml
 panel:
-  layout:
-    kind: stompbox-grid
-    rows: 2
-    columns: 3
-    indexing: one-based
-    rowOrder: top-to-bottom
-    columnOrder: left-to-right
-  controls:
-    - componentId: DRIVE
-      controlKind: knob
-      grid:
-        row: 1
-        column: 1
-      label: Drive
-    - componentId: LEVEL
-      controlKind: knob
-      grid:
-        row: 1
-        column: 3
-        rowSpan: 1
-        columnSpan: 1
-      label: Level
+  faces:
+    - id: top
+      label: Top
+      layout:
+        kind: stompbox-grid
+        rows: 2
+        columns: 3
+        indexing: one-based
+        rowOrder: top-to-bottom
+        columnOrder: left-to-right
+      elements:
+        - bind: { componentId: DRIVE }
+          kind: knob
+          grid:
+            row: 1
+            column: 1
+          label: Drive
+        - bind:
+            componentId: LEVEL
+            controlId: LEVEL
+          kind: knob
+          grid:
+            row: 1
+            column: 3
+            rowSpan: 1
+            columnSpan: 1
+          label: Level
 ```
 
-Use existing circuit `componentId` values in panel controls. The parser accepts
-`indexing: one-based` or `indexing: zero-based`, but hand-authored `.vdsp`
-files should prefer explicit `one-based` indexing for readability.
+Use existing circuit `componentId` values in panel element bindings. Add
+`controlId`, `controlName`, or `property` when one component surfaces multiple
+runtime controls or panel ports. The parser accepts `indexing: one-based` or
+`indexing: zero-based`, but hand-authored `.vdsp` files should prefer explicit
+`one-based` indexing for readability. Legacy `panel.layout` + `controls[]`
+input is still accepted and normalized to one `top` face.
 
 External control inputs are persisted separately under top-level
 `controlInterfaces`. Use this for behavior and wiring semantics such as DD-3

@@ -10,7 +10,10 @@ import type {
     DocumentSource,
     PanelColumnOrder,
     PanelControlKind,
+    PanelElementBinding,
+    PanelGridLayout,
     PanelGridIndexing,
+    PanelGridPosition,
     PanelPlacementMetadata,
     PanelRowOrder,
     ParsedQuantity,
@@ -459,49 +462,103 @@ function parsePanel(value: YamlValue | undefined): PanelPlacementMetadata | unde
         return undefined;
     }
     const panel = expectObject(value, 'panel');
-    const layout = parsePanelLayout(panel.layout);
+
+    if (panel.faces !== undefined) {
+        return {
+            faces: optionalArray(panel.faces, 'panel.faces').map((item, index) => parsePanelFace(item, index)),
+        };
+    }
+
+    if (panel.layout === undefined) {
+        return undefined;
+    }
+
+    const layout = parsePanelLayout(panel.layout, 'panel.layout');
+    const elementsValue = panel.controls ?? panel.elements;
+    const elementsPath = panel.controls === undefined ? 'panel.elements' : 'panel.controls';
     return {
-        layout,
-        controls: parsePanelControls(panel.controls, layout),
+        faces: [{
+            id: 'top',
+            layout,
+            elements: parsePanelElements(elementsValue, layout, elementsPath),
+        }],
     };
 }
 
-function parsePanelLayout(value: YamlValue | undefined): PanelPlacementMetadata['layout'] {
-    const layout = expectObject(value, 'panel.layout');
-    const rowOrder = parseOptionalPanelRowOrder(layout.rowOrder, 'panel.layout.rowOrder');
-    const columnOrder = parseOptionalPanelColumnOrder(layout.columnOrder, 'panel.layout.columnOrder');
+function parsePanelFace(value: YamlValue, index: number): PanelPlacementMetadata['faces'][number] {
+    const path = `panel.faces[${index}]`;
+    const face = expectObject(value, path);
+    const label = parseOptionalString(face.label, `${path}.label`);
+    const layout = parsePanelLayout(face.layout, `${path}.layout`);
     return {
-        kind: parsePanelLayoutKind(layout.kind, 'panel.layout.kind'),
-        rows: expectPositiveInteger(layout.rows, 'panel.layout.rows'),
-        columns: expectPositiveInteger(layout.columns, 'panel.layout.columns'),
-        indexing: parsePanelGridIndexing(layout.indexing, 'panel.layout.indexing'),
+        id: expectString(face.id, `${path}.id`),
+        ...(label === undefined ? {} : { label }),
+        layout,
+        elements: parsePanelElements(face.elements, layout, `${path}.elements`),
+    };
+}
+
+function parsePanelLayout(value: YamlValue | undefined, path: string): PanelGridLayout {
+    const layout = expectObject(value, path);
+    const rowOrder = parseOptionalPanelRowOrder(layout.rowOrder, `${path}.rowOrder`);
+    const columnOrder = parseOptionalPanelColumnOrder(layout.columnOrder, `${path}.columnOrder`);
+    return {
+        kind: parsePanelLayoutKind(layout.kind, `${path}.kind`),
+        rows: expectPositiveInteger(layout.rows, `${path}.rows`),
+        columns: expectPositiveInteger(layout.columns, `${path}.columns`),
+        indexing: parsePanelGridIndexing(layout.indexing, `${path}.indexing`),
         ...(rowOrder === undefined ? {} : { rowOrder }),
         ...(columnOrder === undefined ? {} : { columnOrder }),
     };
 }
 
-function parsePanelControls(
+function parsePanelElements(
     value: YamlValue | undefined,
-    layout: PanelPlacementMetadata['layout'],
-): PanelPlacementMetadata['controls'] {
-    return optionalArray(value, 'panel.controls').map((item, index) => {
-        const path = `panel.controls[${index}]`;
-        const control = expectObject(item, path);
-        const label = parseOptionalString(control.label, `${path}.label`);
+    layout: PanelGridLayout,
+    path: string,
+): PanelPlacementMetadata['faces'][number]['elements'] {
+    return optionalArray(value, path).map((item, index) => {
+        const elementPath = `${path}[${index}]`;
+        const element = expectObject(item, elementPath);
+        const label = parseOptionalString(element.label, `${elementPath}.label`);
         return {
-            componentId: expectString(control.componentId, `${path}.componentId`),
-            controlKind: parsePanelControlKind(control.controlKind, `${path}.controlKind`),
-            grid: parsePanelGridPosition(control.grid, `${path}.grid`, layout),
+            bind: parsePanelElementBinding(element, elementPath),
+            kind: parsePanelControlKind(
+                element.kind ?? element.controlKind,
+                element.kind === undefined && element.controlKind !== undefined
+                    ? `${elementPath}.controlKind`
+                    : `${elementPath}.kind`,
+            ),
+            grid: parsePanelGridPosition(element.grid, `${elementPath}.grid`, layout),
             ...(label === undefined ? {} : { label }),
         };
     });
 }
 
+function parsePanelElementBinding(element: YamlObject, path: string): PanelElementBinding {
+    if (element.bind !== undefined) {
+        const bind = expectObject(element.bind, `${path}.bind`);
+        const controlId = parseOptionalString(bind.controlId, `${path}.bind.controlId`);
+        const controlName = parseOptionalString(bind.controlName, `${path}.bind.controlName`);
+        const property = parseOptionalString(bind.property, `${path}.bind.property`);
+        return {
+            componentId: expectString(bind.componentId, `${path}.bind.componentId`),
+            ...(controlId === undefined ? {} : { controlId }),
+            ...(controlName === undefined ? {} : { controlName }),
+            ...(property === undefined ? {} : { property }),
+        };
+    }
+
+    return {
+        componentId: expectString(element.componentId, `${path}.componentId`),
+    };
+}
+
 function parsePanelGridPosition(
     value: YamlValue | undefined,
     path: string,
-    layout: PanelPlacementMetadata['layout'],
-): PanelPlacementMetadata['controls'][number]['grid'] {
+    layout: PanelGridLayout,
+): PanelGridPosition {
     const grid = expectObject(value, path);
     const rowSpan = parseOptionalPositiveInteger(grid.rowSpan, `${path}.rowSpan`);
     const columnSpan = parseOptionalPositiveInteger(grid.columnSpan, `${path}.columnSpan`);

@@ -151,16 +151,32 @@ export type PanelGridPosition = Readonly<{
     columnSpan?: number;
 }>;
 
-export type PanelControlPlacement = Readonly<{
+export type PanelElementBinding = Readonly<{
     componentId: string;
-    controlKind: PanelControlKind;
+    controlId?: string;
+    controlName?: string;
+    property?: string;
+}>;
+
+export type PanelElementPlacement = Readonly<{
+    bind: PanelElementBinding;
+    kind: PanelControlKind;
     grid: PanelGridPosition;
     label?: string;
 }>;
 
-export type PanelPlacementMetadata = Readonly<{
+/** @deprecated Use PanelElementPlacement. */
+export type PanelControlPlacement = PanelElementPlacement;
+
+export type PanelFace = Readonly<{
+    id: string;
+    label?: string;
     layout: PanelGridLayout;
-    controls: readonly PanelControlPlacement[];
+    elements: readonly PanelElementPlacement[];
+}>;
+
+export type PanelPlacementMetadata = Readonly<{
+    faces: readonly PanelFace[];
 }>;
 
 export type Warning = Readonly<{

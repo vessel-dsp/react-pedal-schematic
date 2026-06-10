@@ -84,7 +84,10 @@ Related exports:
 | `PanelGridIndexing` | `'one-based' | 'zero-based'`. |
 | `PanelRowOrder` | `'top-to-bottom' | 'bottom-to-top'`. |
 | `PanelColumnOrder` | `'left-to-right' | 'right-to-left'`. |
-| `PanelControlPlacement` | Maps a control to a `componentId`, `controlKind`, and `grid`. |
+| `PanelFace` | Named physical surface with its own grid layout and elements. |
+| `PanelElementBinding` | Binds a panel element to a component and optional runtime control/property. |
+| `PanelElementPlacement` | Maps a bound panel element to a kind, label, and grid position. |
+| `PanelControlPlacement` | Deprecated alias for `PanelElementPlacement`. |
 | `PanelControlKind` | `'knob' | 'slider' | 'switch' | 'led' | 'jack'`. |
 | `PanelGridPosition` | `{ row, column, rowSpan?, columnSpan? }`. |
 
@@ -92,18 +95,20 @@ Example `.vdsp` panel block:
 
 ```yaml
 panel:
-  layout:
-    kind: stompbox-grid
-    rows: 2
-    columns: 3
-    indexing: one-based
-  controls:
-    - componentId: DRIVE
-      controlKind: knob
-      grid:
-        row: 1
-        column: 1
-      label: Drive
+  faces:
+    - id: top
+      layout:
+        kind: stompbox-grid
+        rows: 2
+        columns: 3
+        indexing: one-based
+      elements:
+        - bind: { componentId: DRIVE }
+          kind: knob
+          grid:
+            row: 1
+            column: 1
+          label: Drive
 ```
 
 ### Control Interface Metadata
@@ -152,7 +157,7 @@ Producer contract:
 - `componentId` is optional. When it names an existing jack component, `extractPanel()` overlays the interface metadata onto that jack; otherwise the interface is exposed as a synthesized jack.
 - `controlRole` and `interface` preserve source or host semantics. When omitted, panel extraction supplies defaults for known roles.
 - `binding` is optional metadata that points to the runtime descriptor component/control/property driven by the external interface.
-- Do not put trigger/reset/tempo inputs in `panel.controls` as switches unless the hardware has a visible panel switch. Use `panel` for placement and `controlInterfaces` for behavior.
+- Do not put trigger/reset/tempo inputs in `panel.faces[].elements[]` as switches unless the hardware has a visible panel switch. Use `panel` for placement and `controlInterfaces` for behavior.
 
 Example `.vdsp` control interface block:
 

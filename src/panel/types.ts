@@ -74,6 +74,7 @@ export type LedIndicator = Readonly<{
 export type JackRole =
     | 'input'
     | 'output'
+    | 'direct-output'
     | 'send'
     | 'return'
     | 'expression'

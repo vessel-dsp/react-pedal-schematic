@@ -1,4 +1,4 @@
-export const VERSION = '0.2.9';
+export const VERSION = '0.3.0';
 
 export type {
     CircuitDocument,
@@ -15,6 +15,9 @@ export type {
     PanelColumnOrder,
     PanelControlKind,
     PanelControlPlacement,
+    PanelElementBinding,
+    PanelElementPlacement,
+    PanelFace,
     PanelGridIndexing,
     PanelGridLayout,
     PanelGridPosition,

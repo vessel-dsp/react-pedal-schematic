@@ -95,6 +95,7 @@ describe('extractPanel', () => {
                 makeComponent('J_OUT', 'jack', { Role: 'output' }, 'Circuit.Input'),
                 makeComponent('J_EXPR', 'jack', { Interface: 'expression' }, 'Circuit.Input'),
                 makeComponent('J_TAP', 'jack', { ControlRole: 'tempo-tap', Interface: 'tap-tempo' }, 'Circuit.Input'),
+                makeComponent('J_DIRECT', 'jack', { Role: 'direct-out', Interface: 'dry-output' }, 'Circuit.Speaker'),
             ],
         };
 
@@ -102,6 +103,7 @@ describe('extractPanel', () => {
         const output = panel.jacks.find((jack) => jack.id === 'J_OUT')!;
         const expression = panel.jacks.find((jack) => jack.id === 'J_EXPR')!;
         const tap = panel.jacks.find((jack) => jack.id === 'J_TAP')!;
+        const direct = panel.jacks.find((jack) => jack.id === 'J_DIRECT')!;
 
         expect(output.role).toBe('output');
         expect(expression.role).toBe('expression');
@@ -109,6 +111,8 @@ describe('extractPanel', () => {
         expect(tap.role).toBe('tempo-tap');
         expect(tap.controlRole).toBe('tempo-tap');
         expect(tap.interface).toBe('tap-tempo');
+        expect(direct.role).toBe('direct-output');
+        expect(direct.interface).toBe('dry-output');
     });
 
     test('Big Muff tone stack exposes a single TONE knob with Linear taper', async () => {
@@ -266,6 +270,9 @@ describe('extractPanel', () => {
                     ModeControlWipe: '2',
                     ModeLabels: 'DELAY 1,DELAY 2,HOLD,REVERSE',
                     TempoTapControl: 'Tempo In',
+                    DirectOutputJack: 'Direct Out',
+                    DirectOutputSignal: 'dry-buffered',
+                    DirectOutputRuntimeBoundary: 'Physical dry Direct Out jack below Input.',
                 }, 'Circuit.MicroBlockDelayChip'),
             ],
         };
@@ -276,6 +283,7 @@ describe('extractPanel', () => {
         const mix = panel.knobs.find((knob) => knob.id === 'U1:mix')!;
         const mode = panel.knobs.find((knob) => knob.id === 'U1:mode')!;
         const tap = panel.jacks.find((jack) => jack.id === 'U1:tempo-tap')!;
+        const direct = panel.jacks.find((jack) => jack.id === 'U1:direct-out')!;
 
         expect(time.name).toBe('D.TIME');
         expect(time.taper).toBe('log');
@@ -299,6 +307,21 @@ describe('extractPanel', () => {
         expect(tap.interface).toBe('tap-tempo');
         expect(tap.sourceComponentId).toBe('U1');
         expect(tap.assignmentHint).toBe('momentary');
+        expect(direct).toMatchObject({
+            name: 'Direct Out',
+            role: 'direct-output',
+            sourceComponentId: 'U1',
+            controlRole: 'direct-output',
+            interface: 'audio-output',
+            sourceTypeName: 'Circuit.MicroBlockDelayChip',
+            binding: {
+                sourceComponentId: 'U1',
+                controlId: 'U1:direct-out',
+                controlName: 'Direct Out',
+                property: 'DirectOutputJack',
+            },
+            description: 'Physical dry Direct Out jack below Input.',
+        });
         expect(panel.switches).toEqual([]);
     });
 
@@ -401,17 +424,20 @@ describe('extractPanel', () => {
         const doc: CircuitDocument = {
             ...EMPTY_DOCUMENT,
             panel: {
-                layout: {
-                    kind: 'stompbox-grid',
-                    rows: 2,
-                    columns: 3,
-                    indexing: 'one-based',
-                },
-                controls: [{
-                    componentId: 'DRIVE',
-                    controlKind: 'knob',
-                    grid: { row: 1, column: 1 },
-                    label: 'Drive',
+                faces: [{
+                    id: 'top',
+                    layout: {
+                        kind: 'stompbox-grid',
+                        rows: 2,
+                        columns: 3,
+                        indexing: 'one-based',
+                    },
+                    elements: [{
+                        bind: { componentId: 'DRIVE' },
+                        kind: 'knob',
+                        grid: { row: 1, column: 1 },
+                        label: 'Drive',
+                    }],
                 }],
             },
         };
