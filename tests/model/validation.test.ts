@@ -151,6 +151,14 @@ describe('validateDocument', () => {
         expect(issues.some((i) => i.code === 'model-required')).toBe(false);
     });
 
+    test('runtime descriptor ICs do not require a model name', () => {
+        const doc = withParts([
+            makeComponent('U1', 'ic', { RuntimeDescriptor: 'true' }, 'Circuit.MicroBlockDelayChip'),
+        ]);
+        const issues = validateDocument(doc);
+        expect(issues.some((i) => i.code === 'model-required')).toBe(false);
+    });
+
     test('opamp with inline small-signal parameters does not require a model name', () => {
         // LiveSPICE's Circuit.OpAmp carries the model inline as Rin/Rout/Aol/GBP.
         const doc = withParts([

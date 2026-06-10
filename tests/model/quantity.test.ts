@@ -27,6 +27,12 @@ describe('parseQuantity', () => {
         expect(parseQuantity('1G')?.value).toBe(1e9);
     });
 
+    test('parses electronics shorthand with suffix decimal marker', () => {
+        expect(parseQuantity('1k5')).toEqual({ raw: '1k5', value: 1500, unit: '' });
+        expect(parseQuantity('4u7F')).toEqual({ raw: '4u7F', value: 4.7e-6, unit: 'F' });
+        expect(parseQuantity('2R2')).toEqual({ raw: '2R2', value: 2.2, unit: 'Ω' });
+    });
+
     test('parses capacitance values', () => {
         const c = parseQuantity('4.7uF');
         expect(c).not.toBeNull();

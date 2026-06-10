@@ -281,6 +281,39 @@ describe('serializeCircuitJsonDocument', () => {
         ]);
     });
 
+    test('exports JFET source components and ports with an explicit lossy mapping warning', () => {
+        const doc = withParts([
+            makeComponent('Q1', 'jfet', [
+                ['drain', 0, -20],
+                ['gate', -20, 0],
+                ['source', 0, 20],
+            ], { PartNumber: '2N5457' }, 'Circuit.NjfJfet'),
+        ]);
+
+        const circuitJson = serializeCircuitJsonDocument(doc);
+
+        expect(recordsOfType(circuitJson.elements, 'source_component')).toEqual([
+            {
+                type: 'source_component',
+                ftype: 'simple_mosfet',
+                source_component_id: 'source_component:Q1',
+                name: 'Q1',
+                display_name: 'Q1',
+                channel_type: 'n',
+                mosfet_mode: 'depletion',
+                manufacturer_part_number: '2N5457',
+            },
+        ]);
+        expect(recordsOfType(circuitJson.elements, 'source_port').map((port) => port.name)).toEqual([
+            'drain',
+            'gate',
+            'source',
+        ]);
+        expect(circuitJson.warnings).toEqual([
+            'Q1 (jfet): Circuit JSON has no simple_jfet ftype; emitted simple_mosfet depletion-mode source metadata',
+        ]);
+    });
+
     test('wire-only nodes become nets with traces but warn when no exported ports reference them', () => {
         const doc = withParts([], [
             makeWire('w1', { x: 0, y: 0 }, { x: 20, y: 0 }),

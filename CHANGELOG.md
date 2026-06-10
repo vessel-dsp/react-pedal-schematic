@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.7
+
+- Treat imported runtime descriptor ICs as validation-safe opaque descriptors when `RuntimeDescriptor: "true"` is present.
+- Rename SPDT/SP3T/SP4T catalog terminals from BJT-style names to switch-specific common/throw terminals.
+- Parse common electronics shorthand quantities such as `1k5`, `4u7F`, and `2R2`.
+- Export JFETs to Circuit JSON as schema-valid depletion-mode FET source metadata with an explicit lossy-mapping warning.
+
 ## 0.2.6
 
 - Add a headless Circuit JSON source-domain exporter for `CircuitDocument`, with fixture coverage against the official `circuit-json` schema.

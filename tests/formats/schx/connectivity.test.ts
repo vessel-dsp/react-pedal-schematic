@@ -152,22 +152,22 @@ describe('spdt-bypass-pedal electrical connectivity', () => {
         expectPinsShareNode(c, [['BAT1', '+'], ['VCC', 't'], ['RLED', 'a'], ['RB1', 'a'], ['RC', 'a']]);
     });
 
-    test('bypass tap shares the input signal between CIN.a and the SPDT bypass throw (SW1.emitter)', async () => {
+    test('bypass tap shares the input signal between CIN.a and the SPDT bypass throw (SW1.throw1)', async () => {
         const doc = await loadFixture('spdt-bypass-pedal');
         const c = resolveConnectivity(doc);
-        expectPinsShareNode(c, [['IN', 'a'], ['CIN', 'a'], ['SW1', 'emitter']]);
+        expectPinsShareNode(c, [['IN', 'a'], ['CIN', 'a'], ['SW1', 'throw1']]);
     });
 
-    test('SPDT effect throw (SW1.collector) is fed by COUT.b', async () => {
+    test('SPDT effect throw (SW1.throw0) is fed by COUT.b', async () => {
         const doc = await loadFixture('spdt-bypass-pedal');
         const c = resolveConnectivity(doc);
-        expectPinsShareNode(c, [['COUT', 'b'], ['SW1', 'collector']]);
+        expectPinsShareNode(c, [['COUT', 'b'], ['SW1', 'throw0']]);
     });
 
-    test('SPDT pole (SW1.base) drives OUT.a', async () => {
+    test('SPDT common terminal drives OUT.a', async () => {
         const doc = await loadFixture('spdt-bypass-pedal');
         const c = resolveConnectivity(doc);
-        expectPinsShareNode(c, [['SW1', 'base'], ['OUT', 'a']]);
+        expectPinsShareNode(c, [['SW1', 'common'], ['OUT', 'a']]);
     });
 
     test('LED indicator is always wired between +9V and ground via RLED + LED1', async () => {

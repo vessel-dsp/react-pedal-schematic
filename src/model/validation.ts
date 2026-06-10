@@ -254,6 +254,9 @@ function isRequirementWaived(component: Component, rule: PropertyRule): boolean 
     if (rule.kind !== 'string' || rule.name !== 'model') {
         return false;
     }
+    if (component.kind === 'ic' && component.properties.RuntimeDescriptor === 'true') {
+        return true;
+    }
     const shortType = shortSourceType(component.sourceTypeName);
     if (shortType !== null && IDEAL_SOURCE_TYPES.has(shortType)) {
         return true;

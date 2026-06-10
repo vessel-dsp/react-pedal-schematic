@@ -34,6 +34,27 @@ const BJT_TERMINALS: readonly SchxTerminalLocal[] = [
     { name: 'emitter', local: { x: 10, y: -20 } },
 ];
 
+const SPDT_TERMINALS: readonly SchxTerminalLocal[] = [
+    { name: 'common', local: { x: -20, y: 0 } },
+    { name: 'throw0', local: { x: 0, y: 20 } },
+    { name: 'throw1', local: { x: 10, y: -20 } },
+];
+
+const SP3T_TERMINALS: readonly SchxTerminalLocal[] = [
+    { name: 'common', local: { x: -20, y: 0 } },
+    { name: 'throw0', local: { x: 0, y: 20 } },
+    { name: 'throw1', local: { x: 10, y: 0 } },
+    { name: 'throw2', local: { x: 0, y: -20 } },
+];
+
+const SP4T_TERMINALS: readonly SchxTerminalLocal[] = [
+    { name: 'common', local: { x: -20, y: 0 } },
+    { name: 'throw0', local: { x: 0, y: 20 } },
+    { name: 'throw1', local: { x: 10, y: 7 } },
+    { name: 'throw2', local: { x: 10, y: -7 } },
+    { name: 'throw3', local: { x: 0, y: -20 } },
+];
+
 const JFET_TERMINALS: readonly SchxTerminalLocal[] = [
     { name: 'drain', local: { x: 0, y: 20 } },
     { name: 'gate', local: { x: -20, y: 0 } },
@@ -332,9 +353,9 @@ const DEFS: readonly SchxComponentDef[] = [
     { shortType: 'Potentiometer', kind: 'potentiometer', terminals: POT_TERMINALS, quantityProps: ['Resistance', 'Wipe', 'Sweep'] },
     { shortType: 'VariableResistor', kind: 'variable-resistor', terminals: TWO_TERMINAL_AB, quantityProps: ['Resistance'] },
     { shortType: 'Switch', kind: 'switch', terminals: TWO_TERMINAL_AB, quantityProps: [] },
-    { shortType: 'SPDT', kind: 'switch', terminals: BJT_TERMINALS, quantityProps: [] },
-    { shortType: 'SP3T', kind: 'switch', terminals: BJT_TERMINALS, quantityProps: [] },
-    { shortType: 'SP4T', kind: 'switch', terminals: BJT_TERMINALS, quantityProps: [] },
+    { shortType: 'SPDT', kind: 'switch', terminals: SPDT_TERMINALS, quantityProps: [] },
+    { shortType: 'SP3T', kind: 'switch', terminals: SP3T_TERMINALS, quantityProps: [] },
+    { shortType: 'SP4T', kind: 'switch', terminals: SP4T_TERMINALS, quantityProps: [] },
     { shortType: '3PDT', kind: 'switch', terminals: THREE_PDT_TERMINALS, quantityProps: [] },
     { shortType: 'VoltageSource', kind: 'voltage-source', terminals: TWO_TERMINAL_SOURCE, quantityProps: ['Voltage'] },
     { shortType: 'CurrentSource', kind: 'current-source', terminals: TWO_TERMINAL_SOURCE, quantityProps: ['Current'] },

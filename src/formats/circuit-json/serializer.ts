@@ -110,6 +110,7 @@ const DIRECT_EXPORT_KINDS: ReadonlySet<ComponentKind> = new Set<ComponentKind>([
     'diode',
     'led',
     'bjt',
+    'jfet',
     'mosfet',
     'opamp',
     'potentiometer',
@@ -283,6 +284,17 @@ function sourceComponentElement(
                 transistor_type: inferTransistorType(component),
                 ...(manufacturerPartNumber !== null ? { manufacturer_part_number: manufacturerPartNumber } : {}),
             };
+        case 'jfet':
+            warnings.push(
+                `${component.id} (jfet): Circuit JSON has no simple_jfet ftype; emitted simple_mosfet depletion-mode source metadata`,
+            );
+            return {
+                ...base,
+                ftype: 'simple_mosfet',
+                channel_type: inferJfetChannel(component),
+                mosfet_mode: 'depletion',
+                ...(manufacturerPartNumber !== null ? { manufacturer_part_number: manufacturerPartNumber } : {}),
+            };
         case 'mosfet':
             return {
                 ...base,
@@ -363,7 +375,6 @@ function sourceComponentElement(
                 ftype: 'simple_chip',
                 ...(manufacturerPartNumber !== null ? { manufacturer_part_number: manufacturerPartNumber } : {}),
             };
-        case 'jfet':
         case 'ota':
         case 'triode':
         case 'pentode':
@@ -557,6 +568,11 @@ function inferTransistorType(component: Component): 'npn' | 'pnp' {
 function inferMosfetChannel(component: Component): 'n' | 'p' {
     const searchable = searchablePropertyText(component);
     return searchable.includes('pmos') || searchable.includes('p-channel') || searchable.includes('p channel') ? 'p' : 'n';
+}
+
+function inferJfetChannel(component: Component): 'n' | 'p' {
+    const searchable = searchablePropertyText(component);
+    return searchable.includes('pjf') || searchable.includes('p-channel') || searchable.includes('p channel') ? 'p' : 'n';
 }
 
 function inferMosfetMode(component: Component): 'enhancement' | 'depletion' {

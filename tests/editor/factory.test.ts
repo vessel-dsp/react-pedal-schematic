@@ -61,6 +61,31 @@ describe('buildComponent', () => {
         expect(q.sourceTypeName).toBe('Circuit.PnpBjt, Circuit');
     });
 
+    test('resolves SPDT switches with switch terminal names', () => {
+        const sw = buildComponent({
+            kind: 'switch',
+            origin: { x: 0, y: 0 },
+            sourceTypeName: 'Circuit.SPDT, Circuit',
+        });
+        expect(sw.terminals.map((t) => t.name)).toEqual(['common', 'throw0', 'throw1']);
+    });
+
+    test('resolves multi-throw switches with one common terminal and numbered throws', () => {
+        const sp3t = buildComponent({
+            kind: 'switch',
+            origin: { x: 0, y: 0 },
+            sourceTypeName: 'Circuit.SP3T, Circuit',
+        });
+        const sp4t = buildComponent({
+            kind: 'switch',
+            origin: { x: 0, y: 0 },
+            sourceTypeName: 'Circuit.SP4T, Circuit',
+        });
+
+        expect(sp3t.terminals.map((t) => t.name)).toEqual(['common', 'throw0', 'throw1', 'throw2']);
+        expect(sp4t.terminals.map((t) => t.name)).toEqual(['common', 'throw0', 'throw1', 'throw2', 'throw3']);
+    });
+
     test('falls back to default def when sourceTypeName is unknown', () => {
         const sw = buildComponent({
             kind: 'switch',
