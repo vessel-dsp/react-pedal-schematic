@@ -46,7 +46,7 @@ async function collectFixtures(dir: URL = FIXTURES_DIR): Promise<readonly Fixtur
 describe('Circuit JSON tscircuit fixture compatibility', () => {
     test('converts every bundled fixture into elements accepted by the official circuit-json schema', async () => {
         const fixtures = await collectFixtures();
-        expect(fixtures).toHaveLength(47);
+        expect(fixtures).toHaveLength(48);
 
         const failures: string[] = [];
         for (const fixture of fixtures) {

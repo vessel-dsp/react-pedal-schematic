@@ -1,8 +1,10 @@
 import type { CircuitDocument, Component, ParsedQuantity, PropertyValue } from '../model/types';
 import type {
+    ExternalControlAssignmentHint,
     JackPort,
     JackRole,
     Knob,
+    KnobStep,
     KnobTaper,
     LedIndicator,
     Panel,
@@ -13,6 +15,23 @@ import type {
     SwitchKind,
 } from './types';
 import { buildKnobSteps, snapKnobPosition } from './knobs';
+
+type RuntimeContinuousControlSpec = Readonly<{
+    key: string;
+    controlProperty: string;
+    wipeProperty: string;
+    sweepProperty: string;
+}>;
+
+const RUNTIME_CONTINUOUS_CONTROL_SPECS: readonly RuntimeContinuousControlSpec[] = [
+    { key: 'time', controlProperty: 'TimeControl', wipeProperty: 'TimeControlWipe', sweepProperty: 'TimeControlSweep' },
+    { key: 'feedback', controlProperty: 'FeedbackControl', wipeProperty: 'FeedbackControlWipe', sweepProperty: 'FeedbackControlSweep' },
+    { key: 'mix', controlProperty: 'MixControl', wipeProperty: 'MixControlWipe', sweepProperty: 'MixControlSweep' },
+    { key: 'level', controlProperty: 'LevelControl', wipeProperty: 'LevelControlWipe', sweepProperty: 'LevelControlSweep' },
+    { key: 'tone', controlProperty: 'ToneControl', wipeProperty: 'ToneControlWipe', sweepProperty: 'ToneControlSweep' },
+    { key: 'mod-rate', controlProperty: 'ModRateControl', wipeProperty: 'ModRateControlWipe', sweepProperty: 'ModRateControlSweep' },
+    { key: 'mod-depth', controlProperty: 'ModDepthControl', wipeProperty: 'ModDepthControlWipe', sweepProperty: 'ModDepthControlSweep' },
+];
 
 // extractPanel inspects a CircuitDocument and emits the typed Panel descriptor
 // that drives the runtime control surface. It's a pure read over the existing
@@ -47,11 +66,25 @@ export function extractPanel(doc: CircuitDocument): Panel {
                 break;
             }
             default:
+                if (isRuntimeDescriptor(component)) {
+                    knobs.push(...runtimeDescriptorKnobs(component));
+                    const tempoTap = runtimeDescriptorTempoTap(component);
+                    if (tempoTap !== undefined) {
+                        jacks.push(tempoTap);
+                    }
+                }
                 break;
         }
     }
 
-    return { knobs, sliders, switches, leds, jacks };
+    return {
+        ...(doc.panel === undefined ? {} : { placement: doc.panel }),
+        knobs,
+        sliders,
+        switches,
+        leds,
+        jacks,
+    };
 }
 
 function toKnob(component: Component): Knob {
@@ -130,6 +163,8 @@ function toLed(component: Component): LedIndicator {
 function toJack(component: Component): JackPort {
     const role = resolveJackRole(component);
     const impedance = quantityProperty(component, 'Impedance');
+    const controlRole = nonEmptyString(propertyString(component, 'ControlRole'));
+    const interfaceName = nonEmptyString(propertyString(component, 'Interface'));
     const description = propertyString(component, 'Description') ?? undefined;
     const sourceTypeName = component.sourceTypeName ?? undefined;
     return {
@@ -138,7 +173,77 @@ function toJack(component: Component): JackPort {
         role,
         ...(impedance !== undefined ? { impedance } : {}),
         ...(sourceTypeName !== undefined ? { sourceTypeName } : {}),
+        ...(controlRole !== undefined ? { controlRole } : {}),
+        ...(interfaceName !== undefined ? { interface: interfaceName } : {}),
         ...(description !== undefined && description.length > 0 ? { description } : {}),
+    };
+}
+
+function runtimeDescriptorKnobs(component: Component): readonly Knob[] {
+    const knobs: Knob[] = [];
+
+    for (const spec of RUNTIME_CONTINUOUS_CONTROL_SPECS) {
+        const name = nonEmptyString(propertyString(component, spec.controlProperty));
+        if (name === undefined) {
+            continue;
+        }
+
+        knobs.push({
+            id: `${component.id}:${spec.key}`,
+            name,
+            taper: resolveTaper(propertyString(component, spec.sweepProperty)),
+            controlMode: 'continuous',
+            defaultPosition: clamp01(parseNumeric(component.properties[spec.wipeProperty]) ?? 0.5),
+        });
+    }
+
+    const mode = runtimeDescriptorMode(component);
+    if (mode !== undefined) {
+        knobs.push(mode);
+    }
+
+    return knobs;
+}
+
+function runtimeDescriptorMode(component: Component): Knob | undefined {
+    const name = nonEmptyString(propertyString(component, 'ModeControl'));
+    const labels = parseStepLabels(propertyStringAny(component, ['ModeLabels', 'ModeOptions']));
+    const explicitStepCount = parseStepCount(propertyStringAny(component, ['ModeStepCount', 'ModeSteps', 'ModeCount']));
+    const steps = buildKnobSteps(labels.length >= 2 ? labels.length : explicitStepCount ?? 0, labels);
+    if (name === undefined || steps === undefined) {
+        return undefined;
+    }
+
+    return {
+        id: `${component.id}:mode`,
+        name,
+        taper: 'unknown',
+        controlMode: 'stepped',
+        defaultPosition: runtimeModeDefaultPosition(
+            steps,
+            parseNumericAny(component, ['ModeControlWipe', 'ModeDefaultIndex', 'ModeIndex']),
+        ),
+        steps,
+    };
+}
+
+function runtimeDescriptorTempoTap(component: Component): JackPort | undefined {
+    const name = nonEmptyString(propertyStringAny(component, ['TempoTapControl', 'TapTempoControl', 'TempoControl']));
+    if (name === undefined) {
+        return undefined;
+    }
+
+    const sourceTypeName = component.sourceTypeName ?? undefined;
+    const assignmentHint: ExternalControlAssignmentHint = 'momentary';
+    return {
+        id: `${component.id}:tempo-tap`,
+        name,
+        role: 'tempo-tap',
+        sourceComponentId: component.id,
+        controlRole: 'tempo-tap',
+        interface: 'tap-tempo',
+        assignmentHint,
+        ...(sourceTypeName !== undefined ? { sourceTypeName } : {}),
     };
 }
 
@@ -235,6 +340,11 @@ function switchGeometry(kind: SwitchKind): { poles: number; positions: number } 
 }
 
 function resolveJackRole(component: Component): JackRole {
+    const semanticRole = resolveSemanticJackRole(component);
+    if (semanticRole !== null) {
+        return semanticRole;
+    }
+
     const short = shortType(component.sourceTypeName);
     if (short === null) {
         return 'unknown';
@@ -246,6 +356,45 @@ function resolveJackRole(component: Component): JackRole {
     if (upper === 'RETURN') return 'return';
     if (upper === 'EXPRESSION' || upper === 'EXP') return 'expression';
     return 'unknown';
+}
+
+function resolveSemanticJackRole(component: Component): JackRole | null {
+    const semanticProperties = ['Role', 'ControlRole', 'Interface'] as const;
+    for (const name of semanticProperties) {
+        const value = propertyString(component, name);
+        if (value === null) {
+            continue;
+        }
+        const role = normalizeJackRole(value);
+        if (role !== null) {
+            return role;
+        }
+    }
+    return null;
+}
+
+function normalizeJackRole(value: string): JackRole | null {
+    const normalized = normalizeToken(value);
+    if (['input', 'audio-input', 'in'].includes(normalized)) return 'input';
+    if (['output', 'audio-output', 'out'].includes(normalized)) return 'output';
+    if (normalized === 'send') return 'send';
+    if (normalized === 'return') return 'return';
+    if (['expression', 'exp', 'expression-pedal'].includes(normalized)) return 'expression';
+    if (['tempo-tap', 'tap-tempo', 'tempo-in', 'tap', 'tempo'].includes(normalized)) return 'tempo-tap';
+    if (
+        [
+            'external-control',
+            'external-control-input',
+            'control-input',
+            'remote',
+            'footswitch',
+            'trigger',
+            'reset',
+        ].includes(normalized)
+    ) {
+        return 'external-control';
+    }
+    return null;
 }
 
 function inferLedColor(component: Component): string | undefined {
@@ -278,6 +427,11 @@ function propertyString(component: Component, name: string): string | null {
         return null;
     }
     return typeof value === 'string' ? value : value.raw;
+}
+
+function nonEmptyString(value: string | null): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;
 }
 
 function propertyStringAny(component: Component, names: readonly string[]): string | null {
@@ -340,6 +494,28 @@ function parseStepCount(value: string | null): number | undefined {
     }
     const count = Number(trimmed);
     return Number.isInteger(count) && count >= 2 ? count : undefined;
+}
+
+function runtimeModeDefaultPosition(steps: readonly KnobStep[], rawValue: number | undefined): number {
+    if (steps.length === 0) {
+        return 0;
+    }
+    if (rawValue === undefined || !Number.isFinite(rawValue)) {
+        return steps[0]?.position ?? 0;
+    }
+    if (Number.isInteger(rawValue) || rawValue > 1) {
+        const index = clampInt(rawValue, 0, steps.length - 1);
+        return steps[index]?.position ?? steps[0]?.position ?? 0;
+    }
+    return snapKnobPosition({ steps }, clamp01(rawValue));
+}
+
+function isRuntimeDescriptor(component: Component): boolean {
+    return component.kind === 'ic' && component.properties.RuntimeDescriptor === 'true';
+}
+
+function normalizeToken(value: string): string {
+    return value.trim().toLowerCase().replace(/[\s_]+/g, '-');
 }
 
 function clamp01(v: number): number {

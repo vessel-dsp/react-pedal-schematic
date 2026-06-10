@@ -77,6 +77,42 @@ export type DocumentMetadata = Readonly<{
 
 export type DocumentSource = Readonly<Record<string, string>>;
 
+export type PanelGridIndexing = 'one-based' | 'zero-based';
+
+export type PanelRowOrder = 'top-to-bottom' | 'bottom-to-top';
+
+export type PanelColumnOrder = 'left-to-right' | 'right-to-left';
+
+export type PanelGridLayout = Readonly<{
+    kind: 'stompbox-grid';
+    rows: number;
+    columns: number;
+    indexing: PanelGridIndexing;
+    rowOrder?: PanelRowOrder;
+    columnOrder?: PanelColumnOrder;
+}>;
+
+export type PanelControlKind = 'knob' | 'slider' | 'switch' | 'led' | 'jack';
+
+export type PanelGridPosition = Readonly<{
+    row: number;
+    column: number;
+    rowSpan?: number;
+    columnSpan?: number;
+}>;
+
+export type PanelControlPlacement = Readonly<{
+    componentId: string;
+    controlKind: PanelControlKind;
+    grid: PanelGridPosition;
+    label?: string;
+}>;
+
+export type PanelPlacementMetadata = Readonly<{
+    layout: PanelGridLayout;
+    controls: readonly PanelControlPlacement[];
+}>;
+
 export type Warning = Readonly<{
     code: string;
     message: string;
@@ -87,6 +123,7 @@ export type Warning = Readonly<{
 export type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
+    panel?: PanelPlacementMetadata;
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];

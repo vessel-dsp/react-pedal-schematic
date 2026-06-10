@@ -1,4 +1,4 @@
-import type { ParsedQuantity } from '../model/types';
+import type { PanelPlacementMetadata, ParsedQuantity } from '../model/types';
 
 // ---------- Static panel descriptor (extracted from a CircuitDocument) ----------
 
@@ -64,7 +64,17 @@ export type LedIndicator = Readonly<{
     description?: string;
 }>;
 
-export type JackRole = 'input' | 'output' | 'send' | 'return' | 'expression' | 'unknown';
+export type JackRole =
+    | 'input'
+    | 'output'
+    | 'send'
+    | 'return'
+    | 'expression'
+    | 'tempo-tap'
+    | 'external-control'
+    | 'unknown';
+
+export type ExternalControlAssignmentHint = 'momentary' | 'latching' | 'momentary-or-latching';
 
 export type JackPort = Readonly<{
     id: string;
@@ -72,10 +82,15 @@ export type JackPort = Readonly<{
     role: JackRole;
     impedance?: ParsedQuantity;
     sourceTypeName?: string;
+    sourceComponentId?: string;
+    controlRole?: string;
+    interface?: string;
+    assignmentHint?: ExternalControlAssignmentHint;
     description?: string;
 }>;
 
 export type Panel = Readonly<{
+    placement?: PanelPlacementMetadata;
     knobs: readonly Knob[];
     sliders?: readonly SliderControl[];
     switches: readonly SwitchControl[];

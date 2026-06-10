@@ -1,6 +1,6 @@
 export * from '../index';
 
-export const UI_VERSION = '0.2.7';
+export const UI_VERSION = '0.2.8';
 
 export type { ControlOverlayContext, SchematicViewProps, WireFlowMode } from './schematic';
 export { SchematicView } from './schematic';

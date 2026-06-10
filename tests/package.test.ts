@@ -201,6 +201,15 @@ describe('README package metadata', () => {
         expect(readme).toContain('[![npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-pedal-schematic.svg)]');
         expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/react-pedal-schematic)');
     });
+
+    test('publishes and links the API reference', async () => {
+        const pkg = await readPackageJson();
+        const readme = await readReadme();
+
+        expect(Array.isArray(pkg.files)).toBe(true);
+        expect(pkg.files).toContain('API.md');
+        expect(readme).toContain('[API.md](./API.md)');
+    });
 });
 
 describe('release metadata', () => {
@@ -208,10 +217,10 @@ describe('release metadata', () => {
         const pkg = await readPackageJson();
         const changelog = await readChangelog();
 
-        expect(pkg.version).toBe('0.2.7');
-        expect(VERSION).toBe('0.2.7');
-        expect(UI_VERSION).toBe('0.2.7');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.2.7\n\n');
+        expect(pkg.version).toBe('0.2.8');
+        expect(VERSION).toBe('0.2.8');
+        expect(UI_VERSION).toBe('0.2.8');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.2.8\n\n');
     });
 });
 

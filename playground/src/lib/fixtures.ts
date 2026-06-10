@@ -16,6 +16,7 @@ import ltspiceRcLowpass from '../fixtures/ltspice-rc-lowpass.asc?raw';
 import lpb1BoostVdsp from '../fixtures/lpb-1-style-boost.vdsp?raw';
 import simpleRcVdsp from '../fixtures/simple-rc-vdsp.vdsp?raw';
 import voltageDividerVdsp from '../fixtures/voltage-divider-vdsp.vdsp?raw';
+import fulltoneOcd from '../../../tests/fixtures/schx/fulltone-ocd.schx?raw';
 
 // `import.meta.glob` is a Vite-only feature transformed at build time.
 // Under Bun's test runner the property is undefined, so we wrap each call
@@ -188,6 +189,14 @@ const CUSTOM_FIXTURES: readonly Fixture[] = [
         description: 'Ross/Dyna Comp topology — 2N3904 buffer → LM13700 OTA → envelope detector → Iabc feedback. SUSTAIN + LEVEL pots.',
         filename: 'lm13700-compressor.schx',
         source: lm13700Compressor,
+        group: 'custom',
+    },
+    {
+        id: 'fulltone-ocd',
+        title: 'Fulltone OCD analysis',
+        description: 'TL082 dual-op-amp overdrive with 2N7000/1N34A hard clipping, DRIVE/TONE/VOLUME controls, and HP/LP switch.',
+        filename: 'fulltone-ocd.schx',
+        source: fulltoneOcd,
         group: 'custom',
     },
     {

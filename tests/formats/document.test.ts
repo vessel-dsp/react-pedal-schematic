@@ -6,7 +6,9 @@ import {
     isVdspFilename,
     vdspFilenameFromName,
     parseCircuitDocumentFile,
+    parseVdspCircuitDocument,
     serializeVdspCircuitDocument,
+    validateVdspCircuitDocumentSchema,
     vdspFileExtension,
 } from '../../src/formats/document';
 import { EMPTY_DOCUMENT } from '../../src/model/types';
@@ -73,8 +75,8 @@ describe('vdsp file format', () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:
   name: Test Circuit
-  description: ''
-  partNumber: ''
+  description: ""
+  partNumber: ""
 source:
   format: interchange
   filename: test.vdsp
@@ -89,12 +91,97 @@ rawAttributes: {}`;
         expect(doc.components).toHaveLength(0);
     });
 
+    test('parseVdspCircuitDocument parses .vdsp source directly', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Direct VDSP
+  description: ""
+  partNumber: ""
+source:
+  format: interchange
+  filename: direct.vdsp
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const doc = parseVdspCircuitDocument(yaml);
+
+        expect(doc.metadata.name).toBe('Direct VDSP');
+        expect(doc.source?.filename).toBe('direct.vdsp');
+    });
+
+    test('validateVdspCircuitDocumentSchema returns a parsed document for valid .vdsp', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Valid Schema
+  description: ""
+  partNumber: ""
+source: {}
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const result = validateVdspCircuitDocumentSchema(yaml);
+
+        expect(result.valid).toBe(true);
+        if (!result.valid) {
+            throw new Error(result.errors[0]?.message ?? 'expected valid .vdsp');
+        }
+        expect(result.document.metadata.name).toBe('Valid Schema');
+        expect(result.errors).toEqual([]);
+    });
+
+    test('validateVdspCircuitDocumentSchema reports schema errors without throwing', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad Panel
+  description: ""
+  partNumber: ""
+source: {}
+panel:
+  layout:
+    kind: stompbox-grid
+    rows: 1
+    columns: 1
+    indexing: one-based
+  controls:
+    - componentId: LEVEL
+      controlKind: knob
+      grid:
+        row: 0
+        column: 1
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const result = validateVdspCircuitDocumentSchema(yaml);
+
+        expect(result.valid).toBe(false);
+        if (result.valid) {
+            throw new Error('expected invalid .vdsp');
+        }
+        expect(result.errors).toEqual([{
+            code: 'vdsp-schema-invalid',
+            message: 'panel.controls[0].grid.row: expected one-based row coordinate within 1..1',
+            path: 'panel.controls[0].grid.row',
+        }]);
+    });
+
     test('parseCircuitDocumentFile parses .yaml via interchange YAML', async () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:
   name: Test Circuit
-  description: ''
-  partNumber: ''
+  description: ""
+  partNumber: ""
 source: {}
 components: []
 nodes: []

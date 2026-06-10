@@ -159,6 +159,39 @@ describe('validateDocument', () => {
         expect(issues.some((i) => i.code === 'model-required')).toBe(false);
     });
 
+    test('runtime descriptor empty control names emit warnings', () => {
+        const doc = withParts([
+            makeComponent('U1', 'ic', { RuntimeDescriptor: 'true', TimeControl: '   ' }, 'Circuit.MicroBlockDelayChip'),
+        ]);
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'descriptor-control-empty');
+
+        expect(issue).toBeDefined();
+        expect(issue?.severity).toBe('warning');
+        expect(issue?.componentId).toBe('U1');
+        expect(issue?.property).toBe('TimeControl');
+    });
+
+    test('runtime descriptor mode label count mismatch emits warning', () => {
+        const doc = withParts([
+            makeComponent('U1', 'ic', {
+                RuntimeDescriptor: 'true',
+                ModeControl: 'MODE',
+                ModeStepCount: '3',
+                ModeLabels: 'A,B',
+            }, 'Circuit.MicroBlockDelayChip'),
+        ]);
+
+        const issues = validateDocument(doc);
+        const issue = issues.find((i) => i.code === 'descriptor-mode-label-mismatch');
+
+        expect(issue).toBeDefined();
+        expect(issue?.severity).toBe('warning');
+        expect(issue?.componentId).toBe('U1');
+        expect(issue?.property).toBe('ModeLabels');
+    });
+
     test('opamp with inline small-signal parameters does not require a model name', () => {
         // LiveSPICE's Circuit.OpAmp carries the model inline as Rin/Rout/Aol/GBP.
         const doc = withParts([
@@ -221,6 +254,29 @@ describe('validateDocument', () => {
             makeComponent('J1', 'jack'),
         ]);
         expect(validateDocument(doc)).toEqual([]);
+    });
+
+    test('jack semantic metadata with unknown role or interface emits warnings', () => {
+        const doc = withParts([
+            makeComponent('J1', 'jack', { Role: 'sidechain', Interface: 'banana' }, 'Circuit.Input'),
+        ]);
+
+        const issues = validateDocument(doc);
+
+        expect(issues.find((i) => i.code === 'invalid-jack-role')).toEqual({
+            code: 'invalid-jack-role',
+            severity: 'warning',
+            message: 'J1: jack Role "sidechain" is not a recognized panel role',
+            componentId: 'J1',
+            property: 'Role',
+        });
+        expect(issues.find((i) => i.code === 'invalid-jack-interface')).toEqual({
+            code: 'invalid-jack-interface',
+            severity: 'warning',
+            message: 'J1: jack Interface "banana" is not a recognized panel interface',
+            componentId: 'J1',
+            property: 'Interface',
+        });
     });
 
     test('potentiometer requires R but taper is optional', () => {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.8
+
+- Add non-throwing `.vdsp` schema validation and include API reference docs in the published package.
+- Preserve optional stompbox panel placement metadata through `.vdsp` parse and serialize flows.
+- Expose runtime descriptor panel controls such as time, feedback, mix, stepped mode selectors, and tempo-tap external control inputs.
+- Add Fulltone OCD analysis fixture coverage for dual-opamp MOSFET clipping pedal parsing.
+
 ## 0.2.7
 
 - Treat imported runtime descriptor ICs as validation-safe opaque descriptors when `RuntimeDescriptor: "true"` is present.

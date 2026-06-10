@@ -16,6 +16,10 @@ export type ValidationCode =
     | 'value-out-of-range'
     | 'unit-mismatch'
     | 'unsupported-component'
+    | 'invalid-jack-role'
+    | 'invalid-jack-interface'
+    | 'descriptor-control-empty'
+    | 'descriptor-mode-label-mismatch'
     | 'duplicate-id'
     | 'degenerate-wire';
 
@@ -61,6 +65,20 @@ const INLINE_MODEL_PARAMETERS: Partial<Record<ComponentKind, readonly string[]>>
     triode: ['Mu', 'K', 'Kp', 'Kvb', 'Ex', 'Kg'],
     pentode: ['Mu', 'K', 'Kp', 'Kvb', 'Ex', 'Kg', 'Kg1', 'Kg2'],
 };
+
+const RUNTIME_DESCRIPTOR_CONTROL_PROPERTIES = [
+    'TimeControl',
+    'FeedbackControl',
+    'MixControl',
+    'LevelControl',
+    'ToneControl',
+    'ModRateControl',
+    'ModDepthControl',
+    'ModeControl',
+    'TempoTapControl',
+    'TapTempoControl',
+    'TempoControl',
+] as const;
 
 const KIND_RULES: Partial<Record<ComponentKind, readonly PropertyRule[]>> = {
     resistor: [{
@@ -228,6 +246,10 @@ export function validateDocument(doc: CircuitDocument): readonly ValidationIssue
         for (const issue of validateComponent(component)) {
             issues.push(issue);
         }
+
+        for (const issue of validateSemanticMetadata(component)) {
+            issues.push(issue);
+        }
     }
 
     for (const wire of doc.wires) {
@@ -265,6 +287,81 @@ function isRequirementWaived(component: Component, rule: PropertyRule): boolean 
     return inline.some((name) => component.properties[name] !== undefined);
 }
 
+function validateSemanticMetadata(component: Component): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+
+    if (component.kind === 'jack') {
+        issues.push(...validateJackSemanticMetadata(component));
+    }
+
+    if (component.kind === 'ic' && component.properties.RuntimeDescriptor === 'true') {
+        issues.push(...validateRuntimeDescriptorMetadata(component));
+    }
+
+    return issues;
+}
+
+function validateJackSemanticMetadata(component: Component): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+
+    for (const property of ['Role', 'ControlRole'] as const) {
+        const value = propertyString(component, property);
+        if (value !== null && value.trim().length > 0 && !isRecognizedJackRole(value)) {
+            issues.push({
+                code: 'invalid-jack-role',
+                severity: 'warning',
+                message: `${component.id}: jack ${property} "${value}" is not a recognized panel role`,
+                componentId: component.id,
+                property,
+            });
+        }
+    }
+
+    const interfaceName = propertyString(component, 'Interface');
+    if (interfaceName !== null && interfaceName.trim().length > 0 && !isRecognizedJackInterface(interfaceName)) {
+        issues.push({
+            code: 'invalid-jack-interface',
+            severity: 'warning',
+            message: `${component.id}: jack Interface "${interfaceName}" is not a recognized panel interface`,
+            componentId: component.id,
+            property: 'Interface',
+        });
+    }
+
+    return issues;
+}
+
+function validateRuntimeDescriptorMetadata(component: Component): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+
+    for (const property of RUNTIME_DESCRIPTOR_CONTROL_PROPERTIES) {
+        const value = propertyString(component, property);
+        if (value !== null && value.trim().length === 0) {
+            issues.push({
+                code: 'descriptor-control-empty',
+                severity: 'warning',
+                message: `${component.id}: runtime descriptor property "${property}" must not be empty`,
+                componentId: component.id,
+                property,
+            });
+        }
+    }
+
+    const labels = parseStringList(propertyStringAny(component, ['ModeLabels', 'ModeOptions']));
+    const stepCount = parsePositiveInteger(propertyStringAny(component, ['ModeStepCount', 'ModeSteps', 'ModeCount']));
+    if (labels.length > 0 && stepCount !== undefined && labels.length !== stepCount) {
+        issues.push({
+            code: 'descriptor-mode-label-mismatch',
+            severity: 'warning',
+            message: `${component.id}: ModeLabels has ${labels.length} labels but ModeStepCount is ${stepCount}`,
+            componentId: component.id,
+            property: 'ModeLabels',
+        });
+    }
+
+    return issues;
+}
+
 function shortSourceType(sourceTypeName: string | null): string | null {
     if (sourceTypeName === null) {
         return null;
@@ -288,6 +385,24 @@ function findProperty(component: Component, rule: PropertyRule): PropertyValue |
     return undefined;
 }
 
+function propertyString(component: Component, name: string): string | null {
+    const value = component.properties[name];
+    if (value === undefined) {
+        return null;
+    }
+    return typeof value === 'string' ? value : value.raw;
+}
+
+function propertyStringAny(component: Component, names: readonly string[]): string | null {
+    for (const name of names) {
+        const value = propertyString(component, name);
+        if (value !== null) {
+            return value;
+        }
+    }
+    return null;
+}
+
 function coerceQuantity(value: PropertyValue): ParsedQuantity | null {
     if (typeof value === 'string') {
         return parseQuantity(value);
@@ -305,6 +420,73 @@ function isRawQuantityExpression(value: string): boolean {
     }
     return /^(AC|DC)\b/i.test(trimmed) ||
         /^(SINE|PULSE|PWL|EXP|SFFM|AM|WAVEFILE)\s*\(/i.test(trimmed);
+}
+
+function isRecognizedJackRole(value: string): boolean {
+    const normalized = normalizeToken(value);
+    return [
+        'input',
+        'audio-input',
+        'in',
+        'output',
+        'audio-output',
+        'out',
+        'send',
+        'return',
+        'expression',
+        'exp',
+        'expression-pedal',
+        'tempo-tap',
+        'tap-tempo',
+        'tempo-in',
+        'tap',
+        'tempo',
+        'external-control',
+        'external-control-input',
+        'control-input',
+        'remote',
+        'footswitch',
+        'trigger',
+        'reset',
+    ].includes(normalized);
+}
+
+function isRecognizedJackInterface(value: string): boolean {
+    const normalized = normalizeToken(value);
+    return isRecognizedJackRole(value) ||
+        [
+            'audio',
+            'audio-port',
+            'control',
+            'control-port',
+            'tap-tempo-input',
+        ].includes(normalized);
+}
+
+function parseStringList(value: string | null): readonly string[] {
+    if (value === null) {
+        return [];
+    }
+    return value
+        .split(/[,;|]/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+}
+
+function parsePositiveInteger(value: string | null): number | undefined {
+    if (value === null) {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    if (!/^\d+(?:\.0+)?$/.test(trimmed)) {
+        return undefined;
+    }
+    const count = Number(trimmed);
+    return Number.isInteger(count) && count > 0 ? count : undefined;
+}
+
+function normalizeToken(value: string): string {
+    return value.trim().toLowerCase().replace(/[\s_]+/g, '-');
 }
 
 function missingPropertyIssue(component: Component, rule: PropertyRule): ValidationIssue {

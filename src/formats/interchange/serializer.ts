@@ -3,6 +3,10 @@ import type {
     CircuitDocument,
     Component,
     DocumentSource,
+    PanelControlPlacement,
+    PanelGridLayout,
+    PanelGridPosition,
+    PanelPlacementMetadata,
     Point,
     PropertyValue,
     Terminal,
@@ -35,13 +39,18 @@ export function serializeInterchangeYaml(
             partNumber: doc.metadata.partNumber,
         },
         source: sourceBlock(doc.source, options),
+    };
+    if (doc.panel !== undefined) {
+        root.panel = panelBlock(doc.panel);
+    }
+    Object.assign(root, {
         components: doc.components.map((component) => componentBlock(component, connectivity)),
         nodes: nodeBlocks(connectivity),
         wires: doc.wires.map(wireBlock),
         directives: doc.directives,
         diagnostics: doc.warnings.map(warningBlock),
         rawAttributes: doc.rawAttributes,
-    };
+    });
 
     return `${emitYaml(root, 0)}\n`;
 }
@@ -67,6 +76,55 @@ function sourceBlock(
         source.filename = options.filename;
     }
     return source;
+}
+
+function panelBlock(panel: PanelPlacementMetadata): MutableYamlObject {
+    return {
+        layout: panelLayoutBlock(panel.layout),
+        controls: panel.controls.map(panelControlBlock),
+    };
+}
+
+function panelLayoutBlock(layout: PanelGridLayout): MutableYamlObject {
+    const out: MutableYamlObject = {
+        kind: layout.kind,
+        rows: layout.rows,
+        columns: layout.columns,
+        indexing: layout.indexing,
+    };
+    if (layout.rowOrder !== undefined) {
+        out.rowOrder = layout.rowOrder;
+    }
+    if (layout.columnOrder !== undefined) {
+        out.columnOrder = layout.columnOrder;
+    }
+    return out;
+}
+
+function panelControlBlock(control: PanelControlPlacement): MutableYamlObject {
+    const out: MutableYamlObject = {
+        componentId: control.componentId,
+        controlKind: control.controlKind,
+        grid: panelGridPositionBlock(control.grid),
+    };
+    if (control.label !== undefined) {
+        out.label = control.label;
+    }
+    return out;
+}
+
+function panelGridPositionBlock(grid: PanelGridPosition): MutableYamlObject {
+    const out: MutableYamlObject = {
+        row: grid.row,
+        column: grid.column,
+    };
+    if (grid.rowSpan !== undefined) {
+        out.rowSpan = grid.rowSpan;
+    }
+    if (grid.columnSpan !== undefined) {
+        out.columnSpan = grid.columnSpan;
+    }
+    return out;
 }
 
 function componentBlock(component: Component, connectivity: Connectivity): MutableYamlObject {

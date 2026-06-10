@@ -1,4 +1,4 @@
-export const VERSION = '0.2.7';
+export const VERSION = '0.2.8';
 
 export type {
     CircuitDocument,
@@ -6,6 +6,14 @@ export type {
     ComponentKind,
     DocumentMetadata,
     DocumentSource,
+    PanelColumnOrder,
+    PanelControlKind,
+    PanelControlPlacement,
+    PanelGridIndexing,
+    PanelGridLayout,
+    PanelGridPosition,
+    PanelPlacementMetadata,
+    PanelRowOrder,
     ParsedQuantity,
     Point,
     PropertyValue,
@@ -47,6 +55,8 @@ export type {
     ParseCircuitDocumentOptions,
     ParseCircuitDocumentFileOptions,
     SerializeVdspCircuitDocumentOptions,
+    VdspSchemaValidationIssue,
+    VdspSchemaValidationResult,
 } from './formats/document';
 export {
     detectCircuitFormat,
@@ -56,6 +66,7 @@ export {
     detectCircuitDocumentFileFormat,
     vdspFilenameFromName,
     parseVdspCircuitDocument,
+    validateVdspCircuitDocumentSchema,
     parseCircuitDocumentFile,
     serializeVdspCircuitDocument,
 } from './formats/document';
@@ -100,6 +111,7 @@ export { findChainCorners, findWireChain } from './preview/wire-chains';
 export type {
     ControlState,
     ControlValue,
+    ExternalControlAssignmentHint,
     JackPort,
     JackRole,
     Knob,

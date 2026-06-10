@@ -3,6 +3,11 @@ import type {
     Component,
     ComponentKind,
     DocumentSource,
+    PanelColumnOrder,
+    PanelControlKind,
+    PanelGridIndexing,
+    PanelPlacementMetadata,
+    PanelRowOrder,
     ParsedQuantity,
     Point,
     PropertyValue,
@@ -41,9 +46,12 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
         throw new Error(`unsupported interchange schema: ${schema}`);
     }
 
+    const panel = parsePanel(root.panel);
+
     return {
         metadata: parseMetadata(root.metadata),
         source: parseSource(root.source),
+        ...(panel === undefined ? {} : { panel }),
         components: parseComponents(root.components),
         wires: parseWires(root.wires),
         directives: parseStringArray(root.directives, 'directives'),
@@ -310,6 +318,137 @@ function parseSource(value: YamlValue | undefined): DocumentSource {
     return parseStringRecord(value, 'source');
 }
 
+function parsePanel(value: YamlValue | undefined): PanelPlacementMetadata | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const panel = expectObject(value, 'panel');
+    const layout = parsePanelLayout(panel.layout);
+    return {
+        layout,
+        controls: parsePanelControls(panel.controls, layout),
+    };
+}
+
+function parsePanelLayout(value: YamlValue | undefined): PanelPlacementMetadata['layout'] {
+    const layout = expectObject(value, 'panel.layout');
+    const rowOrder = parseOptionalPanelRowOrder(layout.rowOrder, 'panel.layout.rowOrder');
+    const columnOrder = parseOptionalPanelColumnOrder(layout.columnOrder, 'panel.layout.columnOrder');
+    return {
+        kind: parsePanelLayoutKind(layout.kind, 'panel.layout.kind'),
+        rows: expectPositiveInteger(layout.rows, 'panel.layout.rows'),
+        columns: expectPositiveInteger(layout.columns, 'panel.layout.columns'),
+        indexing: parsePanelGridIndexing(layout.indexing, 'panel.layout.indexing'),
+        ...(rowOrder === undefined ? {} : { rowOrder }),
+        ...(columnOrder === undefined ? {} : { columnOrder }),
+    };
+}
+
+function parsePanelControls(
+    value: YamlValue | undefined,
+    layout: PanelPlacementMetadata['layout'],
+): PanelPlacementMetadata['controls'] {
+    return optionalArray(value, 'panel.controls').map((item, index) => {
+        const path = `panel.controls[${index}]`;
+        const control = expectObject(item, path);
+        const label = parseOptionalString(control.label, `${path}.label`);
+        return {
+            componentId: expectString(control.componentId, `${path}.componentId`),
+            controlKind: parsePanelControlKind(control.controlKind, `${path}.controlKind`),
+            grid: parsePanelGridPosition(control.grid, `${path}.grid`, layout),
+            ...(label === undefined ? {} : { label }),
+        };
+    });
+}
+
+function parsePanelGridPosition(
+    value: YamlValue | undefined,
+    path: string,
+    layout: PanelPlacementMetadata['layout'],
+): PanelPlacementMetadata['controls'][number]['grid'] {
+    const grid = expectObject(value, path);
+    const rowSpan = parseOptionalPositiveInteger(grid.rowSpan, `${path}.rowSpan`);
+    const columnSpan = parseOptionalPositiveInteger(grid.columnSpan, `${path}.columnSpan`);
+    const row = expectNonNegativeInteger(grid.row, `${path}.row`);
+    const column = expectNonNegativeInteger(grid.column, `${path}.column`);
+    validateGridAxis(row, rowSpan ?? 1, layout.rows, layout.indexing, `${path}.row`, 'row');
+    validateGridAxis(column, columnSpan ?? 1, layout.columns, layout.indexing, `${path}.column`, 'column');
+    return {
+        row,
+        column,
+        ...(rowSpan === undefined ? {} : { rowSpan }),
+        ...(columnSpan === undefined ? {} : { columnSpan }),
+    };
+}
+
+function validateGridAxis(
+    value: number,
+    span: number,
+    size: number,
+    indexing: PanelGridIndexing,
+    path: string,
+    axisName: 'row' | 'column',
+): void {
+    const min = indexing === 'one-based' ? 1 : 0;
+    const occupiedEnd = indexing === 'one-based' ? value + span - 1 : value + span;
+    if (value < min || occupiedEnd > size) {
+        const maxLabel = indexing === 'one-based' ? String(size) : String(size - 1);
+        throw new Error(`${path}: expected ${indexing} ${axisName} coordinate within ${min}..${maxLabel}`);
+    }
+}
+
+function parsePanelLayoutKind(value: YamlValue | undefined, path: string): 'stompbox-grid' {
+    const kind = expectString(value, path);
+    if (kind === 'stompbox-grid') {
+        return kind;
+    }
+    throw new Error(`${path}: expected stompbox-grid`);
+}
+
+function parsePanelGridIndexing(value: YamlValue | undefined, path: string): PanelGridIndexing {
+    const indexing = expectString(value, path);
+    if (indexing === 'one-based' || indexing === 'zero-based') {
+        return indexing;
+    }
+    throw new Error(`${path}: expected one-based or zero-based`);
+}
+
+function parseOptionalPanelRowOrder(value: YamlValue | undefined, path: string): PanelRowOrder | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const order = expectString(value, path);
+    if (order === 'top-to-bottom' || order === 'bottom-to-top') {
+        return order;
+    }
+    throw new Error(`${path}: expected top-to-bottom or bottom-to-top`);
+}
+
+function parseOptionalPanelColumnOrder(value: YamlValue | undefined, path: string): PanelColumnOrder | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const order = expectString(value, path);
+    if (order === 'left-to-right' || order === 'right-to-left') {
+        return order;
+    }
+    throw new Error(`${path}: expected left-to-right or right-to-left`);
+}
+
+function parsePanelControlKind(value: YamlValue | undefined, path: string): PanelControlKind {
+    const kind = expectString(value, path);
+    switch (kind) {
+        case 'knob':
+        case 'slider':
+        case 'switch':
+        case 'led':
+        case 'jack':
+            return kind;
+        default:
+            throw new Error(`${path}: expected knob, slider, switch, led, or jack`);
+    }
+}
+
 function parseComponents(value: YamlValue | undefined): readonly Component[] {
     return optionalArray(value, 'components').map((item, index) => {
         const path = `components[${index}]`;
@@ -524,6 +663,36 @@ function expectNumber(value: YamlValue | undefined, path: string): number {
         return value;
     }
     throw new Error(`${path}: expected number`);
+}
+
+function expectPositiveInteger(value: YamlValue | undefined, path: string): number {
+    const number = expectNumber(value, path);
+    if (Number.isInteger(number) && number > 0) {
+        return number;
+    }
+    throw new Error(`${path}: expected positive integer`);
+}
+
+function expectNonNegativeInteger(value: YamlValue | undefined, path: string): number {
+    const number = expectNumber(value, path);
+    if (Number.isInteger(number) && number >= 0) {
+        return number;
+    }
+    throw new Error(`${path}: expected non-negative integer`);
+}
+
+function parseOptionalPositiveInteger(value: YamlValue | undefined, path: string): number | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return expectPositiveInteger(value, path);
+}
+
+function parseOptionalString(value: YamlValue | undefined, path: string): string | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return expectString(value, path);
 }
 
 function expectBoolean(value: YamlValue | undefined, path: string): boolean {

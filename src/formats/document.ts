@@ -23,6 +23,23 @@ export type SerializeVdspCircuitDocumentOptions = Readonly<{
     source?: DocumentSource;
 }>;
 
+export type VdspSchemaValidationIssue = Readonly<{
+    code: 'vdsp-schema-invalid';
+    message: string;
+    path?: string;
+}>;
+
+export type VdspSchemaValidationResult =
+    | Readonly<{
+        valid: true;
+        document: CircuitDocument;
+        errors: readonly [];
+    }>
+    | Readonly<{
+        valid: false;
+        errors: readonly VdspSchemaValidationIssue[];
+    }>;
+
 export const vdspFileExtension = '.vdsp';
 
 export function detectCircuitFormat(filename: string): CircuitFormat | null {
@@ -109,6 +126,27 @@ export function parseVdspCircuitDocument(source: string): CircuitDocument {
     return parseInterchangeYaml(source);
 }
 
+export function validateVdspCircuitDocumentSchema(source: string): VdspSchemaValidationResult {
+    try {
+        return {
+            valid: true,
+            document: parseVdspCircuitDocument(source),
+            errors: [],
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const path = pathFromSchemaMessage(message);
+        return {
+            valid: false,
+            errors: [{
+                code: 'vdsp-schema-invalid',
+                message,
+                ...(path === undefined ? {} : { path }),
+            }],
+        };
+    }
+}
+
 export function parseCircuitDocumentFile(
     source: string,
     options: ParseCircuitDocumentFileOptions,
@@ -165,4 +203,16 @@ function normalizeVdspFilename(filename: string | undefined, fallbackName: strin
     }
     const withoutExtension = trimmed.replace(/\.[^.\\\/]+$/, '');
     return `${withoutExtension || 'untitled-preset'}${vdspFileExtension}`;
+}
+
+function pathFromSchemaMessage(message: string): string | undefined {
+    const colonIndex = message.indexOf(':');
+    if (colonIndex <= 0) {
+        return undefined;
+    }
+    const candidate = message.slice(0, colonIndex);
+    if (/^[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*$/.test(candidate)) {
+        return candidate;
+    }
+    return undefined;
 }

@@ -8,6 +8,8 @@
 
 The headless `/core` entrypoint does not depend on React. Use it in workers, server-side import pipelines, tests, or build tools.
 
+For the full public API surface, see [API.md](./API.md).
+
 ## Parse A Source File
 
 ```ts
@@ -55,6 +57,62 @@ provenance labels round-trip through `parseInterchangeYaml()` and
 `serializeInterchangeYaml()`. `serializeVdspCircuitDocument()` preserves an
 existing `document.source` block and defaults only missing fields to native
 `.vdsp` provenance (`format: interchange` and a `.vdsp` filename).
+
+`.vdsp` can also carry optional stompbox panel placement metadata on
+`document.panel`. This is logical control-surface placement, not schematic
+placement: component `origin` remains the electrical drawing position, while
+`panel.controls[].grid` describes where knobs, switches, sliders, LEDs, and
+jacks should appear on a pedal faceplate grid.
+
+```yaml
+panel:
+  layout:
+    kind: stompbox-grid
+    rows: 2
+    columns: 3
+    indexing: one-based
+    rowOrder: top-to-bottom
+    columnOrder: left-to-right
+  controls:
+    - componentId: DRIVE
+      controlKind: knob
+      grid:
+        row: 1
+        column: 1
+      label: Drive
+    - componentId: LEVEL
+      controlKind: knob
+      grid:
+        row: 1
+        column: 3
+        rowSpan: 1
+        columnSpan: 1
+      label: Level
+```
+
+Use existing circuit `componentId` values in panel controls. The parser accepts
+`indexing: one-based` or `indexing: zero-based`, but hand-authored `.vdsp`
+files should prefer explicit `one-based` indexing for readability.
+
+Use `parseVdspCircuitDocument()` when callers want strict parsing with thrown
+errors. Use `validateVdspCircuitDocumentSchema()` for upload flows, editors, or
+CLI checks that should report schema errors without throwing.
+
+```ts
+import {
+    parseVdspCircuitDocument,
+    validateVdspCircuitDocumentSchema,
+} from '@vessel-dsp/react-pedal-schematic/core';
+
+const validation = validateVdspCircuitDocumentSchema(sourceText);
+if (!validation.valid) {
+    for (const error of validation.errors) {
+        console.error(error.path ?? 'vdsp', error.message);
+    }
+}
+
+const document = parseVdspCircuitDocument(sourceText);
+```
 
 ```ts
 import {

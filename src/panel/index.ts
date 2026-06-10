@@ -1,6 +1,7 @@
 export type {
     ControlState,
     ControlValue,
+    ExternalControlAssignmentHint,
     JackPort,
     JackRole,
     Knob,

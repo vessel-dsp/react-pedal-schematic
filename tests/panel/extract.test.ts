@@ -1,10 +1,29 @@
 import { describe, expect, test } from 'bun:test';
 import { extractPanel } from '../../src/panel';
 import { parseSchx } from '../../src/formats/schx/parser';
-import { EMPTY_DOCUMENT, type CircuitDocument } from '../../src/model/types';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type PropertyValue } from '../../src/model/types';
 
 async function loadFixture(name: string): Promise<string> {
     return Bun.file(new URL(`../fixtures/schx/${name}.schx`, import.meta.url)).text();
+}
+
+function makeComponent(
+    id: string,
+    kind: ComponentKind,
+    properties: Record<string, PropertyValue> = {},
+    sourceTypeName: string | null = null,
+): Component {
+    return {
+        id,
+        kind,
+        name: id,
+        origin: { x: 0, y: 0 },
+        rotation: 0,
+        flipped: false,
+        terminals: [],
+        properties,
+        sourceTypeName,
+    };
 }
 
 describe('extractPanel', () => {
@@ -67,6 +86,29 @@ describe('extractPanel', () => {
         const output = panel.jacks.find((j) => j.role === 'output')!;
         expect(output.id).toBe('OUT');
         expect(output.impedance?.value).toBe(10_000);
+    });
+
+    test('prefers semantic jack metadata over source type fallback', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('J_OUT', 'jack', { Role: 'output' }, 'Circuit.Input'),
+                makeComponent('J_EXPR', 'jack', { Interface: 'expression' }, 'Circuit.Input'),
+                makeComponent('J_TAP', 'jack', { ControlRole: 'tempo-tap', Interface: 'tap-tempo' }, 'Circuit.Input'),
+            ],
+        };
+
+        const panel = extractPanel(doc);
+        const output = panel.jacks.find((jack) => jack.id === 'J_OUT')!;
+        const expression = panel.jacks.find((jack) => jack.id === 'J_EXPR')!;
+        const tap = panel.jacks.find((jack) => jack.id === 'J_TAP')!;
+
+        expect(output.role).toBe('output');
+        expect(expression.role).toBe('expression');
+        expect(expression.interface).toBe('expression');
+        expect(tap.role).toBe('tempo-tap');
+        expect(tap.controlRole).toBe('tempo-tap');
+        expect(tap.interface).toBe('tap-tempo');
     });
 
     test('Big Muff tone stack exposes a single TONE knob with Linear taper', async () => {
@@ -205,6 +247,61 @@ describe('extractPanel', () => {
         expect(mode.defaultPosition).toBeCloseTo(0.666666666667);
     });
 
+    test('extracts runtime descriptor controls and tempo tap as an external jack', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('U1', 'ic', {
+                    RuntimeDescriptor: 'true',
+                    TimeControl: 'D.TIME',
+                    TimeControlWipe: '0.45',
+                    TimeControlSweep: 'Logarithmic',
+                    FeedbackControl: 'F.BACK',
+                    FeedbackControlWipe: { raw: '0.38', value: 0.38, unit: '' },
+                    FeedbackControlSweep: 'Linear',
+                    MixControl: 'E.LEVEL',
+                    MixControlWipe: { raw: '0.45', value: 0.45, unit: '' },
+                    MixControlSweep: 'Linear',
+                    ModeControl: 'MODE',
+                    ModeControlWipe: '2',
+                    ModeLabels: 'DELAY 1,DELAY 2,HOLD,REVERSE',
+                    TempoTapControl: 'Tempo In',
+                }, 'Circuit.MicroBlockDelayChip'),
+            ],
+        };
+
+        const panel = extractPanel(doc);
+        const time = panel.knobs.find((knob) => knob.id === 'U1:time')!;
+        const feedback = panel.knobs.find((knob) => knob.id === 'U1:feedback')!;
+        const mix = panel.knobs.find((knob) => knob.id === 'U1:mix')!;
+        const mode = panel.knobs.find((knob) => knob.id === 'U1:mode')!;
+        const tap = panel.jacks.find((jack) => jack.id === 'U1:tempo-tap')!;
+
+        expect(time.name).toBe('D.TIME');
+        expect(time.taper).toBe('log');
+        expect(time.defaultPosition).toBeCloseTo(0.45);
+        expect(feedback.name).toBe('F.BACK');
+        expect(feedback.defaultPosition).toBeCloseTo(0.38);
+        expect(mix.name).toBe('E.LEVEL');
+        expect(mix.defaultPosition).toBeCloseTo(0.45);
+        expect(mode.name).toBe('MODE');
+        expect(mode.controlMode).toBe('stepped');
+        expect(mode.defaultPosition).toBeCloseTo(0.666666666667);
+        expect(mode.steps).toEqual([
+            { index: 0, position: 0, label: 'DELAY 1' },
+            { index: 1, position: 0.333333333333, label: 'DELAY 2' },
+            { index: 2, position: 0.666666666667, label: 'HOLD' },
+            { index: 3, position: 1, label: 'REVERSE' },
+        ]);
+        expect(tap.name).toBe('Tempo In');
+        expect(tap.role).toBe('tempo-tap');
+        expect(tap.controlRole).toBe('tempo-tap');
+        expect(tap.interface).toBe('tap-tempo');
+        expect(tap.sourceComponentId).toBe('U1');
+        expect(tap.assignmentHint).toBe('momentary');
+        expect(panel.switches).toEqual([]);
+    });
+
     test('empty document produces an empty panel', () => {
         const panel = extractPanel({
             metadata: { name: '', description: '', partNumber: '' },
@@ -219,5 +316,29 @@ describe('extractPanel', () => {
         expect(panel.switches).toEqual([]);
         expect(panel.leds).toEqual([]);
         expect(panel.jacks).toEqual([]);
+    });
+
+    test('exposes authored stompbox grid placement metadata', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            panel: {
+                layout: {
+                    kind: 'stompbox-grid',
+                    rows: 2,
+                    columns: 3,
+                    indexing: 'one-based',
+                },
+                controls: [{
+                    componentId: 'DRIVE',
+                    controlKind: 'knob',
+                    grid: { row: 1, column: 1 },
+                    label: 'Drive',
+                }],
+            },
+        };
+
+        const panel = extractPanel(doc);
+
+        expect(panel.placement).toEqual(doc.panel);
     });
 });
