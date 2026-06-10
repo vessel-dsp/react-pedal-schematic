@@ -140,6 +140,47 @@ controlInterfaces:
       property: ResetControl
 ```
 
+Standalone control accessories can persist product identity under top-level
+`device` and producer-side external output behavior under top-level
+`controlOutputs`. Use this for self-contained non-audio devices such as Boss
+FS-5U / FS-6 footswitches that can be uploaded as `.vdsp` product content and
+patched to another document's receiver-side `controlInterfaces`.
+
+```yaml
+device:
+  id: boss-fs-5u
+  version: 1
+  kind: control-accessory
+  family: external-footswitch
+  model: boss-fs-5u
+  audioProcessing: false
+controlOutputs:
+  - id: output
+    name: Output
+    role: external-control
+    connector: "1/4-inch-mono-ts"
+    switchMode: momentary
+    polarity: normally-open
+    inactiveValue: 0
+    activeValue: 1
+    componentId: J1
+```
+
+`device.id` is the stable id inside the uploaded document; hosts can still
+assign catalog/upload ids externally. `device.version` is a positive integer
+for the product document, not the schema version. A document with
+`device.kind: control-accessory` or `device.audioProcessing: false` is valid
+product content but should not be compiled as an audio DSP stage.
+
+`controlOutputs[].id` is stable within the accessory document and is the value
+board-level assignments should reference. `inactiveValue` and `activeValue` are
+optional normalized contact-closure values after polarity is applied. When they
+are omitted, hosts can derive `0`/`1` for `normally-open` outputs and `1`/`0`
+for `normally-closed` outputs. Runtime pressed/latched state is host state and
+is not persisted in `.vdsp`. Enclosure dimensions are not part of this V1
+metadata; use `panel.faces[]` and jack components for logical physical
+placement.
+
 Use `parseVdspCircuitDocument()` when callers want strict parsing with thrown
 errors. Use `validateVdspCircuitDocumentSchema()` for upload flows, editors, or
 CLI checks that should report schema errors without throwing.

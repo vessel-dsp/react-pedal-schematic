@@ -1,9 +1,11 @@
 import { getPinNode, resolveConnectivity, type Connectivity } from '../../model/connectivity';
 import type {
     CircuitDocument,
+    CircuitDocumentDevice,
     Component,
     ControlInterface,
     ControlInterfaceBinding,
+    ControlOutput,
     DocumentSource,
     PanelElementBinding,
     PanelElementPlacement,
@@ -44,11 +46,17 @@ export function serializeInterchangeYaml(
         },
         source: sourceBlock(doc.source, options),
     };
+    if (doc.device !== undefined) {
+        root.device = deviceBlock(doc.device);
+    }
     if (doc.panel !== undefined) {
         root.panel = panelBlock(doc.panel);
     }
     if (doc.controlInterfaces !== undefined) {
         root.controlInterfaces = doc.controlInterfaces.map(controlInterfaceBlock);
+    }
+    if (doc.controlOutputs !== undefined) {
+        root.controlOutputs = doc.controlOutputs.map(controlOutputBlock);
     }
     Object.assign(root, {
         components: doc.components.map((component) => componentBlock(component, connectivity)),
@@ -60,6 +68,28 @@ export function serializeInterchangeYaml(
     });
 
     return `${emitYaml(root, 0)}\n`;
+}
+
+function deviceBlock(device: CircuitDocumentDevice): MutableYamlObject {
+    const out: MutableYamlObject = {
+        kind: device.kind,
+    };
+    if (device.id !== undefined) {
+        out.id = device.id;
+    }
+    if (device.version !== undefined) {
+        out.version = device.version;
+    }
+    if (device.family !== undefined) {
+        out.family = device.family;
+    }
+    if (device.model !== undefined) {
+        out.model = device.model;
+    }
+    if (device.audioProcessing !== undefined) {
+        out.audioProcessing = device.audioProcessing;
+    }
+    return out;
 }
 
 function controlInterfaceBlock(controlInterface: ControlInterface): MutableYamlObject {
@@ -91,6 +121,36 @@ function controlInterfaceBlock(controlInterface: ControlInterface): MutableYamlO
     }
     if (controlInterface.description !== undefined) {
         out.description = controlInterface.description;
+    }
+    return out;
+}
+
+function controlOutputBlock(controlOutput: ControlOutput): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: controlOutput.id,
+        name: controlOutput.name,
+        role: controlOutput.role,
+    };
+    if (controlOutput.connector !== undefined) {
+        out.connector = controlOutput.connector;
+    }
+    if (controlOutput.switchMode !== undefined) {
+        out.switchMode = controlOutput.switchMode;
+    }
+    if (controlOutput.polarity !== undefined) {
+        out.polarity = controlOutput.polarity;
+    }
+    if (controlOutput.inactiveValue !== undefined) {
+        out.inactiveValue = controlOutput.inactiveValue;
+    }
+    if (controlOutput.activeValue !== undefined) {
+        out.activeValue = controlOutput.activeValue;
+    }
+    if (controlOutput.componentId !== undefined) {
+        out.componentId = controlOutput.componentId;
+    }
+    if (controlOutput.description !== undefined) {
+        out.description = controlOutput.description;
     }
     return out;
 }

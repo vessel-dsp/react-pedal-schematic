@@ -176,6 +176,43 @@ rawAttributes: {}`;
         }]);
     });
 
+    test('validateVdspCircuitDocumentSchema reports control accessory schema errors without throwing', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad Accessory
+  description: ""
+  partNumber: ""
+source: {}
+device:
+  id: bad-accessory
+  version: 1
+  kind: control-accessory
+controlOutputs:
+  - id: output
+    name: Output
+    role: external-control
+    connector: "1/4-inch-mono-ts"
+    switchMode: push-push
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const result = validateVdspCircuitDocumentSchema(yaml);
+
+        expect(result.valid).toBe(false);
+        if (result.valid) {
+            throw new Error('expected invalid .vdsp');
+        }
+        expect(result.errors).toEqual([{
+            code: 'vdsp-schema-invalid',
+            message: 'controlOutputs[0].switchMode: expected momentary or latching',
+            path: 'controlOutputs[0].switchMode',
+        }]);
+    });
+
     test('parseCircuitDocumentFile parses .yaml via interchange YAML', async () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:

@@ -127,6 +127,36 @@ export type ControlInterface = Readonly<{
     description?: string;
 }>;
 
+export type CircuitDocumentDeviceKind =
+    | 'audio-pedal'
+    | 'control-accessory'
+    | 'utility'
+    | 'unknown';
+
+export type CircuitDocumentDevice = Readonly<{
+    id?: string;
+    version?: number;
+    kind: CircuitDocumentDeviceKind;
+    family?: string;
+    model?: string;
+    audioProcessing?: boolean;
+}>;
+
+export type ControlOutputSwitchMode = 'momentary' | 'latching';
+
+export type ControlOutput = Readonly<{
+    id: string;
+    name: string;
+    role: ControlInterfaceRole;
+    connector?: ControlInterfaceConnector;
+    switchMode?: ControlOutputSwitchMode;
+    polarity?: ControlInterfacePolarity;
+    inactiveValue?: number;
+    activeValue?: number;
+    componentId?: string;
+    description?: string;
+}>;
+
 export type PanelGridIndexing = 'one-based' | 'zero-based';
 
 export type PanelRowOrder = 'top-to-bottom' | 'bottom-to-top';
@@ -189,8 +219,10 @@ export type Warning = Readonly<{
 export type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
+    device?: CircuitDocumentDevice;
     panel?: PanelPlacementMetadata;
     controlInterfaces?: readonly ControlInterface[];
+    controlOutputs?: readonly ControlOutput[];
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];

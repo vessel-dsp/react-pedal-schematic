@@ -79,6 +79,51 @@ describe('serializeInterchangeYaml', () => {
         expect(yaml).toContain('property: SamplerTriggerControl');
     });
 
+    test('serializes standalone control accessory device metadata and outputs', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'Boss FS-5U Foot Switch',
+                description: 'Momentary external footswitch accessory.',
+                partNumber: 'FS-5U',
+            },
+            device: {
+                id: 'boss-fs-5u',
+                version: 1,
+                kind: 'control-accessory',
+                family: 'external-footswitch',
+                model: 'boss-fs-5u',
+                audioProcessing: false,
+            },
+            controlOutputs: [{
+                id: 'output',
+                name: 'Output',
+                role: 'external-control',
+                connector: '1/4-inch-mono-ts',
+                switchMode: 'momentary',
+                polarity: 'normally-open',
+                inactiveValue: 0,
+                activeValue: 1,
+                componentId: 'J1',
+                description: 'Mono TS contact-closure output.',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+
+        expect(yaml).toContain('device:');
+        expect(yaml).toContain('id: boss-fs-5u');
+        expect(yaml).toContain('version: 1');
+        expect(yaml).toContain('kind: control-accessory');
+        expect(yaml).toContain('audioProcessing: false');
+        expect(yaml).toContain('controlOutputs:');
+        expect(yaml).toContain('switchMode: momentary');
+        expect(yaml).toContain('polarity: normally-open');
+        expect(yaml).toContain('inactiveValue: 0');
+        expect(yaml).toContain('activeValue: 1');
+        expect(yaml).toContain('componentId: J1');
+    });
+
     test('serializes panel placement with faces, elements, and explicit bindings', () => {
         const doc: CircuitDocument = {
             ...EMPTY_DOCUMENT,

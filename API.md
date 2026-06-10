@@ -32,8 +32,10 @@ The source of truth is `CircuitDocument`.
 type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
+    device?: CircuitDocumentDevice;
     panel?: PanelPlacementMetadata;
     controlInterfaces?: readonly ControlInterface[];
+    controlOutputs?: readonly ControlOutput[];
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];
@@ -58,12 +60,16 @@ Important model exports:
 | `DocumentMetadata` | `{ name, description, partNumber }`. |
 | `DocumentSource` | Scalar source provenance record. |
 | `Warning` | Parser/export diagnostic carried on a document. |
+| `CircuitDocumentDevice` | Optional product/accessory identity metadata. |
+| `CircuitDocumentDeviceKind` | `'audio-pedal' | 'control-accessory' | 'utility' | 'unknown'`. |
 | `ControlInterface` | External control/input interface metadata, separate from panel placement. |
 | `ControlInterfaceRole` | `'external-control' | 'tempo-tap' | 'trigger' | 'reset' | 'sampler-trigger' | 'expression' | 'unknown'`. |
 | `ControlInterfaceConnector` | Preferred connector values such as `'1/4-inch-mono-ts'` and `'1/4-inch-trs'`. |
 | `ControlInterfaceAssignmentHint` | `'momentary' | 'latching' | 'momentary-or-latching' | 'continuous'`. |
 | `ControlInterfacePolarity` | `'normally-open' | 'normally-closed' | 'expression' | 'unknown'`. |
 | `ControlInterfaceBinding` | Optional binding to a source component/control/property. |
+| `ControlOutput` | Producer-side external control output metadata. |
+| `ControlOutputSwitchMode` | `'momentary' | 'latching'`. |
 
 `Component.properties` is an open metadata map. Parsers, editors, and `.vdsp`
 round-trips preserve scalar or parsed-quantity properties even when the key is
@@ -76,8 +82,7 @@ properties required for a usable component, not an exhaustive whitelist.
 
 ```ts
 type PanelPlacementMetadata = Readonly<{
-    layout: PanelGridLayout;
-    controls: readonly PanelControlPlacement[];
+    faces: readonly PanelFace[];
 }>;
 ```
 
@@ -155,7 +160,7 @@ Allowed scalar values:
 | `ControlInterfaceAssignmentHint` | `'momentary' | 'latching' | 'momentary-or-latching' | 'continuous'` |
 | `ControlInterfacePolarity` | `'normally-open' | 'normally-closed' | 'expression' | 'unknown'` |
 
-Producer contract:
+Receiver contract:
 
 - `id` is the stable interface id. `name` is the user-facing label.
 - `role` is required and carries the product-level purpose of the interface.
@@ -181,6 +186,71 @@ controlInterfaces:
       controlId: "U1:sampler-trigger"
       controlName: TRIGGER
       property: SamplerTriggerControl
+```
+
+### Device And Control Output Metadata
+
+`CircuitDocument.device` identifies the document as product content, such as a
+normal audio pedal, a standalone control accessory, or a utility device.
+`CircuitDocument.controlOutputs` describes producer-side external control
+outputs. Use this for self-contained accessories such as Boss FS-5U / FS-6
+footswitches that can patch into another pedal's `controlInterfaces`.
+
+```ts
+type CircuitDocumentDevice = Readonly<{
+    id?: string;
+    version?: number;
+    kind: 'audio-pedal' | 'control-accessory' | 'utility' | 'unknown';
+    family?: string;
+    model?: string;
+    audioProcessing?: boolean;
+}>;
+
+type ControlOutput = Readonly<{
+    id: string;
+    name: string;
+    role: ControlInterfaceRole;
+    connector?: ControlInterfaceConnector;
+    switchMode?: 'momentary' | 'latching';
+    polarity?: ControlInterfacePolarity;
+    inactiveValue?: number;
+    activeValue?: number;
+    componentId?: string;
+    description?: string;
+}>;
+```
+
+Producer contract:
+
+- `device.id` is the stable id inside the uploaded `.vdsp`; hosts may still assign their own upload/catalog id.
+- `device.version` is a positive integer version for this product document, not the schema version.
+- `device.kind: 'control-accessory'` or `device.audioProcessing: false` means valid product content that should not be treated as an audio DSP stage.
+- `controlOutputs[].id` is stable within the accessory document and is the value board-level assignments should reference.
+- `controlOutputs[].componentId` optionally links the output behavior to a visible jack component.
+- `inactiveValue` and `activeValue` are optional normalized contact-closure values after `polarity` is applied. When omitted, hosts can derive them as `0`/`1` for `normally-open` and `1`/`0` for `normally-closed`.
+- Runtime state such as pressed, released, or latched is host state and is not persisted in `.vdsp`.
+- Enclosure dimensions are not part of this V1 metadata. Use `panel.faces[]` and jack components for logical physical placement.
+
+Example Boss FS-5U `.vdsp` blocks:
+
+```yaml
+device:
+  id: boss-fs-5u
+  version: 1
+  kind: control-accessory
+  family: external-footswitch
+  model: boss-fs-5u
+  audioProcessing: false
+controlOutputs:
+  - id: output
+    name: Output
+    role: external-control
+    connector: "1/4-inch-mono-ts"
+    switchMode: momentary
+    polarity: normally-open
+    inactiveValue: 0
+    activeValue: 1
+    componentId: J1
 ```
 
 ## Parsing And Format Dispatch

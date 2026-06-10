@@ -1,5 +1,7 @@
 import type {
     CircuitDocument,
+    CircuitDocumentDevice,
+    CircuitDocumentDeviceKind,
     Component,
     ComponentKind,
     ControlInterface,
@@ -7,6 +9,8 @@ import type {
     ControlInterfaceConnector,
     ControlInterfacePolarity,
     ControlInterfaceRole,
+    ControlOutput,
+    ControlOutputSwitchMode,
     DocumentSource,
     PanelColumnOrder,
     PanelControlKind,
@@ -56,18 +60,101 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
 
     const panel = parsePanel(root.panel);
     const controlInterfaces = parseControlInterfaces(root.controlInterfaces);
+    const device = parseDevice(root.device);
+    const controlOutputs = parseControlOutputs(root.controlOutputs);
 
     return {
         metadata: parseMetadata(root.metadata),
         source: parseSource(root.source),
+        ...(device === undefined ? {} : { device }),
         ...(panel === undefined ? {} : { panel }),
         ...(controlInterfaces === undefined ? {} : { controlInterfaces }),
+        ...(controlOutputs === undefined ? {} : { controlOutputs }),
         components: parseComponents(root.components),
         wires: parseWires(root.wires),
         directives: parseStringArray(root.directives, 'directives'),
         warnings: parseWarnings(root.diagnostics),
         rawAttributes: parseStringRecord(root.rawAttributes, 'rawAttributes'),
     };
+}
+
+function parseDevice(value: YamlValue | undefined): CircuitDocumentDevice | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const device = expectObject(value, 'device');
+    const id = parseOptionalString(device.id, 'device.id');
+    const version = parseOptionalPositiveInteger(device.version, 'device.version');
+    const family = parseOptionalString(device.family, 'device.family');
+    const model = parseOptionalString(device.model, 'device.model');
+    const audioProcessing = parseOptionalBoolean(device.audioProcessing, 'device.audioProcessing');
+    return {
+        ...(id === undefined ? {} : { id }),
+        ...(version === undefined ? {} : { version }),
+        kind: parseCircuitDocumentDeviceKind(device.kind, 'device.kind'),
+        ...(family === undefined ? {} : { family }),
+        ...(model === undefined ? {} : { model }),
+        ...(audioProcessing === undefined ? {} : { audioProcessing }),
+    };
+}
+
+function parseCircuitDocumentDeviceKind(value: YamlValue | undefined, path: string): CircuitDocumentDeviceKind {
+    const kind = expectString(value, path);
+    switch (kind) {
+        case 'audio-pedal':
+        case 'control-accessory':
+        case 'utility':
+        case 'unknown':
+            return kind;
+        default:
+            throw new Error(`${path}: expected audio-pedal, control-accessory, utility, or unknown`);
+    }
+}
+
+function parseControlOutputs(value: YamlValue | undefined): readonly ControlOutput[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return optionalArray(value, 'controlOutputs').map((item, index) => {
+        const path = `controlOutputs[${index}]`;
+        const controlOutput = expectObject(item, path);
+        const connector = parseOptionalControlInterfaceConnector(controlOutput.connector, `${path}.connector`);
+        const switchMode = parseOptionalControlOutputSwitchMode(controlOutput.switchMode, `${path}.switchMode`);
+        const polarity = parseOptionalControlInterfacePolarity(controlOutput.polarity, `${path}.polarity`);
+        const inactiveValue = parseOptionalNumber(controlOutput.inactiveValue, `${path}.inactiveValue`);
+        const activeValue = parseOptionalNumber(controlOutput.activeValue, `${path}.activeValue`);
+        const componentId = parseOptionalString(controlOutput.componentId, `${path}.componentId`);
+        const description = parseOptionalString(controlOutput.description, `${path}.description`);
+        return {
+            id: expectString(controlOutput.id, `${path}.id`),
+            name: expectString(controlOutput.name, `${path}.name`),
+            role: parseControlInterfaceRole(controlOutput.role, `${path}.role`),
+            ...(connector === undefined ? {} : { connector }),
+            ...(switchMode === undefined ? {} : { switchMode }),
+            ...(polarity === undefined ? {} : { polarity }),
+            ...(inactiveValue === undefined ? {} : { inactiveValue }),
+            ...(activeValue === undefined ? {} : { activeValue }),
+            ...(componentId === undefined ? {} : { componentId }),
+            ...(description === undefined ? {} : { description }),
+        };
+    });
+}
+
+function parseOptionalControlOutputSwitchMode(
+    value: YamlValue | undefined,
+    path: string,
+): ControlOutputSwitchMode | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const switchMode = expectString(value, path);
+    switch (switchMode) {
+        case 'momentary':
+        case 'latching':
+            return switchMode;
+        default:
+            throw new Error(`${path}: expected momentary or latching`);
+    }
 }
 
 function parseControlInterfaces(value: YamlValue | undefined): readonly ControlInterface[] | undefined {
@@ -881,11 +968,25 @@ function parseOptionalPositiveInteger(value: YamlValue | undefined, path: string
     return expectPositiveInteger(value, path);
 }
 
+function parseOptionalNumber(value: YamlValue | undefined, path: string): number | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return expectNumber(value, path);
+}
+
 function parseOptionalString(value: YamlValue | undefined, path: string): string | undefined {
     if (value === undefined) {
         return undefined;
     }
     return expectString(value, path);
+}
+
+function parseOptionalBoolean(value: YamlValue | undefined, path: string): boolean | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return expectBoolean(value, path);
 }
 
 function expectBoolean(value: YamlValue | undefined, path: string): boolean {

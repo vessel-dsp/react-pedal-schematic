@@ -1,7 +1,9 @@
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 
 export type {
     CircuitDocument,
+    CircuitDocumentDevice,
+    CircuitDocumentDeviceKind,
     Component,
     ComponentKind,
     ControlInterface,
@@ -10,6 +12,8 @@ export type {
     ControlInterfaceConnector,
     ControlInterfacePolarity,
     ControlInterfaceRole,
+    ControlOutput,
+    ControlOutputSwitchMode,
     DocumentMetadata,
     DocumentSource,
     PanelColumnOrder,

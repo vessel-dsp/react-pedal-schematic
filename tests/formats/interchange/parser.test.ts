@@ -285,6 +285,95 @@ rawAttributes: {}`;
         expect(parsed.controlInterfaces).toEqual(doc.controlInterfaces);
     });
 
+    test('round-trips standalone control accessory device metadata and outputs', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'Boss FS-5U Foot Switch',
+                description: 'Momentary external footswitch accessory.',
+                partNumber: 'FS-5U',
+            },
+            device: {
+                id: 'boss-fs-5u',
+                version: 1,
+                kind: 'control-accessory',
+                family: 'external-footswitch',
+                model: 'boss-fs-5u',
+                audioProcessing: false,
+            },
+            controlOutputs: [{
+                id: 'output',
+                name: 'Output',
+                role: 'external-control',
+                connector: '1/4-inch-mono-ts',
+                switchMode: 'momentary',
+                polarity: 'normally-open',
+                inactiveValue: 0,
+                activeValue: 1,
+                componentId: 'J1',
+                description: 'Mono TS contact-closure output.',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(parsed.device).toEqual(doc.device);
+        expect(parsed.controlOutputs).toEqual(doc.controlOutputs);
+    });
+
+    test('rejects unsupported standalone control accessory schema values', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad accessory
+  description: ""
+  partNumber: ""
+source: {}
+device:
+  id: bad-accessory
+  version: 1
+  kind: audio-widget
+controlOutputs:
+  - id: output
+    name: Output
+    role: external-control
+    switchMode: push-push
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('device.kind');
+    });
+
+    test('rejects unsupported standalone control accessory output switch modes', () => {
+        const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Bad accessory output
+  description: ""
+  partNumber: ""
+source: {}
+device:
+  id: bad-accessory
+  version: 1
+  kind: control-accessory
+controlOutputs:
+  - id: output
+    name: Output
+    role: external-control
+    switchMode: push-push
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('controlOutputs[0].switchMode');
+    });
+
     test('rejects unsupported panel grid indexing annotations', () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:
