@@ -144,6 +144,20 @@ Use `parseVdspCircuitDocument()` when callers want strict parsing with thrown
 errors. Use `validateVdspCircuitDocumentSchema()` for upload flows, editors, or
 CLI checks that should report schema errors without throwing.
 
+### Component Property Metadata
+
+Component `properties` are an open metadata map. The strict `.vdsp` parser
+accepts scalar values and parsed quantity objects for any property key, and the
+serializer emits every property on the component. Validation rules define the
+minimum required fields for each component kind rather than a closed property
+catalog.
+
+Passive material metadata follows that rule. `Material: carbon-film` on a
+resistor round-trips as metadata and does not change validation or preview
+behavior. `Material: electrolytic` on a capacitor also round-trips as metadata;
+the preview layer currently uses that value to choose the electrolytic capacitor
+glyph.
+
 ```ts
 import {
     parseVdspCircuitDocument,

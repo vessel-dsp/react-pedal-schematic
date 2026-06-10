@@ -95,6 +95,17 @@ describe('validateDocument', () => {
         expect(validateDocument(doc)).toEqual([]);
     });
 
+    test('resistor accepts freeform material metadata when resistance is valid', () => {
+        const doc = withParts([
+            makeComponent('R1', 'resistor', {
+                Resistance: '10k',
+                Material: 'carbon-film',
+            }),
+        ]);
+
+        expect(validateDocument(doc)).toEqual([]);
+    });
+
     test('capacitor with mismatched unit emits unit-mismatch warning, not error', () => {
         const doc = withParts([makeComponent('C1', 'capacitor', { C: '1V' })]);
         const issues = validateDocument(doc);

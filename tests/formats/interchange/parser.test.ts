@@ -434,6 +434,39 @@ rawAttributes: {}`;
         expect(parsed.components[0]?.properties.Wipe).toBe('0.5');
     });
 
+    test('round-trips freeform passive material metadata as scalar properties', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'R1',
+                kind: 'resistor',
+                name: 'R1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'a', position: { x: 0, y: -20 } },
+                    { name: 'b', position: { x: 0, y: 20 } },
+                ],
+                properties: {
+                    Resistance: { raw: '10 kΩ', value: 10_000, unit: 'Ω' },
+                    Material: 'carbon-film',
+                    OrganicMaterial: 'carbon-comp',
+                },
+                sourceTypeName: 'Circuit.Resistor',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+        const parsed = parseInterchangeYaml(yaml);
+        const resistor = parsed.components[0];
+
+        expect(yaml).toContain('Material: carbon-film');
+        expect(yaml).toContain('OrganicMaterial: carbon-comp');
+        expect(resistor?.properties.Material).toBe('carbon-film');
+        expect(resistor?.properties.OrganicMaterial).toBe('carbon-comp');
+    });
+
     test('round-trips runtime descriptor metadata and numeric-looking raw strings', () => {
         const original = parseCircuitDocument(runtimeDescriptorSource, { filename: 'runtime-descriptor.schx' });
         const yaml = serializeInterchangeYaml(original, {

@@ -6,6 +6,7 @@
 - Emit the new `faces` / `elements` / `bind` / `kind` panel shape from the interchange serializer by default.
 - Add panel validation warnings for unresolved component bindings, unresolved runtime controls, kind mismatches, and overlapping grid cells.
 - Add `direct-output` as a first-class jack role and expose runtime descriptor `DirectOutputJack` metadata as `U1:direct-out` panel jack ports.
+- Document and test the open component property-map contract, including passive `Material` metadata round-tripping and resistor material remaining preview-neutral.
 - Document the updated `.vdsp` panel placement contract and mark the implementation plan complete.
 
 ## 0.2.9

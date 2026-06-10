@@ -65,6 +65,11 @@ Important model exports:
 | `ControlInterfacePolarity` | `'normally-open' | 'normally-closed' | 'expression' | 'unknown'`. |
 | `ControlInterfaceBinding` | Optional binding to a source component/control/property. |
 
+`Component.properties` is an open metadata map. Parsers, editors, and `.vdsp`
+round-trips preserve scalar or parsed-quantity properties even when the key is
+not part of a kind's validation rules. Validation rules describe the minimum
+properties required for a usable component, not an exhaustive whitelist.
+
 ### Panel Placement Metadata
 
 `CircuitDocument.panel` describes logical stompbox control placement. It is separate from schematic `component.origin`.
@@ -302,6 +307,11 @@ Related types:
 | `QuantityRule` | Quantity property validation rule. |
 | `StringRule` | String property validation rule. |
 
+Validation does not reject extra component properties. For example, a resistor
+with a valid `R` or `Resistance` value may also carry `Material: carbon-film`;
+that material value remains metadata unless a host or future upstream feature
+chooses to interpret it.
+
 ## Connectivity
 
 ```ts
@@ -420,6 +430,10 @@ These helpers are useful for hosts that build their own renderer or editing UI.
 | `findChainCorners(document)` | Finds route bend points eligible for merge/split workflows. |
 
 Related types: `Bounds`, `SymbolDef`, `HangingEndpoint`, `Port`, `WireBodyHit`.
+
+`symbolFor()` currently interprets capacitor `Material` values containing
+`electrolytic` as the electrolytic capacitor glyph. Resistor `Material` values
+are preserved metadata only and render with the normal resistor glyph.
 
 ## Panel Controls And Runtime Protocol
 

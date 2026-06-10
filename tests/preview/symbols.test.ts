@@ -87,6 +87,15 @@ describe('symbolFor', () => {
         expect(electrolytic.content).toContain('electrolytic variant');
     });
 
+    test('keeps resistor material metadata on the default resistor glyph', () => {
+        const plain = symbolFor('resistor');
+        const carbonFilm = symbolFor('resistor', 'Circuit.Resistor, Circuit', { Material: 'carbon-film' });
+
+        expect(carbonFilm).toEqual(plain);
+        expect(carbonFilm.content).toContain('kind: resistor');
+        expect(carbonFilm.content).not.toContain('electrolytic variant');
+    });
+
     test('renders LED with emission arrow primitives', () => {
         const diode = symbolFor('diode');
         const led = symbolFor('led');
