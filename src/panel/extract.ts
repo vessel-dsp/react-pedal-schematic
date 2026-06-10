@@ -1,4 +1,4 @@
-import type { CircuitDocument, Component, ParsedQuantity, PropertyValue } from '../model/types';
+import type { CircuitDocument, Component, ControlInterface, ParsedQuantity, PropertyValue } from '../model/types';
 import type {
     ExternalControlAssignmentHint,
     JackPort,
@@ -76,6 +76,7 @@ export function extractPanel(doc: CircuitDocument): Panel {
                 break;
         }
     }
+    applyControlInterfaces(doc.controlInterfaces, jacks);
 
     return {
         ...(doc.panel === undefined ? {} : { placement: doc.panel }),
@@ -85,6 +86,77 @@ export function extractPanel(doc: CircuitDocument): Panel {
         leds,
         jacks,
     };
+}
+
+function applyControlInterfaces(
+    controlInterfaces: readonly ControlInterface[] | undefined,
+    jacks: JackPort[],
+): void {
+    for (const controlInterface of controlInterfaces ?? []) {
+        const port = toControlInterfaceJack(controlInterface);
+        const existingIndex = controlInterface.componentId === undefined
+            ? -1
+            : jacks.findIndex((jack) => jack.id === controlInterface.componentId);
+        if (existingIndex >= 0) {
+            const existing = jacks[existingIndex];
+            if (existing !== undefined) {
+                jacks[existingIndex] = { ...existing, ...port };
+            }
+        } else {
+            jacks.push(port);
+        }
+    }
+}
+
+function toControlInterfaceJack(controlInterface: ControlInterface): JackPort {
+    const sourceComponentId = controlInterface.binding?.sourceComponentId;
+    const controlRole = controlInterface.controlRole ?? defaultControlRole(controlInterface);
+    const interfaceName = controlInterface.interface ?? defaultInterfaceName(controlInterface);
+    return {
+        id: controlInterface.componentId ?? controlInterface.id,
+        name: controlInterface.name,
+        role: jackRoleForControlInterface(controlInterface),
+        ...(sourceComponentId === undefined ? {} : { sourceComponentId }),
+        ...(controlRole === undefined ? {} : { controlRole }),
+        ...(interfaceName === undefined ? {} : { interface: interfaceName }),
+        ...(controlInterface.connector === undefined ? {} : { connector: controlInterface.connector }),
+        ...(controlInterface.assignmentHint === undefined ? {} : { assignmentHint: controlInterface.assignmentHint }),
+        ...(controlInterface.polarity === undefined ? {} : { polarity: controlInterface.polarity }),
+        ...(controlInterface.binding === undefined ? {} : { binding: controlInterface.binding }),
+        ...(controlInterface.description === undefined ? {} : { description: controlInterface.description }),
+    };
+}
+
+function jackRoleForControlInterface(controlInterface: ControlInterface): JackRole {
+    switch (controlInterface.role) {
+        case 'tempo-tap':
+            return 'tempo-tap';
+        case 'expression':
+            return 'expression';
+        case 'external-control':
+        case 'trigger':
+        case 'reset':
+        case 'sampler-trigger':
+            return 'external-control';
+        case 'unknown':
+            return 'unknown';
+    }
+}
+
+function defaultControlRole(controlInterface: ControlInterface): string | undefined {
+    return controlInterface.role === 'unknown' || controlInterface.role === 'external-control'
+        ? undefined
+        : controlInterface.role;
+}
+
+function defaultInterfaceName(controlInterface: ControlInterface): string | undefined {
+    if (controlInterface.role === 'tempo-tap') {
+        return 'tap-tempo';
+    }
+    if (controlInterface.role === 'unknown') {
+        return undefined;
+    }
+    return 'external-control-input';
 }
 
 function toKnob(component: Component): Knob {

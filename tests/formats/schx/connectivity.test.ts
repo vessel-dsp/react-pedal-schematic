@@ -145,6 +145,130 @@ describe('lpb-1-style-boost electrical connectivity', () => {
     });
 });
 
+describe('fulltone-ocd source-faithful connectivity', () => {
+    test('clipping cell keeps the M1 shunt plus M2-to-germanium-diode series branch', async () => {
+        const doc = await loadFixture('fulltone-ocd');
+        const c = resolveConnectivity(doc);
+
+        const clipNode = expectPinsShareNode(c, [
+            ['R9', 'b'],
+            ['R6', 'a'],
+            ['C1', 'b'],
+            ['M1', 'source'],
+            ['M1', 'gate'],
+            ['M1', 'body'],
+            ['D1', 'cathode'],
+            ['D2', 'cathode'],
+        ]);
+
+        expectPinsShareNode(c, [
+            ['VREF', 't'],
+            ['C1', 'a'],
+            ['M1', 'drain'],
+            ['M2', 'drain'],
+            ['M2', 'gate'],
+            ['D1', 'anode'],
+        ]);
+
+        const mosfetDiodeNode = expectPinsShareNode(c, [
+            ['M2', 'source'],
+            ['M2', 'body'],
+            ['D2', 'anode'],
+        ]);
+        expect(mosfetDiodeNode).not.toBe(clipNode);
+    });
+
+    test('HP/LP switch parallels R12 across the always-present R10 path', async () => {
+        const doc = await loadFixture('fulltone-ocd');
+        const c = resolveConnectivity(doc);
+        const switchComponent = doc.components.find((component) => component.id === 'HP_LP');
+
+        expect(switchComponent?.sourceTypeName).toContain('Circuit.SPDT');
+        expect(switchComponent?.terminals.map((terminal) => terminal.name)).toEqual(['common', 'throw0', 'throw1']);
+
+        const toneInput = expectPinsShareNode(c, [
+            ['C11', 'b'],
+            ['R10', 'a'],
+            ['R12', 'a'],
+        ]);
+        const toneOutput = expectPinsShareNode(c, [
+            ['R10', 'b'],
+            ['HP_LP', 'common'],
+            ['C7', 'a'],
+            ['VOLUME', 'a'],
+        ]);
+
+        expectPinsShareNode(c, [['R12', 'b'], ['HP_LP', 'throw0']]);
+        const unusedThrow = getPinNode(c, { componentId: 'HP_LP', terminalName: 'throw1' });
+        expect(unusedThrow).toBeDefined();
+        expect(unusedThrow).not.toBe(toneInput);
+        expect(unusedThrow).not.toBe(toneOutput);
+        expect(toneInput).not.toBe(toneOutput);
+    });
+
+    test('tone and volume controls follow the source output attenuator wiring', async () => {
+        const doc = await loadFixture('fulltone-ocd');
+        const c = resolveConnectivity(doc);
+
+        expectPinsShareNode(c, [['C7', 'b'], ['TONE', 'a']]);
+        const toneGround = expectPinsShareNode(c, [['TONE', 'wiper'], ['TONE', 'b'], ['GND_TONE', 't']]);
+        expect(toneGround).toBe(0);
+
+        expectPinsShareNode(c, [['VOLUME', 'wiper'], ['OUT', 'a']]);
+        const outputGround = expectPinsShareNode(c, [['VOLUME', 'b'], ['OUT', 'b'], ['GND_VOLUME', 't']]);
+        expect(outputGround).toBe(0);
+    });
+});
+
+describe('tc-electronic-dark-matter source-faithful connectivity', () => {
+    test('input and first MC33178 stage are biased from Vref', async () => {
+        const doc = await loadFixture('tc-electronic-dark-matter');
+        const c = resolveConnectivity(doc);
+
+        expectPinsShareNode(c, [['IN', 'a'], ['C1', 'a']]);
+        const inputGround = expectPinsShareNode(c, [['IN', 'b'], ['R1', 'b'], ['GND_IN', 't']]);
+        expect(inputGround).toBe(0);
+        expectPinsShareNode(c, [['C1', 'b'], ['R1', 'a'], ['R2', 'a']]);
+        expectPinsShareNode(c, [['VREF', 't'], ['R5', 'a'], ['R11', 'a'], ['R18', 'a']]);
+    });
+
+    test('gain stage drives a four-diode LL4148 clipping bridge', async () => {
+        const doc = await loadFixture('tc-electronic-dark-matter');
+        const c = resolveConnectivity(doc);
+
+        const clipInput = expectPinsShareNode(c, [
+            ['GAIN', 'wiper'],
+            ['IC3A', 'vin-'],
+            ['D1', 'anode'],
+            ['D3', 'cathode'],
+        ]);
+        const clipOutput = expectPinsShareNode(c, [
+            ['IC3A', 'vout'],
+            ['D2', 'cathode'],
+            ['D4', 'anode'],
+            ['C11', 'a'],
+            ['R16', 'a'],
+        ]);
+        expectPinsShareNode(c, [['D1', 'cathode'], ['D2', 'anode']]);
+        expectPinsShareNode(c, [['D3', 'anode'], ['D4', 'cathode']]);
+        expect(clipInput).not.toBe(clipOutput);
+    });
+
+    test('level handoff feeds active bass/treble network and output buffer', async () => {
+        const doc = await loadFixture('tc-electronic-dark-matter');
+        const c = resolveConnectivity(doc);
+
+        expectPinsShareNode(c, [['LEVEL', 'wiper'], ['C13', 'a']]);
+        expectPinsShareNode(c, [['BASS', 'wiper'], ['R23', 'a'], ['C20', 'a']]);
+        expectPinsShareNode(c, [['TREBLE', 'wiper'], ['IC4B', 'vin+']]);
+        expectPinsShareNode(c, [['IC4B', 'vout'], ['C21', 'a']]);
+        expectPinsShareNode(c, [['C21', 'b'], ['R25', 'a'], ['R26', 'a']]);
+        expectPinsShareNode(c, [['R26', 'b'], ['OUT', 'a']]);
+        const outputGround = expectPinsShareNode(c, [['OUT', 'b'], ['R25', 'b'], ['GND_OUT', 't']]);
+        expect(outputGround).toBe(0);
+    });
+});
+
 describe('spdt-bypass-pedal electrical connectivity', () => {
     test('+9V rail joins BAT1.+, VCC.t, RLED.a, RB1.a, RC.a', async () => {
         const doc = await loadFixture('spdt-bypass-pedal');

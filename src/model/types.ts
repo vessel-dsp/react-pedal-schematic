@@ -77,6 +77,56 @@ export type DocumentMetadata = Readonly<{
 
 export type DocumentSource = Readonly<Record<string, string>>;
 
+export type ControlInterfaceRole =
+    | 'external-control'
+    | 'tempo-tap'
+    | 'trigger'
+    | 'reset'
+    | 'sampler-trigger'
+    | 'expression'
+    | 'unknown';
+
+export type ControlInterfaceConnector =
+    | '1/4-inch-mono-ts'
+    | '1/4-inch-trs'
+    | '3.5mm-mono-ts'
+    | '3.5mm-trs'
+    | 'proprietary'
+    | 'unknown';
+
+export type ControlInterfaceAssignmentHint =
+    | 'momentary'
+    | 'latching'
+    | 'momentary-or-latching'
+    | 'continuous';
+
+export type ControlInterfacePolarity =
+    | 'normally-open'
+    | 'normally-closed'
+    | 'expression'
+    | 'unknown';
+
+export type ControlInterfaceBinding = Readonly<{
+    sourceComponentId?: string;
+    controlId?: string;
+    controlName?: string;
+    property?: string;
+}>;
+
+export type ControlInterface = Readonly<{
+    id: string;
+    name: string;
+    role: ControlInterfaceRole;
+    componentId?: string;
+    controlRole?: string;
+    interface?: string;
+    connector?: ControlInterfaceConnector;
+    assignmentHint?: ControlInterfaceAssignmentHint;
+    polarity?: ControlInterfacePolarity;
+    binding?: ControlInterfaceBinding;
+    description?: string;
+}>;
+
 export type PanelGridIndexing = 'one-based' | 'zero-based';
 
 export type PanelRowOrder = 'top-to-bottom' | 'bottom-to-top';
@@ -124,6 +174,7 @@ export type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
     panel?: PanelPlacementMetadata;
+    controlInterfaces?: readonly ControlInterface[];
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];

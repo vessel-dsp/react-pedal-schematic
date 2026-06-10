@@ -63,7 +63,7 @@ Current implementation status:
 - `src/formats/document.ts` exports `.vdsp` helpers: `parseVdspCircuitDocument`, `validateVdspCircuitDocumentSchema`, `serializeVdspCircuitDocument`, `parseCircuitDocumentFile`, `detectCircuitDocumentFileFormat`, and filename helpers.
 - The playground top tab row includes **Source**, which shows the current edited `CircuitDocument` as copyable generated text. Its format dropdown defaults to `.vdsp` and can switch to `.schx` or `.cir`.
 - The previous **Raw .schx** tab was removed; Source is now the single copy/paste conversion surface.
-- The YAML view uses `schema: circuit-interchange/v1`, `metadata`, `source`, optional `panel`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
+- The YAML view uses `schema: circuit-interchange/v1`, `metadata`, `source`, optional `panel`, optional `controlInterfaces`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
 - `tests/formats/interchange/fixture-coverage.test.ts` verifies current serialization coverage across all supported fixtures in the workspace.
 - `tests/formats/interchange/parser.test.ts` verifies the strict YAML parser can rebuild a `CircuitDocument` from the project's own serialized shape and preserves string-valued scalar properties.
 - The parser ignores the derived top-level `nodes` block when rebuilding `CircuitDocument`; connectivity is recomputed from component terminals and wires.
@@ -76,6 +76,7 @@ Current format shape:
 - Typed quantities: preserve `{ raw, value, unit }` rather than flattening values into strings.
 - Source provenance: record original format, filename when available, and encoding when relevant under `source`.
 - Optional stompbox panel placement: record logical control-surface layout under top-level `panel`, separate from schematic component `origin`. Use `layout.kind: stompbox-grid`, explicit `rows`, `columns`, `indexing`, and `controls` entries that reference existing `componentId`s with `controlKind` and self-describing `grid` objects (`row`, `column`, optional `rowSpan`, `columnSpan`). Prefer `indexing: one-based` for hand-authored `.vdsp`, while the parser also accepts `zero-based` when explicitly declared.
+- Optional external control interface metadata: record product-level external inputs under top-level `controlInterfaces`, separate from layout-only `panel`. Use this for DD-3-style `TRIGGER`/`RESET`, DD-5 `Tempo In`, expression or CTL/EXP jacks, connector type, assignment hint, polarity, and bindings to runtime descriptor controls. Do not model external footswitch targets as normal panel switches unless the hardware has a visible panel switch.
 - Diagnostics: warnings and known lossy conversions are first-class data, not comments.
 
 Do not use compact tuple-heavy data for the persisted interchange format. Prefer self-describing objects like `{ "x": 120, "y": 80 }` over `[120, 80]`, and `{ "componentId": "R1", "terminalName": "a" }` over `"R1:a"` except in derived indexes.

@@ -2,6 +2,8 @@ import { getPinNode, resolveConnectivity, type Connectivity } from '../../model/
 import type {
     CircuitDocument,
     Component,
+    ControlInterface,
+    ControlInterfaceBinding,
     DocumentSource,
     PanelControlPlacement,
     PanelGridLayout,
@@ -43,6 +45,9 @@ export function serializeInterchangeYaml(
     if (doc.panel !== undefined) {
         root.panel = panelBlock(doc.panel);
     }
+    if (doc.controlInterfaces !== undefined) {
+        root.controlInterfaces = doc.controlInterfaces.map(controlInterfaceBlock);
+    }
     Object.assign(root, {
         components: doc.components.map((component) => componentBlock(component, connectivity)),
         nodes: nodeBlocks(connectivity),
@@ -53,6 +58,56 @@ export function serializeInterchangeYaml(
     });
 
     return `${emitYaml(root, 0)}\n`;
+}
+
+function controlInterfaceBlock(controlInterface: ControlInterface): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: controlInterface.id,
+        name: controlInterface.name,
+        role: controlInterface.role,
+    };
+    if (controlInterface.componentId !== undefined) {
+        out.componentId = controlInterface.componentId;
+    }
+    if (controlInterface.controlRole !== undefined) {
+        out.controlRole = controlInterface.controlRole;
+    }
+    if (controlInterface.interface !== undefined) {
+        out.interface = controlInterface.interface;
+    }
+    if (controlInterface.connector !== undefined) {
+        out.connector = controlInterface.connector;
+    }
+    if (controlInterface.assignmentHint !== undefined) {
+        out.assignmentHint = controlInterface.assignmentHint;
+    }
+    if (controlInterface.polarity !== undefined) {
+        out.polarity = controlInterface.polarity;
+    }
+    if (controlInterface.binding !== undefined) {
+        out.binding = controlInterfaceBindingBlock(controlInterface.binding);
+    }
+    if (controlInterface.description !== undefined) {
+        out.description = controlInterface.description;
+    }
+    return out;
+}
+
+function controlInterfaceBindingBlock(binding: ControlInterfaceBinding): MutableYamlObject {
+    const out: MutableYamlObject = {};
+    if (binding.sourceComponentId !== undefined) {
+        out.sourceComponentId = binding.sourceComponentId;
+    }
+    if (binding.controlId !== undefined) {
+        out.controlId = binding.controlId;
+    }
+    if (binding.controlName !== undefined) {
+        out.controlName = binding.controlName;
+    }
+    if (binding.property !== undefined) {
+        out.property = binding.property;
+    }
+    return out;
 }
 
 function sourceBlock(

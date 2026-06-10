@@ -1,4 +1,11 @@
-import type { PanelPlacementMetadata, ParsedQuantity } from '../model/types';
+import type {
+    ControlInterfaceAssignmentHint,
+    ControlInterfaceBinding,
+    ControlInterfaceConnector,
+    ControlInterfacePolarity,
+    PanelPlacementMetadata,
+    ParsedQuantity,
+} from '../model/types';
 
 // ---------- Static panel descriptor (extracted from a CircuitDocument) ----------
 
@@ -74,7 +81,7 @@ export type JackRole =
     | 'external-control'
     | 'unknown';
 
-export type ExternalControlAssignmentHint = 'momentary' | 'latching' | 'momentary-or-latching';
+export type ExternalControlAssignmentHint = ControlInterfaceAssignmentHint;
 
 export type JackPort = Readonly<{
     id: string;
@@ -85,7 +92,10 @@ export type JackPort = Readonly<{
     sourceComponentId?: string;
     controlRole?: string;
     interface?: string;
+    connector?: ControlInterfaceConnector;
     assignmentHint?: ExternalControlAssignmentHint;
+    polarity?: ControlInterfacePolarity;
+    binding?: ControlInterfaceBinding;
     description?: string;
 }>;
 

@@ -302,6 +302,85 @@ describe('extractPanel', () => {
         expect(panel.switches).toEqual([]);
     });
 
+    test('extracts DD-3 style external trigger and reset controls from interface metadata', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('U1', 'ic', {
+                    RuntimeDescriptor: 'true',
+                    SamplerTriggerControl: 'TRIGGER',
+                    ResetControl: 'RESET',
+                }, 'Circuit.MicroBlockDelayChip'),
+            ],
+            controlInterfaces: [
+                {
+                    id: 'trigger-input',
+                    name: 'TRIGGER external',
+                    role: 'trigger',
+                    controlRole: 'sampler-trigger',
+                    interface: 'external-control-input',
+                    connector: '1/4-inch-mono-ts',
+                    assignmentHint: 'momentary-or-latching',
+                    polarity: 'normally-open',
+                    binding: {
+                        sourceComponentId: 'U1',
+                        controlId: 'U1:sampler-trigger',
+                        controlName: 'TRIGGER',
+                        property: 'SamplerTriggerControl',
+                    },
+                },
+                {
+                    id: 'reset-input',
+                    name: 'RESET external',
+                    role: 'reset',
+                    controlRole: 'reset',
+                    interface: 'external-control-input',
+                    connector: '1/4-inch-mono-ts',
+                    assignmentHint: 'momentary-or-latching',
+                    polarity: 'normally-open',
+                    binding: {
+                        sourceComponentId: 'U1',
+                        controlId: 'U1:reset',
+                        controlName: 'RESET',
+                        property: 'ResetControl',
+                    },
+                },
+            ],
+        };
+
+        const panel = extractPanel(doc);
+        const trigger = panel.jacks.find((jack) => jack.id === 'trigger-input')!;
+        const reset = panel.jacks.find((jack) => jack.id === 'reset-input')!;
+
+        expect(panel.switches).toEqual([]);
+        expect(trigger).toMatchObject({
+            name: 'TRIGGER external',
+            role: 'external-control',
+            controlRole: 'sampler-trigger',
+            interface: 'external-control-input',
+            connector: '1/4-inch-mono-ts',
+            assignmentHint: 'momentary-or-latching',
+            polarity: 'normally-open',
+            sourceComponentId: 'U1',
+            binding: {
+                controlId: 'U1:sampler-trigger',
+                controlName: 'TRIGGER',
+                property: 'SamplerTriggerControl',
+            },
+        });
+        expect(reset).toMatchObject({
+            name: 'RESET external',
+            role: 'external-control',
+            controlRole: 'reset',
+            interface: 'external-control-input',
+            binding: {
+                controlId: 'U1:reset',
+                controlName: 'RESET',
+                property: 'ResetControl',
+            },
+        });
+    });
+
     test('empty document produces an empty panel', () => {
         const panel = extractPanel({
             metadata: { name: '', description: '', partNumber: '' },

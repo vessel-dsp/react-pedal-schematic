@@ -1,11 +1,18 @@
 # Changelog
 
+## 0.2.9
+
+- Add top-level `.vdsp` `controlInterfaces` metadata for external trigger/reset, tempo tap, expression, and similar control inputs.
+- Project `controlInterfaces` into extracted panel jacks with connector, assignment hint, polarity, and runtime binding metadata while keeping external controls out of panel switch state.
+- Document the producer contract for external control interfaces separately from layout-only stompbox panel placement.
+
 ## 0.2.8
 
 - Add non-throwing `.vdsp` schema validation and include API reference docs in the published package.
 - Preserve optional stompbox panel placement metadata through `.vdsp` parse and serialize flows.
 - Expose runtime descriptor panel controls such as time, feedback, mix, stepped mode selectors, and tempo-tap external control inputs.
-- Add Fulltone OCD analysis fixture coverage for dual-opamp MOSFET clipping pedal parsing.
+- Add source-rated Fulltone OCD revision-3 fixture coverage for dual-opamp MOSFET clipping pedal parsing.
+- Add source-rated TC Electronic Dark Matter Distortion fixture coverage for MC33178 stages, LL4148 clipping, and active tone controls.
 
 ## 0.2.7
 

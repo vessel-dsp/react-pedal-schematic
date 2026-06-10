@@ -2,6 +2,11 @@ import type {
     CircuitDocument,
     Component,
     ComponentKind,
+    ControlInterface,
+    ControlInterfaceAssignmentHint,
+    ControlInterfaceConnector,
+    ControlInterfacePolarity,
+    ControlInterfaceRole,
     DocumentSource,
     PanelColumnOrder,
     PanelControlKind,
@@ -47,17 +52,148 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
     }
 
     const panel = parsePanel(root.panel);
+    const controlInterfaces = parseControlInterfaces(root.controlInterfaces);
 
     return {
         metadata: parseMetadata(root.metadata),
         source: parseSource(root.source),
         ...(panel === undefined ? {} : { panel }),
+        ...(controlInterfaces === undefined ? {} : { controlInterfaces }),
         components: parseComponents(root.components),
         wires: parseWires(root.wires),
         directives: parseStringArray(root.directives, 'directives'),
         warnings: parseWarnings(root.diagnostics),
         rawAttributes: parseStringRecord(root.rawAttributes, 'rawAttributes'),
     };
+}
+
+function parseControlInterfaces(value: YamlValue | undefined): readonly ControlInterface[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return optionalArray(value, 'controlInterfaces').map((item, index) => {
+        const path = `controlInterfaces[${index}]`;
+        const controlInterface = expectObject(item, path);
+        const componentId = parseOptionalString(controlInterface.componentId, `${path}.componentId`);
+        const controlRole = parseOptionalString(controlInterface.controlRole, `${path}.controlRole`);
+        const interfaceName = parseOptionalString(controlInterface.interface, `${path}.interface`);
+        const connector = parseOptionalControlInterfaceConnector(controlInterface.connector, `${path}.connector`);
+        const assignmentHint = parseOptionalControlInterfaceAssignmentHint(
+            controlInterface.assignmentHint,
+            `${path}.assignmentHint`,
+        );
+        const polarity = parseOptionalControlInterfacePolarity(controlInterface.polarity, `${path}.polarity`);
+        const binding = parseOptionalControlInterfaceBinding(controlInterface.binding, `${path}.binding`);
+        const description = parseOptionalString(controlInterface.description, `${path}.description`);
+        return {
+            id: expectString(controlInterface.id, `${path}.id`),
+            name: expectString(controlInterface.name, `${path}.name`),
+            role: parseControlInterfaceRole(controlInterface.role, `${path}.role`),
+            ...(componentId === undefined ? {} : { componentId }),
+            ...(controlRole === undefined ? {} : { controlRole }),
+            ...(interfaceName === undefined ? {} : { interface: interfaceName }),
+            ...(connector === undefined ? {} : { connector }),
+            ...(assignmentHint === undefined ? {} : { assignmentHint }),
+            ...(polarity === undefined ? {} : { polarity }),
+            ...(binding === undefined ? {} : { binding }),
+            ...(description === undefined ? {} : { description }),
+        };
+    });
+}
+
+function parseOptionalControlInterfaceBinding(
+    value: YamlValue | undefined,
+    path: string,
+): ControlInterface['binding'] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const binding = expectObject(value, path);
+    const sourceComponentId = parseOptionalString(binding.sourceComponentId, `${path}.sourceComponentId`);
+    const controlId = parseOptionalString(binding.controlId, `${path}.controlId`);
+    const controlName = parseOptionalString(binding.controlName, `${path}.controlName`);
+    const property = parseOptionalString(binding.property, `${path}.property`);
+    return {
+        ...(sourceComponentId === undefined ? {} : { sourceComponentId }),
+        ...(controlId === undefined ? {} : { controlId }),
+        ...(controlName === undefined ? {} : { controlName }),
+        ...(property === undefined ? {} : { property }),
+    };
+}
+
+function parseControlInterfaceRole(value: YamlValue | undefined, path: string): ControlInterfaceRole {
+    const role = expectString(value, path);
+    switch (role) {
+        case 'external-control':
+        case 'tempo-tap':
+        case 'trigger':
+        case 'reset':
+        case 'sampler-trigger':
+        case 'expression':
+        case 'unknown':
+            return role;
+        default:
+            throw new Error(`${path}: expected external-control, tempo-tap, trigger, reset, sampler-trigger, expression, or unknown`);
+    }
+}
+
+function parseOptionalControlInterfaceConnector(
+    value: YamlValue | undefined,
+    path: string,
+): ControlInterfaceConnector | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const connector = expectString(value, path);
+    switch (connector) {
+        case '1/4-inch-mono-ts':
+        case '1/4-inch-trs':
+        case '3.5mm-mono-ts':
+        case '3.5mm-trs':
+        case 'proprietary':
+        case 'unknown':
+            return connector;
+        default:
+            throw new Error(`${path}: expected a supported connector kind`);
+    }
+}
+
+function parseOptionalControlInterfaceAssignmentHint(
+    value: YamlValue | undefined,
+    path: string,
+): ControlInterfaceAssignmentHint | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const hint = expectString(value, path);
+    switch (hint) {
+        case 'momentary':
+        case 'latching':
+        case 'momentary-or-latching':
+        case 'continuous':
+            return hint;
+        default:
+            throw new Error(`${path}: expected momentary, latching, momentary-or-latching, or continuous`);
+    }
+}
+
+function parseOptionalControlInterfacePolarity(
+    value: YamlValue | undefined,
+    path: string,
+): ControlInterfacePolarity | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const polarity = expectString(value, path);
+    switch (polarity) {
+        case 'normally-open':
+        case 'normally-closed':
+        case 'expression':
+        case 'unknown':
+            return polarity;
+        default:
+            throw new Error(`${path}: expected normally-open, normally-closed, expression, or unknown`);
+    }
 }
 
 function parseYamlSubset(source: string): YamlValue {

@@ -33,6 +33,7 @@ type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
     panel?: PanelPlacementMetadata;
+    controlInterfaces?: readonly ControlInterface[];
     components: readonly Component[];
     wires: readonly Wire[];
     directives: readonly string[];
@@ -57,6 +58,12 @@ Important model exports:
 | `DocumentMetadata` | `{ name, description, partNumber }`. |
 | `DocumentSource` | Scalar source provenance record. |
 | `Warning` | Parser/export diagnostic carried on a document. |
+| `ControlInterface` | External control/input interface metadata, separate from panel placement. |
+| `ControlInterfaceRole` | `'external-control' | 'tempo-tap' | 'trigger' | 'reset' | 'sampler-trigger' | 'expression' | 'unknown'`. |
+| `ControlInterfaceConnector` | Preferred connector values such as `'1/4-inch-mono-ts'` and `'1/4-inch-trs'`. |
+| `ControlInterfaceAssignmentHint` | `'momentary' | 'latching' | 'momentary-or-latching' | 'continuous'`. |
+| `ControlInterfacePolarity` | `'normally-open' | 'normally-closed' | 'expression' | 'unknown'`. |
+| `ControlInterfaceBinding` | Optional binding to a source component/control/property. |
 
 ### Panel Placement Metadata
 
@@ -90,13 +97,39 @@ panel:
     rows: 2
     columns: 3
     indexing: one-based
-  controls:
+controls:
     - componentId: DRIVE
       controlKind: knob
       grid:
         row: 1
         column: 1
       label: Drive
+```
+
+### Control Interface Metadata
+
+`CircuitDocument.controlInterfaces` describes product-level external control
+interfaces such as DD-3-style trigger/reset inputs, DD-5 tempo tap, expression
+jacks, and future CTL/EXP ports. This block is behavioral metadata; keep it
+separate from `panel`, which only places controls on a grid.
+
+Example `.vdsp` control interface block:
+
+```yaml
+controlInterfaces:
+  - id: trigger-input
+    name: TRIGGER external
+    role: trigger
+    controlRole: sampler-trigger
+    interface: external-control-input
+    connector: "1/4-inch-mono-ts"
+    assignmentHint: momentary-or-latching
+    polarity: normally-open
+    binding:
+      sourceComponentId: U1
+      controlId: "U1:sampler-trigger"
+      controlName: TRIGGER
+      property: SamplerTriggerControl
 ```
 
 ## Parsing And Format Dispatch
@@ -344,11 +377,12 @@ Related types: `Bounds`, `SymbolDef`, `HangingEndpoint`, `Port`, `WireBodyHit`.
 
 ## Panel Controls And Runtime Protocol
 
-Panel metadata is extracted from schematic components. Physical controls come
-from potentiometer, switch, LED, and jack components. Runtime descriptor ICs
-with `RuntimeDescriptor: "true"` can also declare panel controls through
-metadata such as `TimeControl`, `FeedbackControl`, `MixControl`, `ModeControl`,
-`ModeLabels`, and `TempoTapControl`.
+Panel metadata is extracted from schematic components and
+`document.controlInterfaces`. Physical controls come from potentiometer, switch,
+LED, and jack components. Runtime descriptor ICs with `RuntimeDescriptor:
+"true"` can also declare panel controls through metadata such as `TimeControl`,
+`FeedbackControl`, `MixControl`, `ModeControl`, `ModeLabels`, and
+`TempoTapControl`.
 
 ```ts
 const panel = extractPanel(doc);
@@ -385,10 +419,12 @@ looks like `Circuit.Input`, and `ControlRole: "tempo-tap"` or
 
 `'input' | 'output' | 'send' | 'return' | 'expression' | 'tempo-tap' | 'external-control' | 'unknown'`.
 
-`JackPort` can include `sourceComponentId`, `controlRole`, `interface`, and
-`assignmentHint` for synthesized or semantic external-control ports. Tempo tap
-descriptor controls are exposed as jacks with `role: 'tempo-tap'` and
-`assignmentHint: 'momentary'`; they are not added to runtime switch state.
+`JackPort` can include `sourceComponentId`, `controlRole`, `interface`,
+`connector`, `assignmentHint`, `polarity`, and `binding` for synthesized or
+semantic external-control ports. Tempo tap descriptor controls are exposed as
+jacks with `role: 'tempo-tap'` and `assignmentHint: 'momentary'`; DD-3 style
+`TRIGGER`/`RESET` interfaces are exposed as `external-control` jacks. These
+ports are not added to runtime switch state.
 
 Related types:
 

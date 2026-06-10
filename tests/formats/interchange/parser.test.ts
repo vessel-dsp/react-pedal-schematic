@@ -99,6 +99,58 @@ describe('parseInterchangeYaml', () => {
         expect(parsed.panel).toEqual(doc.panel);
     });
 
+    test('round-trips external control interface metadata', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'Boss DD-3 external controls',
+                description: 'Runtime controls that are not panel toggles.',
+                partNumber: '',
+            },
+            controlInterfaces: [
+                {
+                    id: 'trigger-input',
+                    name: 'TRIGGER external',
+                    role: 'trigger',
+                    controlRole: 'sampler-trigger',
+                    interface: 'external-control-input',
+                    connector: '1/4-inch-mono-ts',
+                    assignmentHint: 'momentary-or-latching',
+                    polarity: 'normally-open',
+                    binding: {
+                        sourceComponentId: 'U1',
+                        controlId: 'U1:sampler-trigger',
+                        controlName: 'TRIGGER',
+                        property: 'SamplerTriggerControl',
+                    },
+                    description: 'Sampler record/play trigger input.',
+                },
+                {
+                    id: 'reset-input',
+                    name: 'RESET external',
+                    role: 'reset',
+                    controlRole: 'reset',
+                    interface: 'external-control-input',
+                    connector: '1/4-inch-mono-ts',
+                    assignmentHint: 'momentary-or-latching',
+                    polarity: 'normally-open',
+                    binding: {
+                        sourceComponentId: 'U1',
+                        controlId: 'U1:reset',
+                        controlName: 'RESET',
+                        property: 'ResetControl',
+                    },
+                },
+            ],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(yaml).toContain('controlInterfaces:');
+        expect(parsed.controlInterfaces).toEqual(doc.controlInterfaces);
+    });
+
     test('rejects unsupported panel grid indexing annotations', () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:

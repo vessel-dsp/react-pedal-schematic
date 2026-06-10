@@ -17,6 +17,7 @@ import lpb1BoostVdsp from '../fixtures/lpb-1-style-boost.vdsp?raw';
 import simpleRcVdsp from '../fixtures/simple-rc-vdsp.vdsp?raw';
 import voltageDividerVdsp from '../fixtures/voltage-divider-vdsp.vdsp?raw';
 import fulltoneOcd from '../../../tests/fixtures/schx/fulltone-ocd.schx?raw';
+import tcElectronicDarkMatter from '../../../tests/fixtures/schx/tc-electronic-dark-matter.schx?raw';
 
 // `import.meta.glob` is a Vite-only feature transformed at build time.
 // Under Bun's test runner the property is undefined, so we wrap each call
@@ -193,10 +194,18 @@ const CUSTOM_FIXTURES: readonly Fixture[] = [
     },
     {
         id: 'fulltone-ocd',
-        title: 'Fulltone OCD analysis',
-        description: 'TL082 dual-op-amp overdrive with 2N7000/1N34A hard clipping, DRIVE/TONE/VOLUME controls, and HP/LP switch.',
+        title: 'Fulltone OCD revision 3',
+        description: 'SabroTone r3 source fixture: TL082 dual-op-amp overdrive with 2N7000 + 1N4148/1N34A clipping, DRIVE/TONE/VOLUME controls, and HP/LP switch.',
         filename: 'fulltone-ocd.schx',
         source: fulltoneOcd,
+        group: 'custom',
+    },
+    {
+        id: 'tc-electronic-dark-matter',
+        title: 'TC Electronic Dark Matter Distortion',
+        description: 'Source-rated MC33178 distortion with Voice, Gain, Bass, Treble, Level, LL4148 clipper, and active output tone section.',
+        filename: 'tc-electronic-dark-matter.schx',
+        source: tcElectronicDarkMatter,
         group: 'custom',
     },
     {

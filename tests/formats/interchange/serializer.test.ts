@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseCircuitDocument, serializeInterchangeYaml } from '../../../src';
+import { EMPTY_DOCUMENT, parseCircuitDocument, serializeInterchangeYaml, type CircuitDocument } from '../../../src';
 
 const source = `<?xml version="1.0" encoding="utf-8"?>
 <Schematic Name="Test filter">
@@ -34,5 +34,48 @@ describe('serializeInterchangeYaml', () => {
         expect(yaml).toContain('role: ground');
         expect(yaml).toContain('members:');
         expect(yaml).toContain('componentId: GND');
+    });
+
+    test('serializes external control interface metadata with binding details', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'DD-3 control interface',
+                description: 'External trigger/reset controls.',
+                partNumber: '',
+            },
+            controlInterfaces: [{
+                id: 'trigger-input',
+                name: 'TRIGGER external',
+                role: 'trigger',
+                controlRole: 'sampler-trigger',
+                interface: 'external-control-input',
+                connector: '1/4-inch-mono-ts',
+                assignmentHint: 'momentary-or-latching',
+                polarity: 'normally-open',
+                binding: {
+                    sourceComponentId: 'U1',
+                    controlId: 'U1:sampler-trigger',
+                    controlName: 'TRIGGER',
+                    property: 'SamplerTriggerControl',
+                },
+                description: 'External sampler record/play trigger input.',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+
+        expect(yaml).toContain('controlInterfaces:');
+        expect(yaml).toContain('id: trigger-input');
+        expect(yaml).toContain('role: trigger');
+        expect(yaml).toContain('controlRole: sampler-trigger');
+        expect(yaml).toContain('interface: external-control-input');
+        expect(yaml).toContain('connector: "1/4-inch-mono-ts"');
+        expect(yaml).toContain('assignmentHint: momentary-or-latching');
+        expect(yaml).toContain('polarity: normally-open');
+        expect(yaml).toContain('sourceComponentId: U1');
+        expect(yaml).toContain('controlId: "U1:sampler-trigger"');
+        expect(yaml).toContain('controlName: TRIGGER');
+        expect(yaml).toContain('property: SamplerTriggerControl');
     });
 });

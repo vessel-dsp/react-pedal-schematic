@@ -1,9 +1,15 @@
-export const VERSION = '0.2.8';
+export const VERSION = '0.2.9';
 
 export type {
     CircuitDocument,
     Component,
     ComponentKind,
+    ControlInterface,
+    ControlInterfaceAssignmentHint,
+    ControlInterfaceBinding,
+    ControlInterfaceConnector,
+    ControlInterfacePolarity,
+    ControlInterfaceRole,
     DocumentMetadata,
     DocumentSource,
     PanelColumnOrder,

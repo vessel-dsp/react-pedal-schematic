@@ -94,6 +94,43 @@ Use existing circuit `componentId` values in panel controls. The parser accepts
 `indexing: one-based` or `indexing: zero-based`, but hand-authored `.vdsp`
 files should prefer explicit `one-based` indexing for readability.
 
+External control inputs are persisted separately under top-level
+`controlInterfaces`. Use this for behavior and wiring semantics such as DD-3
+`TRIGGER`/`RESET`, DD-5 `Tempo In`, expression inputs, connector type,
+momentary/latching assignment hints, polarity, and bindings to runtime
+descriptor controls. Do not model those external targets as normal panel
+switches unless the hardware has a visible panel switch.
+
+```yaml
+controlInterfaces:
+  - id: trigger-input
+    name: TRIGGER external
+    role: trigger
+    controlRole: sampler-trigger
+    interface: external-control-input
+    connector: "1/4-inch-mono-ts"
+    assignmentHint: momentary-or-latching
+    polarity: normally-open
+    binding:
+      sourceComponentId: U1
+      controlId: "U1:sampler-trigger"
+      controlName: TRIGGER
+      property: SamplerTriggerControl
+  - id: reset-input
+    name: RESET external
+    role: reset
+    controlRole: reset
+    interface: external-control-input
+    connector: "1/4-inch-mono-ts"
+    assignmentHint: momentary-or-latching
+    polarity: normally-open
+    binding:
+      sourceComponentId: U1
+      controlId: "U1:reset"
+      controlName: RESET
+      property: ResetControl
+```
+
 Use `parseVdspCircuitDocument()` when callers want strict parsing with thrown
 errors. Use `validateVdspCircuitDocumentSchema()` for upload flows, editors, or
 CLI checks that should report schema errors without throwing.
