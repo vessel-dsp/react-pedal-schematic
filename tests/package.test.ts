@@ -28,6 +28,14 @@ async function readPackageJson(): Promise<JsonRecord> {
     return value;
 }
 
+async function readTsconfigBuild(): Promise<JsonRecord> {
+    const value = await Bun.file(new URL('../tsconfig.build.json', import.meta.url)).json();
+    if (!isRecord(value)) {
+        throw new Error('tsconfig.build.json did not parse to an object');
+    }
+    return value;
+}
+
 async function readPublishWorkflow(): Promise<string> {
     return Bun.file(new URL('../.github/workflows/publish.yml', import.meta.url)).text();
 }
@@ -143,6 +151,19 @@ describe('npm package contract', () => {
         expect(pkg.license).toBe('MIT');
         expect(Array.isArray(pkg.files)).toBe(true);
         expect(pkg.files).toContain('LICENSE.md');
+    });
+
+    test('publishes source files referenced by generated sourcemaps', async () => {
+        const pkg = await readPackageJson();
+        const tsconfig = await readTsconfigBuild();
+        const compilerOptions = isRecord(tsconfig.compilerOptions) ? tsconfig.compilerOptions : {};
+        const emitsExternalMaps =
+            compilerOptions.sourceMap === true || compilerOptions.declarationMap === true;
+
+        if (emitsExternalMaps && compilerOptions.inlineSources !== true) {
+            expect(Array.isArray(pkg.files)).toBe(true);
+            expect(pkg.files).toContain('src');
+        }
     });
 
     test('publishes package homepage and GitHub repository metadata for the npm package page', async () => {
