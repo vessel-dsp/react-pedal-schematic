@@ -1,4 +1,4 @@
-export const VERSION = '0.3.1';
+export const VERSION = '0.3.2';
 
 export type {
     CircuitDocument,
@@ -125,6 +125,7 @@ export type {
     ControlState,
     ControlValue,
     ExternalControlAssignmentHint,
+    JackAudioRole,
     JackPort,
     JackRole,
     Knob,

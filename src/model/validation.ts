@@ -22,6 +22,7 @@ export type ValidationCode =
     | 'unsupported-component'
     | 'invalid-jack-role'
     | 'invalid-jack-interface'
+    | 'invalid-jack-audio-role'
     | 'descriptor-control-empty'
     | 'descriptor-mode-label-mismatch'
     | 'panel-binding-unresolved'
@@ -350,6 +351,17 @@ function validateJackSemanticMetadata(component: Component): readonly Validation
         });
     }
 
+    const audioRole = propertyString(component, 'AudioRole');
+    if (audioRole !== null && !isValidJackAudioRole(audioRole)) {
+        issues.push({
+            code: 'invalid-jack-audio-role',
+            severity: 'warning',
+            message: `${component.id}: jack AudioRole "${audioRole}" must be a lower-kebab source subtype slug`,
+            componentId: component.id,
+            property: 'AudioRole',
+        });
+    }
+
     return issues;
 }
 
@@ -487,6 +499,10 @@ function isRecognizedJackInterface(value: string): boolean {
             'control-port',
             'tap-tempo-input',
         ].includes(normalized);
+}
+
+function isValidJackAudioRole(value: string): boolean {
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
 function parseStringList(value: string | null): readonly string[] {

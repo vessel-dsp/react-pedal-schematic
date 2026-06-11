@@ -217,10 +217,10 @@ describe('release metadata', () => {
         const pkg = await readPackageJson();
         const changelog = await readChangelog();
 
-        expect(pkg.version).toBe('0.3.1');
-        expect(VERSION).toBe('0.3.1');
-        expect(UI_VERSION).toBe('0.3.1');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.3.1\n\n');
+        expect(pkg.version).toBe('0.3.2');
+        expect(VERSION).toBe('0.3.2');
+        expect(UI_VERSION).toBe('0.3.2');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.3.2\n\n');
     });
 });
 

@@ -110,6 +110,44 @@ describe('parseInterchangeYaml', () => {
         expect(parsed.panel).toEqual(doc.panel);
     });
 
+    test('round-trips audio jack subtype and label metadata as component properties', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'BF-3 style routing',
+                description: 'Multiple source-visible audio jacks.',
+                partNumber: '',
+            },
+            components: [{
+                id: 'J_OUT_A',
+                kind: 'jack',
+                name: 'J_OUT_A',
+                origin: { x: 120, y: 40 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'tip', position: { x: 120, y: 40 } },
+                    { name: 'sleeve', position: { x: 120, y: 60 } },
+                ],
+                properties: {
+                    Role: 'output',
+                    Interface: 'audio',
+                    AudioRole: 'output-a-mono',
+                    JackLabel: 'Output A (Mono)',
+                    Label: 'Output A',
+                },
+                sourceTypeName: 'Circuit.Speaker',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(yaml).toContain('AudioRole: output-a-mono');
+        expect(yaml).toContain('JackLabel: "Output A (Mono)"');
+        expect(parsed.components[0]?.properties).toEqual(doc.components[0]?.properties);
+    });
+
     test('parses panel faces with multi-control runtime descriptor bindings', () => {
         const yaml = `schema: circuit-interchange/v1
 metadata:

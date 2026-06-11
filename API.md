@@ -540,20 +540,55 @@ state = applyControlMessage(state, {
 | `knobStepSize(knob)` | Returns spacing between knob steps. |
 | `PANEL_PROTOCOL_VERSION` | Current panel protocol version constant. |
 
-Semantic jack metadata takes precedence over source-type inference. For example,
-a jack with `Role: "output"` is reported as an output even if its source type
-looks like `Circuit.Input`, and `ControlRole: "tempo-tap"` or
+Semantic jack metadata takes precedence over source-type inference. Keep jack
+metadata split by responsibility:
+
+- `Role` / `ControlRole` describe broad panel or routing direction such as
+  `input`, `output`, `direct-output`, or `tempo-tap`.
+- `Interface` describes the broad port family such as `audio`,
+  `audio-input`, `audio-output`, or `tap-tempo`.
+- `AudioRole` optionally describes a source-visible audio subtype such as
+  `guitar-input`, `bass-input`, `output-a-mono`, or `stereo-output-b`.
+- `JackLabel` or `Label` provide display text when it differs from the
+  component name. `JackLabel` takes precedence over `Label`.
+
+For example, a jack with `Role: "output"` is reported as an output even if its
+source type looks like `Circuit.Input`, and `ControlRole: "tempo-tap"` or
 `Interface: "tap-tempo"` is reported as a tempo tap external control target.
+`AudioRole` is explicit metadata; it is not inferred from jack labels, component
+names, or generic audio interfaces. Validation warns when `AudioRole` is present
+but is not a lower-kebab source subtype slug.
 
 `JackRole` values are:
 
-`'input' | 'output' | 'send' | 'return' | 'expression' | 'tempo-tap' | 'external-control' | 'unknown'`.
+`'input' | 'output' | 'direct-output' | 'send' | 'return' | 'expression' | 'tempo-tap' | 'external-control' | 'unknown'`.
+
+Common `JackAudioRole` values include:
+
+`'guitar-input' | 'bass-input' | 'main-output' | 'mono-output' | 'output-a' | 'output-a-mono' | 'output-b' | 'stereo-output-b' | 'direct-output' | 'dry-output' | 'wet-output'`.
+
+The type remains open to host-defined lower-kebab subtypes.
 
 ```ts
+type JackAudioRole =
+    | 'guitar-input'
+    | 'bass-input'
+    | 'main-output'
+    | 'mono-output'
+    | 'output-a'
+    | 'output-a-mono'
+    | 'output-b'
+    | 'stereo-output-b'
+    | 'direct-output'
+    | 'dry-output'
+    | 'wet-output'
+    | (string & {});
+
 type JackPort = Readonly<{
     id: string;
     name: string;
     role: JackRole;
+    audioRole?: JackAudioRole;
     impedance?: ParsedQuantity;
     sourceTypeName?: string;
     sourceComponentId?: string;
@@ -590,7 +625,7 @@ ports are not added to runtime switch state.
 
 Related types:
 
-`Panel`, `PanelMessage`, `ControlState`, `ControlValue`, `Knob`, `KnobValue`, `KnobStep`, `KnobTaper`, `KnobControlMode`, `SliderControl`, `SliderValue`, `SliderOrientation`, `SliderRange`, `SwitchControl`, `SwitchValue`, `SwitchKind`, `LedIndicator`, `LedValue`, `JackPort`, `JackRole`, `ExternalControlAssignmentHint`.
+`Panel`, `PanelMessage`, `ControlState`, `ControlValue`, `Knob`, `KnobValue`, `KnobStep`, `KnobTaper`, `KnobControlMode`, `SliderControl`, `SliderValue`, `SliderOrientation`, `SliderRange`, `SwitchControl`, `SwitchValue`, `SwitchKind`, `LedIndicator`, `LedValue`, `JackPort`, `JackRole`, `JackAudioRole`, `ExternalControlAssignmentHint`.
 
 ## React UI
 

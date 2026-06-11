@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Add `JackPort.audioRole` and `JackAudioRole` for source-visible audio jack subtypes such as `guitar-input`, `bass-input`, `output-a-mono`, and `stereo-output-b`.
+- Preserve and document `.vdsp` jack metadata split across broad `Role`, port-family `Interface`, explicit lower-kebab `AudioRole`, and display `JackLabel` / `Label` properties.
+
 ## 0.3.1
 
 - Document and test the open component property-map contract, including passive `Material` metadata round-tripping and resistor material remaining preview-neutral.

@@ -82,12 +82,27 @@ export type JackRole =
     | 'external-control'
     | 'unknown';
 
+export type JackAudioRole =
+    | 'guitar-input'
+    | 'bass-input'
+    | 'main-output'
+    | 'mono-output'
+    | 'output-a'
+    | 'output-a-mono'
+    | 'output-b'
+    | 'stereo-output-b'
+    | 'direct-output'
+    | 'dry-output'
+    | 'wet-output'
+    | (string & {});
+
 export type ExternalControlAssignmentHint = ControlInterfaceAssignmentHint;
 
 export type JackPort = Readonly<{
     id: string;
     name: string;
     role: JackRole;
+    audioRole?: JackAudioRole;
     impedance?: ParsedQuantity;
     sourceTypeName?: string;
     sourceComponentId?: string;

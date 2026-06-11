@@ -1,6 +1,7 @@
 import type { CircuitDocument, Component, ControlInterface, ParsedQuantity, PropertyValue } from '../model/types';
 import type {
     ExternalControlAssignmentHint,
+    JackAudioRole,
     JackPort,
     JackRole,
     Knob,
@@ -238,6 +239,8 @@ function toLed(component: Component): LedIndicator {
 
 function toJack(component: Component): JackPort {
     const role = resolveJackRole(component);
+    const name = nonEmptyString(propertyStringAny(component, ['JackLabel', 'Label'])) ?? component.name;
+    const audioRole = nonEmptyString(propertyString(component, 'AudioRole')) as JackAudioRole | undefined;
     const impedance = quantityProperty(component, 'Impedance');
     const controlRole = nonEmptyString(propertyString(component, 'ControlRole'));
     const interfaceName = nonEmptyString(propertyString(component, 'Interface'));
@@ -245,8 +248,9 @@ function toJack(component: Component): JackPort {
     const sourceTypeName = component.sourceTypeName ?? undefined;
     return {
         id: component.id,
-        name: component.name,
+        name,
         role,
+        ...(audioRole !== undefined ? { audioRole } : {}),
         ...(impedance !== undefined ? { impedance } : {}),
         ...(sourceTypeName !== undefined ? { sourceTypeName } : {}),
         ...(controlRole !== undefined ? { controlRole } : {}),

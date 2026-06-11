@@ -2,6 +2,7 @@ export type {
     ControlState,
     ControlValue,
     ExternalControlAssignmentHint,
+    JackAudioRole,
     JackPort,
     JackRole,
     Knob,

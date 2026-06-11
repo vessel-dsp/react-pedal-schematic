@@ -115,6 +115,59 @@ describe('extractPanel', () => {
         expect(direct.interface).toBe('dry-output');
     });
 
+    test('extracts explicit audio jack subtypes without promoting labels to roles', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('J_GUITAR', 'jack', {
+                    Role: 'input',
+                    Interface: 'audio',
+                    AudioRole: 'guitar-input',
+                    JackLabel: 'Guitar In',
+                }, 'Circuit.Input'),
+                makeComponent('J_BASS', 'jack', {
+                    Role: 'input',
+                    Interface: 'audio',
+                    AudioRole: 'bass-input',
+                    Label: 'Bass In',
+                }, 'Circuit.Input'),
+                makeComponent('J_OUT_A', 'jack', {
+                    Role: 'output',
+                    Interface: 'audio',
+                    AudioRole: 'output-a-mono',
+                    JackLabel: 'Output A (Mono)',
+                }, 'Circuit.Speaker'),
+                makeComponent('J_OUT_B', 'jack', {
+                    Role: 'output',
+                    Interface: 'audio',
+                    AudioRole: 'stereo-output-b',
+                    JackLabel: 'Output B',
+                }, 'Circuit.Speaker'),
+                makeComponent('J_GENERIC', 'jack', {
+                    Role: 'input',
+                    Interface: 'audio-input',
+                    JackLabel: 'Guitar In',
+                }, 'Circuit.Input'),
+            ],
+        };
+
+        const panel = extractPanel(doc);
+
+        expect(panel.jacks.map((jack) => ({
+            id: jack.id,
+            name: jack.name,
+            role: jack.role,
+            audioRole: jack.audioRole,
+            interface: jack.interface,
+        }))).toEqual([
+            { id: 'J_GUITAR', name: 'Guitar In', role: 'input', audioRole: 'guitar-input', interface: 'audio' },
+            { id: 'J_BASS', name: 'Bass In', role: 'input', audioRole: 'bass-input', interface: 'audio' },
+            { id: 'J_OUT_A', name: 'Output A (Mono)', role: 'output', audioRole: 'output-a-mono', interface: 'audio' },
+            { id: 'J_OUT_B', name: 'Output B', role: 'output', audioRole: 'stereo-output-b', interface: 'audio' },
+            { id: 'J_GENERIC', name: 'Guitar In', role: 'input', audioRole: undefined, interface: 'audio-input' },
+        ]);
+    });
+
     test('Big Muff tone stack exposes a single TONE knob with Linear taper', async () => {
         const doc = parseSchx(await loadFixture('big-muff-tone-stack'));
         const panel = extractPanel(doc);

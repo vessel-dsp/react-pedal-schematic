@@ -103,6 +103,29 @@ runtime controls or panel ports. The parser accepts `indexing: one-based` or
 `one-based` indexing for readability. Legacy `panel.layout` + `controls[]`
 input is still accepted and normalized to one `top` face.
 
+Audio jack routing metadata lives on source-visible jack components. Use
+`Role` for broad direction, `Interface` for the port family, and `AudioRole`
+for an explicit lower-kebab source subtype. `JackLabel` or `Label` can provide
+display text when it differs from the component name. Hosts should not infer
+`AudioRole` from labels or generic audio interfaces.
+
+```yaml
+components:
+  - id: J_OUT_A
+    kind: jack
+    name: J_OUT_A
+    sourceTypeName: Circuit.Speaker
+    origin: { x: 120, y: 40 }
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      Role: output
+      Interface: audio
+      AudioRole: output-a-mono
+      JackLabel: "Output A (Mono)"
+```
+
 External control inputs are persisted separately under top-level
 `controlInterfaces`. Use this for behavior and wiring semantics such as DD-3
 `TRIGGER`/`RESET`, DD-5 `Tempo In`, expression inputs, connector type,

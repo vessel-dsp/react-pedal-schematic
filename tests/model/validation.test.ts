@@ -290,6 +290,56 @@ describe('validateDocument', () => {
         });
     });
 
+    test('jack audio role metadata accepts explicit subtype slugs', () => {
+        const doc = withParts([
+            makeComponent('J_GUITAR', 'jack', {
+                Role: 'input',
+                Interface: 'audio',
+                AudioRole: 'guitar-input',
+            }, 'Circuit.Input'),
+            makeComponent('J_BASS', 'jack', {
+                Role: 'input',
+                Interface: 'audio',
+                AudioRole: 'bass-input',
+            }, 'Circuit.Input'),
+            makeComponent('J_OUT_A', 'jack', {
+                Role: 'output',
+                Interface: 'audio',
+                AudioRole: 'output-a-mono',
+            }, 'Circuit.Speaker'),
+            makeComponent('J_OUT_B', 'jack', {
+                Role: 'output',
+                Interface: 'audio',
+                AudioRole: 'stereo-output-b',
+            }, 'Circuit.Speaker'),
+            makeComponent('J_SIDECHAIN', 'jack', {
+                Role: 'input',
+                Interface: 'audio',
+                AudioRole: 'host-defined-sidechain',
+            }, 'Circuit.Input'),
+        ]);
+
+        expect(validateDocument(doc)).toEqual([]);
+    });
+
+    test('jack audio role metadata warns for display text instead of source subtype slugs', () => {
+        const doc = withParts([
+            makeComponent('J_OUT_A', 'jack', {
+                Role: 'output',
+                Interface: 'audio',
+                AudioRole: 'Output A (Mono)',
+            }, 'Circuit.Speaker'),
+        ]);
+
+        expect(validateDocument(doc).find((i) => i.code === 'invalid-jack-audio-role')).toEqual({
+            code: 'invalid-jack-audio-role',
+            severity: 'warning',
+            message: 'J_OUT_A: jack AudioRole "Output A (Mono)" must be a lower-kebab source subtype slug',
+            componentId: 'J_OUT_A',
+            property: 'AudioRole',
+        });
+    });
+
     test('direct-output jack role metadata is recognized', () => {
         const doc = withParts([
             makeComponent('J_DIRECT', 'jack', { Role: 'direct-out', Interface: 'dry-output' }, 'Circuit.Speaker'),
