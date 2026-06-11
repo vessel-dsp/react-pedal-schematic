@@ -100,6 +100,6 @@ bun run dev
 
 ## License
 
-MIT License. Copyright (c) 2026 Joseph Cheng <indiejoseph@gmail.com>.
+MIT License. See [LICENSE.md](./LICENSE.md).
 
 More integration notes and a full example live in [DOCUMENT.md](./DOCUMENT.md) and [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).
