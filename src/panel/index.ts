@@ -1,7 +1,10 @@
 export type {
     ControlState,
     ControlValue,
+    DeviceInterfaceProvenance,
     ExternalControlAssignmentHint,
+    ExtractedDeviceInterface,
+    ExtractedDeviceInterfaceControl,
     JackAudioRole,
     JackPort,
     JackRole,
@@ -23,7 +26,7 @@ export type {
     SwitchValue,
 } from './types';
 export { PANEL_PROTOCOL_VERSION } from './types';
-export { extractPanel } from './extract';
+export { extractDeviceInterface, extractPanel } from './extract';
 export { isKnobPositionOnStep, knobStepSize, nearestKnobStep, snapKnobPosition } from './knobs';
 export {
     applyControlMessage,

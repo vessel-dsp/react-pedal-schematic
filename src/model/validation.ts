@@ -4,6 +4,8 @@ import type {
     CircuitDocument,
     Component,
     ComponentKind,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControl,
     PanelControlKind,
     PanelElementPlacement,
     PanelFace,
@@ -25,6 +27,14 @@ export type ValidationCode =
     | 'invalid-jack-audio-role'
     | 'descriptor-control-empty'
     | 'descriptor-mode-label-mismatch'
+    | 'duplicate-device-interface-control-id'
+    | 'invalid-device-interface-token'
+    | 'control-group-context-unresolved'
+    | 'device-interface-group-unresolved'
+    | 'device-interface-context-unresolved'
+    | 'device-interface-binding-unresolved'
+    | 'device-interface-duplicate-role'
+    | 'panel-interface-control-unresolved'
     | 'panel-binding-unresolved'
     | 'panel-control-unresolved'
     | 'panel-kind-mismatch'
@@ -283,7 +293,11 @@ export function validateDocument(doc: CircuitDocument): readonly ValidationIssue
         }
     }
 
-    for (const issue of validatePanel(doc, seen)) {
+    for (const issue of validateDeviceInterface(doc, seen)) {
+        issues.push(issue);
+    }
+
+    for (const issue of validatePanel(doc, seen, new Set(doc.deviceInterface?.controls.map((control) => control.id) ?? []))) {
         issues.push(issue);
     }
 
@@ -295,6 +309,10 @@ export function hasErrors(issues: readonly ValidationIssue[]): boolean {
 }
 
 function isRequirementWaived(component: Component, rule: PropertyRule): boolean {
+    if (isInterfaceOnlyComponent(component)) {
+        return true;
+    }
+
     // Only the "model" string requirement has a waiver path today.
     if (rule.kind !== 'string' || rule.name !== 'model') {
         return false;
@@ -308,6 +326,18 @@ function isRequirementWaived(component: Component, rule: PropertyRule): boolean 
     }
     const inline = INLINE_MODEL_PARAMETERS[component.kind] ?? [];
     return inline.some((name) => component.properties[name] !== undefined);
+}
+
+function isInterfaceOnlyComponent(component: Component): boolean {
+    const interfaceOnly = component.properties.InterfaceOnly;
+    if (interfaceOnly === true) {
+        return true;
+    }
+    if (typeof interfaceOnly === 'string' && normalizeToken(interfaceOnly) === 'true') {
+        return true;
+    }
+    const support = component.properties.Support;
+    return typeof support === 'string' && normalizeToken(support) === 'view-only';
 }
 
 function validateSemanticMetadata(component: Component): readonly ValidationIssue[] {
@@ -524,9 +554,274 @@ function normalizeToken(value: string): string {
     return value.trim().toLowerCase().replace(/[\s_]+/g, '-');
 }
 
+function validateDeviceInterface(
+    doc: CircuitDocument,
+    componentIds: ReadonlySet<string>,
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const groupIds = new Set(doc.controlGroups?.map((group) => group.id) ?? []);
+    const contextIds = new Set(doc.controlContexts?.map((context) => context.id) ?? []);
+    const semanticControlIds = new Set<string>();
+    const externalInterfaceIds = new Set(doc.controlInterfaces?.map((controlInterface) => controlInterface.id) ?? []);
+    const componentsById = new Map(doc.components.map((component) => [component.id, component]));
+    const resolvedPanelElements = resolvePanelElements(doc);
+
+    for (const group of doc.controlGroups ?? []) {
+        issues.push(...validateOpenToken(group.role, group.id, 'role'));
+        for (const contextId of group.contextIds ?? []) {
+            if (!contextIds.has(contextId)) {
+                issues.push({
+                    code: 'control-group-context-unresolved',
+                    severity: 'warning',
+                    message: `Control group "${group.id}" references missing context "${contextId}"`,
+                    componentId: group.id,
+                    property: 'contextIds',
+                });
+            }
+        }
+    }
+
+    for (const context of doc.controlContexts ?? []) {
+        issues.push(...validateOpenToken(context.role, context.id, 'role'));
+    }
+
+    for (const control of doc.deviceInterface?.controls ?? []) {
+        if (semanticControlIds.has(control.id)) {
+            issues.push({
+                code: 'duplicate-device-interface-control-id',
+                severity: 'error',
+                message: `Duplicate device interface control id "${control.id}"`,
+                componentId: control.id,
+            });
+        }
+        semanticControlIds.add(control.id);
+
+        issues.push(...validateOpenToken(control.role, control.id, 'role'));
+
+        if (control.groupId !== undefined && !groupIds.has(control.groupId)) {
+            issues.push({
+                code: 'device-interface-group-unresolved',
+                severity: 'warning',
+                message: `Device interface control "${control.id}" references missing group "${control.groupId}"`,
+                componentId: control.id,
+                property: 'groupId',
+            });
+        }
+
+        issues.push(...validateApplicability(control, contextIds));
+
+        if (control.binding !== undefined) {
+            issues.push(...validateDeviceInterfaceBinding(
+                control,
+                control.binding,
+                componentIds,
+                externalInterfaceIds,
+                componentsById,
+                resolvedPanelElements,
+            ));
+        }
+    }
+
+    issues.push(...validateDuplicateDeviceInterfaceRoles(doc.deviceInterface?.controls ?? []));
+
+    return issues;
+}
+
+function validateOpenToken(value: string, componentId: string, property: string): readonly ValidationIssue[] {
+    if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value)) {
+        return [];
+    }
+    return [{
+        code: 'invalid-device-interface-token',
+        severity: 'warning',
+        message: `${componentId}: ${property} "${value}" must be a lower-kebab token`,
+        componentId,
+        property,
+    }];
+}
+
+function validateApplicability(
+    control: DeviceInterfaceControl,
+    contextIds: ReadonlySet<string>,
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    if (control.appliesWhen === undefined) {
+        return issues;
+    }
+
+    issues.push(...validateContextList(control.id, 'appliesWhen.allOf', control.appliesWhen.allOf, contextIds));
+    issues.push(...validateContextList(control.id, 'appliesWhen.anyOf', control.appliesWhen.anyOf, contextIds));
+
+    if (
+        control.appliesWhen.allOf !== undefined
+        && control.appliesWhen.allOf.length === 0
+        && control.appliesWhen.anyOf === undefined
+    ) {
+        issues.push(emptyApplicabilityIssue(control.id, 'appliesWhen.allOf'));
+    }
+    if (
+        control.appliesWhen.anyOf !== undefined
+        && control.appliesWhen.anyOf.length === 0
+        && control.appliesWhen.allOf === undefined
+    ) {
+        issues.push(emptyApplicabilityIssue(control.id, 'appliesWhen.anyOf'));
+    }
+
+    return issues;
+}
+
+function validateContextList(
+    controlId: string,
+    property: string,
+    values: readonly string[] | undefined,
+    contextIds: ReadonlySet<string>,
+): readonly ValidationIssue[] {
+    if (values === undefined) {
+        return [];
+    }
+
+    const issues: ValidationIssue[] = [];
+    const seen = new Set<string>();
+    if (values.length === 0) {
+        issues.push(emptyApplicabilityIssue(controlId, property));
+    }
+
+    for (const contextId of values) {
+        if (seen.has(contextId)) {
+            issues.push({
+                code: 'device-interface-context-unresolved',
+                severity: 'warning',
+                message: `Device interface control "${controlId}" repeats context "${contextId}" in ${property}`,
+                componentId: controlId,
+                property,
+            });
+        }
+        seen.add(contextId);
+
+        if (!contextIds.has(contextId)) {
+            issues.push({
+                code: 'device-interface-context-unresolved',
+                severity: 'warning',
+                message: `Device interface control "${controlId}" references missing context "${contextId}"`,
+                componentId: controlId,
+                property,
+            });
+        }
+    }
+
+    return issues;
+}
+
+function emptyApplicabilityIssue(controlId: string, property: string): ValidationIssue {
+    return {
+        code: 'device-interface-context-unresolved',
+        severity: 'warning',
+        message: `Device interface control "${controlId}" has empty ${property}; omit the predicate instead`,
+        componentId: controlId,
+        property,
+    };
+}
+
+function validateDeviceInterfaceBinding(
+    control: DeviceInterfaceControl,
+    binding: DeviceInterfaceBinding,
+    componentIds: ReadonlySet<string>,
+    externalInterfaceIds: ReadonlySet<string>,
+    componentsById: ReadonlyMap<string, Component>,
+    resolvedPanelElements: readonly ResolvedPanelElement[],
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    if (binding.externalInterfaceId !== undefined && !externalInterfaceIds.has(binding.externalInterfaceId)) {
+        issues.push({
+            code: 'device-interface-binding-unresolved',
+            severity: 'warning',
+            message: `Device interface control "${control.id}" references missing external interface "${binding.externalInterfaceId}"`,
+            componentId: control.id,
+            property: 'binding.externalInterfaceId',
+        });
+    }
+
+    if (!componentIds.has(binding.componentId)) {
+        issues.push({
+            code: 'device-interface-binding-unresolved',
+            severity: 'warning',
+            message: `Device interface control "${control.id}" references missing component "${binding.componentId}"`,
+            componentId: control.id,
+            property: 'binding.componentId',
+        });
+        return issues;
+    }
+
+    if (
+        binding.controlId !== undefined
+        && !resolvedPanelElements.some((resolved) =>
+            resolved.componentId === binding.componentId && resolved.id === binding.controlId
+        )
+    ) {
+        issues.push({
+            code: 'device-interface-binding-unresolved',
+            severity: 'warning',
+            message: `Device interface control "${control.id}" references missing control "${binding.controlId}"`,
+            componentId: control.id,
+            property: 'binding.controlId',
+        });
+    }
+
+    const component = componentsById.get(binding.componentId);
+    if (binding.property !== undefined && component?.properties[binding.property] === undefined) {
+        issues.push({
+            code: 'device-interface-binding-unresolved',
+            severity: 'warning',
+            message: `Device interface control "${control.id}" references missing property "${binding.property}"`,
+            componentId: control.id,
+            property: 'binding.property',
+        });
+    }
+
+    return issues;
+}
+
+function validateDuplicateDeviceInterfaceRoles(
+    controls: readonly DeviceInterfaceControl[],
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const seen = new Map<string, DeviceInterfaceControl>();
+    for (const control of controls) {
+        const key = `${control.groupId ?? ''}:${control.role}`;
+        const existing = seen.get(key);
+        if (existing !== undefined && existing.order === undefined && control.order === undefined) {
+            if (deviceInterfaceBindingSignature(existing.binding) === deviceInterfaceBindingSignature(control.binding)) {
+                issues.push({
+                    code: 'device-interface-duplicate-role',
+                    severity: 'warning',
+                    message: `Device interface controls "${existing.id}" and "${control.id}" share role "${control.role}" without order or distinct binding`,
+                    componentId: control.id,
+                    property: 'role',
+                });
+            }
+        }
+        seen.set(key, control);
+    }
+    return issues;
+}
+
+function deviceInterfaceBindingSignature(binding: DeviceInterfaceBinding | undefined): string {
+    if (binding === undefined) {
+        return '';
+    }
+    return [
+        binding.componentId,
+        binding.controlId ?? '',
+        binding.controlName ?? '',
+        binding.property ?? '',
+        binding.externalInterfaceId ?? '',
+    ].join(':');
+}
+
 function validatePanel(
     doc: CircuitDocument,
     componentIds: ReadonlySet<string>,
+    semanticControlIds: ReadonlySet<string>,
 ): readonly ValidationIssue[] {
     if (doc.panel === undefined) {
         return [];
@@ -538,6 +833,15 @@ function validatePanel(
     for (const face of doc.panel.faces) {
         for (const element of face.elements) {
             const componentId = element.bind.componentId;
+            if (element.interfaceControlId !== undefined && !semanticControlIds.has(element.interfaceControlId)) {
+                issues.push({
+                    code: 'panel-interface-control-unresolved',
+                    severity: 'warning',
+                    message: `Panel element on face "${face.id}" references missing interface control "${element.interfaceControlId}"`,
+                    componentId: element.interfaceControlId,
+                    property: 'interfaceControlId',
+                });
+            }
             if (!componentIds.has(componentId)) {
                 issues.push({
                     code: 'panel-binding-unresolved',

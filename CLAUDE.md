@@ -13,7 +13,7 @@ Target formats:
 - LiveSPICE `.schx` schematic XML (primary, graphical);
 - LTspice `.asc` schematic (graphical, SYMBOL/WIRE/FLAG/IOPIN/TEXT);
 - SPICE-style `.cir` / `.net` netlists (connectivity);
-- project-native `.vdsp` Source format (strict `circuit-interchange/v1` YAML; LLM-friendly, schema name intentionally rename-safe);
+- project-native `.vdsp` Source format (strict `circuit-interchange/v2` YAML; LLM-friendly, schema name intentionally rename-safe);
 - later KiCad schematic/netlist formats;
 - later tscircuit / Circuit JSON interop for PCB and web preview workflows.
 
@@ -52,7 +52,7 @@ source file (.schx / .cir / etc.)
 
 ## `.vdsp` Interchange Format
 
-The project-owned `.vdsp` format is the YAML Source view for `.schx`, `.asc`, `.cir`, `.net`, and future formats. It lets users inspect and lightly edit the normalized document through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Keep using a neutral versioned schema id such as `circuit-interchange/v1`.
+The project-owned `.vdsp` format is the YAML Source view for `.schx`, `.asc`, `.cir`, `.net`, and future formats. It lets users inspect and lightly edit the normalized document through one explicit representation. Treat `circuit-preview-ir` as a project codename only. Do not bake that codename into the saved schema identity because the project may be renamed. Keep using a neutral versioned schema id such as `circuit-interchange/v2`.
 
 The in-memory source of truth remains `CircuitDocument`; `.vdsp` is a serialized, LLM-friendly YAML wrapper around that model plus source metadata. It should be easy for humans and LLMs to read, diff, inspect, edit, and discuss.
 
@@ -63,20 +63,22 @@ Current implementation status:
 - `src/formats/document.ts` exports `.vdsp` helpers: `parseVdspCircuitDocument`, `validateVdspCircuitDocumentSchema`, `serializeVdspCircuitDocument`, `parseCircuitDocumentFile`, `detectCircuitDocumentFileFormat`, and filename helpers.
 - The playground top tab row includes **Source**, which shows the current edited `CircuitDocument` as copyable generated text. Its format dropdown defaults to `.vdsp` and can switch to `.schx` or `.cir`.
 - The previous **Raw .schx** tab was removed; Source is now the single copy/paste conversion surface.
-- The YAML view uses `schema: circuit-interchange/v1`, `metadata`, `source`, optional `panel`, optional `controlInterfaces`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
+- The YAML view uses `schema: circuit-interchange/v2`, `metadata`, `source`, optional `device`, optional `controlGroups`, optional `controlContexts`, optional `deviceInterface`, optional `panel`, optional `controlInterfaces`, optional `controlOutputs`, `components`, explicit terminal `node` ids, top-level `nodes`, `wires`, `directives`, `diagnostics`, and `rawAttributes`.
 - `tests/formats/interchange/fixture-coverage.test.ts` verifies current serialization coverage across all supported fixtures in the workspace.
 - `tests/formats/interchange/parser.test.ts` verifies the strict YAML parser can rebuild a `CircuitDocument` from the project's own serialized shape and preserves string-valued scalar properties.
 - The parser ignores the derived top-level `nodes` block when rebuilding `CircuitDocument`; connectivity is recomputed from component terminals and wires.
 
 Current format shape:
 
-- Stable schema field: `schema: "circuit-interchange/v1"`.
+- Stable schema field: `schema: "circuit-interchange/v2"`.
 - Stable ids for components, wires, terminals, nodes, and diagnostics.
 - Explicit nodes: every component terminal includes its resolved node id; a top-level `nodes` list records names, ground role, aliases, and member pins.
 - Typed quantities: preserve `{ raw, value, unit }` rather than flattening values into strings.
 - Source provenance: record original format, filename when available, and encoding when relevant under `source`.
 - Optional stompbox panel placement: record logical control-surface layout under top-level `panel`, separate from schematic component `origin`. Use `faces[]` for named physical surfaces such as `top`, `bottom`, `left-side`, `right-side`, `front`, and `rear`. Each face has a `layout` with `kind: stompbox-grid`, explicit `rows`, `columns`, and `indexing`, plus `elements[]` entries with `bind: { componentId, optional controlId/controlName/property }`, `kind`, `label`, and a self-describing `grid` object (`row`, `column`, optional `rowSpan`, `columnSpan`). Prefer `indexing: one-based` for hand-authored `.vdsp`, while the parser also accepts `zero-based` when explicitly declared. The parser accepts legacy `panel.layout` + `panel.controls[]` / `controlKind` input and normalizes it to one `top` face. Panel validation warns with `panel-binding-unresolved`, `panel-control-unresolved`, `panel-kind-mismatch`, and `panel-cell-collision`.
+- Optional semantic device interface metadata: record stable user-visible controls under top-level `deviceInterface.controls[]`, with grouping under `controlGroups[]` and conditional contexts under `controlContexts[]`. Use lower-kebab semantic roles; `groupId` references `controlGroups[].id`; `appliesWhen.allOf` / `anyOf` reference `controlContexts[].id`; `binding` points back to source components, runtime controls, properties, or external interface ids. `panel.faces[].elements[].interfaceControlId` may join physical placement to a semantic control id, but the panel `bind` remains the source schematic binding.
 - Optional external control interface metadata: record product-level external inputs under top-level `controlInterfaces`, separate from layout-only `panel`. Use this for DD-3-style `TRIGGER`/`RESET`, DD-5 `Tempo In`, expression or CTL/EXP jacks, connector type, assignment hint, polarity, and bindings to runtime descriptor controls. Do not model external footswitch targets as normal panel switches unless the hardware has a visible panel switch.
+- Optional producer-side control output metadata: record standalone control-accessory identity under `device` and emitted control outputs under `controlOutputs[]`. Use this for FS-5U / FS-6 style accessories that do not process audio but can be patched into another document's `controlInterfaces`.
 - Diagnostics: warnings and known lossy conversions are first-class data, not comments.
 
 Do not use compact tuple-heavy data for the persisted interchange format. Prefer self-describing objects like `{ "x": 120, "y": 80 }` over `[120, 80]`, and `{ "componentId": "R1", "terminalName": "a" }` over `"R1:a"` except in derived indexes.
@@ -184,7 +186,7 @@ Current conversion and Source `.vdsp` confidence by format:
 | `.schx` LiveSPICE | Implemented for graphical symbols, wires, labels, rotations/flips, properties, root attributes | Implemented | Best current round-trip target. Risk remains around unknown element internals and unsupported source-specific component data. |
 | `.asc` LTspice | Implemented for common schematic records and catalogued symbols | Not yet implemented | Import can preserve semantic layout, but ignored drawing records and missing `.asy` pin geometry can make strict round-trip impossible until an ASC serializer and symbol-file support exist. |
 | `.cir` / `.net` SPICE | Implemented for flat common primitives and preserved directives | Implemented through `toNetlistView()` | Connectivity-first only. Comments, original ordering details, unsupported subcircuit instances, and graphical layout are lossy. |
-| `.vdsp` | Strict `circuit-interchange/v1` YAML parser implemented for the project's serialized shape | `CircuitDocument -> .vdsp` serialization implemented | Current fixtures serialize to `.vdsp` for Source-tab coverage. `.vdsp` edits can rebuild `CircuitDocument`, but this is not source-format regeneration. |
+| `.vdsp` | Strict `circuit-interchange/v2` YAML parser implemented for the project's serialized shape | `CircuitDocument -> .vdsp` serialization implemented | Current fixtures serialize to `.vdsp` for Source-tab coverage. `.vdsp` edits can rebuild `CircuitDocument`, but this is not source-format regeneration. |
 
 Cross-format conversion rules:
 
@@ -463,7 +465,7 @@ Success criteria:
 
 ### Phase 4c: Editable `.vdsp` Source + Fixture Matrix
 
-Goal: define the project-native `.vdsp` Source view that turns any parsed `CircuitDocument` from `.schx`, `.asc`, `.cir`, `.net`, and future formats into an explicit, LLM-friendly YAML representation, and allows strict `circuit-interchange/v1` edits to rebuild `CircuitDocument`. Back-conversion to source/fixture formats is not required.
+Goal: define the project-native `.vdsp` Source view that turns any parsed `CircuitDocument` from `.schx`, `.asc`, `.cir`, `.net`, and future formats into an explicit, LLM-friendly YAML representation, and allows strict `circuit-interchange/v2` edits to rebuild `CircuitDocument`. Back-conversion to source/fixture formats is not required.
 
 Tasks:
 

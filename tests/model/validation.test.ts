@@ -477,6 +477,112 @@ describe('validateDocument', () => {
         });
     });
 
+    test('device interface metadata validates duplicate ids and unresolved references', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            controlGroups: [{
+                id: 'channel-1-panel',
+                name: 'Channel 1',
+                role: 'channel-section',
+                contextIds: ['missing-display-context'],
+            }],
+            controlContexts: [{
+                id: 'channel-1',
+                name: 'Channel 1',
+                role: 'channel',
+            }],
+            deviceInterface: {
+                controls: [
+                    {
+                        id: 'gain',
+                        label: 'Gain',
+                        kind: 'knob',
+                        role: 'gain',
+                        groupId: 'missing-group',
+                        binding: {
+                            componentId: 'MISSING',
+                            externalInterfaceId: 'missing-external-interface',
+                        },
+                        appliesWhen: {
+                            allOf: ['missing-context'],
+                        },
+                    },
+                    {
+                        id: 'gain',
+                        label: 'Gain duplicate',
+                        kind: 'knob',
+                        role: 'gain',
+                    },
+                ],
+            },
+            panel: {
+                faces: [{
+                    id: 'front',
+                    layout: { kind: 'stompbox-grid', rows: 1, columns: 1, indexing: 'one-based' },
+                    elements: [{
+                        bind: { componentId: 'MISSING' },
+                        kind: 'knob',
+                        interfaceControlId: 'missing-interface-control',
+                        grid: { row: 1, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const issues = validateDocument(doc);
+
+        expect(issues.find((i) => i.code === 'duplicate-device-interface-control-id')).toMatchObject({
+            severity: 'error',
+            componentId: 'gain',
+        });
+        expect(issues.find((i) => i.code === 'device-interface-group-unresolved')).toMatchObject({
+            severity: 'warning',
+            componentId: 'gain',
+            property: 'groupId',
+        });
+        expect(issues.find((i) => i.code === 'device-interface-context-unresolved')).toMatchObject({
+            severity: 'warning',
+            componentId: 'gain',
+            property: 'appliesWhen.allOf',
+        });
+        expect(issues.find((i) =>
+            i.code === 'device-interface-binding-unresolved' && i.property === 'binding.componentId'
+        )).toMatchObject({
+            severity: 'warning',
+            componentId: 'gain',
+            property: 'binding.componentId',
+        });
+        expect(issues.find((i) =>
+            i.code === 'device-interface-binding-unresolved' && i.property === 'binding.externalInterfaceId'
+        )).toMatchObject({
+            severity: 'warning',
+            componentId: 'gain',
+            property: 'binding.externalInterfaceId',
+        });
+        expect(issues.find((i) => i.code === 'control-group-context-unresolved')).toMatchObject({
+            severity: 'warning',
+            componentId: 'channel-1-panel',
+            property: 'contextIds',
+        });
+        expect(issues.find((i) => i.code === 'panel-interface-control-unresolved')).toMatchObject({
+            severity: 'warning',
+            componentId: 'missing-interface-control',
+            property: 'interfaceControlId',
+        });
+    });
+
+    test('view-only interface controls waive electrical requirements but still validate present values', () => {
+        const doc = withParts([
+            makeComponent('BRIGHT', 'potentiometer', { InterfaceOnly: true }),
+            makeComponent('BROKEN', 'potentiometer', { InterfaceOnly: 'true', R: 'not-a-number' }),
+        ]);
+
+        const issues = validateDocument(doc);
+
+        expect(issues.find((i) => i.componentId === 'BRIGHT' && i.code === 'value-required')).toBeUndefined();
+        expect(issues.find((i) => i.componentId === 'BROKEN' && i.code === 'value-unparseable')).toBeDefined();
+    });
+
     test('potentiometer requires R but taper is optional', () => {
         const doc = withParts([makeComponent('VR1', 'potentiometer', { R: '500k' })]);
         expect(validateDocument(doc)).toEqual([]);

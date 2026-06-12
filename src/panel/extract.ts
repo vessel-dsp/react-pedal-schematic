@@ -1,6 +1,19 @@
 import { isParsedQuantity, propertyNumericValue, propertyStringValue } from '../model/properties';
-import type { CircuitDocument, Component, ControlInterface, ParsedQuantity, PropertyValue } from '../model/types';
 import type {
+    CircuitDocument,
+    Component,
+    ControlInterface,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControl,
+    DeviceInterfaceControlKind,
+    ParsedQuantity,
+    PropertyValue,
+    Warning,
+} from '../model/types';
+import type {
+    DeviceInterfaceProvenance,
+    ExtractedDeviceInterface,
+    ExtractedDeviceInterfaceControl,
     ExternalControlAssignmentHint,
     JackAudioRole,
     JackPort,
@@ -92,6 +105,235 @@ export function extractPanel(doc: CircuitDocument): Panel {
         leds,
         jacks,
     };
+}
+
+export function extractDeviceInterface(doc: CircuitDocument): ExtractedDeviceInterface {
+    const panel = extractPanel(doc);
+    const inferredControls = inferDeviceInterfaceControls(doc, panel);
+    const diagnostics: Warning[] = [];
+    const controls = new Map<string, ExtractedDeviceInterfaceControl>();
+
+    for (const control of doc.deviceInterface?.controls ?? []) {
+        controls.set(control.id, {
+            ...control,
+            provenance: 'vdsp-declared',
+        });
+    }
+
+    for (const inferred of inferredControls) {
+        const declared = controls.get(inferred.id);
+        if (declared === undefined) {
+            controls.set(inferred.id, inferred);
+            continue;
+        }
+
+        if (declared.binding === undefined && inferred.binding !== undefined) {
+            controls.set(declared.id, {
+                ...declared,
+                inferredBinding: inferred.binding,
+            });
+            continue;
+        }
+
+        if (
+            declared.binding !== undefined
+            && inferred.binding !== undefined
+            && bindingSignature(declared.binding) !== bindingSignature(inferred.binding)
+        ) {
+            diagnostics.push({
+                code: 'device-interface-inferred-binding-conflict',
+                message: `Declared device interface control "${declared.id}" conflicts with inferred binding`,
+                componentId: declared.id,
+            });
+        }
+    }
+
+    return {
+        groups: doc.controlGroups ?? [],
+        contexts: doc.controlContexts ?? [],
+        controls: Array.from(controls.values()),
+        ...(panel.placement === undefined ? {} : { placement: panel.placement }),
+        diagnostics,
+    };
+}
+
+function inferDeviceInterfaceControls(
+    doc: CircuitDocument,
+    panel: Panel,
+): readonly ExtractedDeviceInterfaceControl[] {
+    const controls: ExtractedDeviceInterfaceControl[] = [];
+    const controlInterfaceIds = new Set<string>();
+    for (const controlInterface of doc.controlInterfaces ?? []) {
+        controlInterfaceIds.add(controlInterface.id);
+        if (controlInterface.componentId !== undefined) {
+            controlInterfaceIds.add(controlInterface.componentId);
+        }
+    }
+
+    for (const knob of panel.knobs) {
+        const componentId = componentIdFromControlId(knob.id);
+        const property = runtimeControlProperty(knob.id);
+        controls.push({
+            id: knob.id,
+            label: knob.name,
+            kind: 'knob',
+            role: roleFromControlId(knob.id),
+            binding: {
+                componentId,
+                controlId: knob.id,
+                controlName: knob.name,
+                ...(property === undefined ? {} : { property }),
+            },
+            provenance: provenanceForComponentControl(doc, componentId),
+        });
+    }
+
+    for (const slider of panel.sliders ?? []) {
+        controls.push({
+            id: slider.id,
+            label: slider.name,
+            kind: 'slider',
+            role: roleFromControlId(slider.id),
+            binding: {
+                componentId: componentIdFromControlId(slider.id),
+                controlId: slider.id,
+                controlName: slider.name,
+            },
+            provenance: 'source-inferred',
+        });
+    }
+
+    for (const switchControl of panel.switches) {
+        controls.push({
+            id: switchControl.id,
+            label: switchControl.name,
+            kind: 'switch',
+            role: roleFromControlId(switchControl.id),
+            binding: {
+                componentId: componentIdFromControlId(switchControl.id),
+                controlId: switchControl.id,
+                controlName: switchControl.name,
+            },
+            provenance: provenanceForComponentControl(doc, componentIdFromControlId(switchControl.id)),
+        });
+    }
+
+    for (const led of panel.leds) {
+        controls.push({
+            id: led.id,
+            label: led.name,
+            kind: 'led',
+            role: 'indicator',
+            binding: {
+                componentId: componentIdFromControlId(led.id),
+                controlId: led.id,
+                controlName: led.name,
+            },
+            provenance: 'source-inferred',
+        });
+    }
+
+    for (const jack of panel.jacks) {
+        const componentId = jack.sourceComponentId ?? componentIdFromControlId(jack.id);
+        const binding = deviceBindingForJack(jack, componentId);
+        controls.push({
+            id: jack.id,
+            label: jack.name,
+            kind: 'jack',
+            role: jack.controlRole ?? jack.role,
+            ...(binding === undefined ? {} : { binding }),
+            provenance: controlInterfaceIds.has(jack.id)
+                ? 'control-interface-declared'
+                : provenanceForComponentControl(doc, componentId),
+        });
+    }
+
+    return controls;
+}
+
+function deviceBindingForJack(jack: JackPort, componentId: string): DeviceInterfaceBinding | undefined {
+    if (jack.binding !== undefined) {
+        return deviceBindingFromControlInterfaceBinding(jack.binding, componentId);
+    }
+    if (jack.id.endsWith(':tempo-tap')) {
+        return {
+            componentId,
+            controlId: jack.id,
+            controlName: jack.name,
+            property: 'TempoTapControl',
+        };
+    }
+    if (jack.sourceComponentId !== undefined || jack.id === componentId) {
+        return {
+            componentId,
+            controlId: jack.id,
+            controlName: jack.name,
+        };
+    }
+    return undefined;
+}
+
+function deviceBindingFromControlInterfaceBinding(
+    binding: ControlInterface['binding'],
+    fallbackComponentId: string,
+): DeviceInterfaceBinding | undefined {
+    if (binding === undefined) {
+        return undefined;
+    }
+    const componentId = binding.sourceComponentId ?? fallbackComponentId;
+    return {
+        componentId,
+        ...(binding.controlId === undefined ? {} : { controlId: binding.controlId }),
+        ...(binding.controlName === undefined ? {} : { controlName: binding.controlName }),
+        ...(binding.property === undefined ? {} : { property: binding.property }),
+    };
+}
+
+function provenanceForComponentControl(doc: CircuitDocument, componentId: string): DeviceInterfaceProvenance {
+    const component = doc.components.find((candidate) => candidate.id === componentId);
+    return component !== undefined && isRuntimeDescriptor(component)
+        ? 'runtime-descriptor-inferred'
+        : 'source-inferred';
+}
+
+function componentIdFromControlId(id: string): string {
+    const separator = id.indexOf(':');
+    return separator <= 0 ? id : id.slice(0, separator);
+}
+
+function roleFromControlId(id: string): string {
+    const separator = id.indexOf(':');
+    const raw = separator >= 0 ? id.slice(separator + 1) : id;
+    return normalizeToken(raw);
+}
+
+function runtimeControlProperty(id: string): string | undefined {
+    const key = roleFromControlId(id);
+    for (const spec of RUNTIME_CONTINUOUS_CONTROL_SPECS) {
+        if (spec.key === key) {
+            return spec.controlProperty;
+        }
+    }
+    if (key === 'mode') {
+        return 'ModeControl';
+    }
+    if (key === 'tempo-tap') {
+        return 'TempoTapControl';
+    }
+    if (key === 'direct-out') {
+        return 'DirectOutputJack';
+    }
+    return undefined;
+}
+
+function bindingSignature(binding: DeviceInterfaceBinding): string {
+    return [
+        binding.componentId,
+        binding.controlId ?? '',
+        binding.controlName ?? '',
+        binding.property ?? '',
+        binding.externalInterfaceId ?? '',
+    ].join(':');
 }
 
 function applyControlInterfaces(

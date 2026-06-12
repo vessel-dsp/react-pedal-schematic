@@ -1,10 +1,15 @@
 import type {
+    ControlContext,
+    ControlGroup,
     ControlInterfaceAssignmentHint,
     ControlInterfaceBinding,
     ControlInterfaceConnector,
     ControlInterfacePolarity,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControl,
     PanelPlacementMetadata,
     ParsedQuantity,
+    Warning,
 } from '../model/types';
 
 // ---------- Static panel descriptor (extracted from a CircuitDocument) ----------
@@ -122,6 +127,25 @@ export type Panel = Readonly<{
     switches: readonly SwitchControl[];
     leds: readonly LedIndicator[];
     jacks: readonly JackPort[];
+}>;
+
+export type DeviceInterfaceProvenance =
+    | 'vdsp-declared'
+    | 'source-inferred'
+    | 'runtime-descriptor-inferred'
+    | 'control-interface-declared';
+
+export type ExtractedDeviceInterfaceControl = DeviceInterfaceControl & Readonly<{
+    provenance: DeviceInterfaceProvenance;
+    inferredBinding?: DeviceInterfaceBinding;
+}>;
+
+export type ExtractedDeviceInterface = Readonly<{
+    groups: readonly ControlGroup[];
+    contexts: readonly ControlContext[];
+    controls: readonly ExtractedDeviceInterfaceControl[];
+    placement?: PanelPlacementMetadata;
+    diagnostics: readonly Warning[];
 }>;
 
 // ---------- Runtime control state (UI ↔ DSP wire protocol) ----------

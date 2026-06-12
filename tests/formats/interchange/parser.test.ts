@@ -39,6 +39,93 @@ const runtimeDescriptorSource = `<?xml version="1.0" encoding="utf-8"?>
 </Schematic>`;
 
 describe('parseInterchangeYaml', () => {
+    test('round-trips device interface groups, contexts, semantic controls, and panel joins', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'Channel interface',
+                description: 'Declared semantic controls with placement joins.',
+                partNumber: '',
+            },
+            controlGroups: [{
+                id: 'channel-1-panel',
+                name: 'Channel 1',
+                role: 'channel-section',
+                contextIds: ['channel-1'],
+            }],
+            controlContexts: [{
+                id: 'channel-1',
+                name: 'Channel 1',
+                role: 'channel',
+            }],
+            deviceInterface: {
+                controls: [{
+                    id: 'ch1-gain',
+                    label: 'Gain',
+                    kind: 'knob',
+                    role: 'gain',
+                    groupId: 'channel-1-panel',
+                    order: 1,
+                    binding: {
+                        componentId: 'CH1_GAIN',
+                        controlId: 'CH1_GAIN',
+                        property: 'Wipe',
+                    },
+                    appliesWhen: {
+                        allOf: ['channel-1'],
+                    },
+                    description: 'Channel 1 preamp gain.',
+                }],
+            },
+            components: [{
+                id: 'CH1_GAIN',
+                kind: 'potentiometer',
+                name: 'Gain',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: {
+                    R: { raw: '1 MΩ', value: 1_000_000, unit: 'Ω' },
+                    Wipe: '0.5',
+                },
+                sourceTypeName: 'Circuit.Potentiometer',
+            }],
+            panel: {
+                faces: [{
+                    id: 'front',
+                    layout: {
+                        kind: 'stompbox-grid',
+                        rows: 1,
+                        columns: 1,
+                        indexing: 'one-based',
+                    },
+                    elements: [{
+                        bind: {
+                            componentId: 'CH1_GAIN',
+                            controlId: 'CH1_GAIN',
+                        },
+                        kind: 'knob',
+                        interfaceControlId: 'ch1-gain',
+                        grid: { row: 1, column: 1 },
+                    }],
+                }],
+            },
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(yaml).toContain('controlGroups:');
+        expect(yaml).toContain('controlContexts:');
+        expect(yaml).toContain('deviceInterface:');
+        expect(yaml).toContain('interfaceControlId: ch1-gain');
+        expect(parsed.controlGroups).toEqual(doc.controlGroups);
+        expect(parsed.controlContexts).toEqual(doc.controlContexts);
+        expect(parsed.deviceInterface).toEqual(doc.deviceInterface);
+        expect(parsed.panel).toEqual(doc.panel);
+    });
+
     test('round-trips named panel faces with bound element placement metadata', () => {
         const doc: CircuitDocument = {
             ...EMPTY_DOCUMENT,

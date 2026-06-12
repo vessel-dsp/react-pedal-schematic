@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add top-level `.vdsp` `controlGroups`, `controlContexts`, and `deviceInterface` metadata for stable semantic device controls.
+- Preserve semantic controls, group/context registries, applicability predicates, bindings, and panel `interfaceControlId` joins through strict `circuit-interchange/v2` parse/serialize flows.
+- Add `extractDeviceInterface()` so hosts can merge declared `.vdsp` controls with inferred panel, runtime descriptor, and external interface controls without mutating authored metadata.
+- Validate semantic interface ids, group/context references, source bindings, external interface bindings, duplicate unordered roles, and panel semantic joins.
+- Waive required electrical properties for interface-only/view-only controls while still validating present values.
+
 ## 0.4.0
 
 - Break `.vdsp` / interchange compatibility to strict `circuit-interchange/v2`; v1 documents are rejected without migration or fallback parsing.

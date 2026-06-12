@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { extractPanel } from '../../src/panel';
+import { extractDeviceInterface, extractPanel } from '../../src/panel';
 import { parseSchx } from '../../src/formats/schx/parser';
 import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type PropertyValue } from '../../src/model/types';
 
@@ -498,5 +498,106 @@ describe('extractPanel', () => {
         const panel = extractPanel(doc);
 
         expect(panel.placement).toEqual(doc.panel);
+    });
+
+    test('extracts declared device interface metadata with inferred bindings kept separate', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            controlGroups: [{
+                id: 'delay-panel',
+                name: 'Delay controls',
+                role: 'tone-stack',
+            }],
+            controlContexts: [{
+                id: 'mode-delay',
+                name: 'Delay',
+                role: 'mode',
+            }],
+            deviceInterface: {
+                controls: [
+                    {
+                        id: 'U1:time',
+                        label: 'Delay Time',
+                        kind: 'knob',
+                        role: 'time',
+                        groupId: 'delay-panel',
+                        appliesWhen: { allOf: ['mode-delay'] },
+                    },
+                    {
+                        id: 'custom-bright',
+                        label: 'Bright',
+                        kind: 'switch',
+                        role: 'bright',
+                    },
+                ],
+            },
+            components: [
+                makeComponent('U1', 'ic', {
+                    RuntimeDescriptor: 'true',
+                    TimeControl: 'D.TIME',
+                    TimeControlWipe: '0.45',
+                    TimeControlSweep: 'Linear',
+                }, 'Circuit.MicroBlockDelayChip'),
+            ],
+        };
+
+        const iface = extractDeviceInterface(doc);
+        const time = iface.controls.find((control) => control.id === 'U1:time')!;
+        const bright = iface.controls.find((control) => control.id === 'custom-bright')!;
+
+        expect(iface.groups).toEqual(doc.controlGroups ?? []);
+        expect(iface.contexts).toEqual(doc.controlContexts ?? []);
+        expect(time.provenance).toBe('vdsp-declared');
+        expect(time.label).toBe('Delay Time');
+        expect(time.binding).toBeUndefined();
+        expect(time.inferredBinding).toEqual({
+            componentId: 'U1',
+            controlId: 'U1:time',
+            controlName: 'D.TIME',
+            property: 'TimeControl',
+        });
+        expect(bright.provenance).toBe('vdsp-declared');
+        expect(bright.inferredBinding).toBeUndefined();
+        expect(iface.diagnostics).toEqual([]);
+    });
+
+    test('extracts inferred controls when no declared device interface exists', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [
+                makeComponent('LEVEL', 'potentiometer', {
+                    R: '100k',
+                    Wipe: '0.75',
+                }, 'Circuit.Potentiometer'),
+                makeComponent('U1', 'ic', {
+                    RuntimeDescriptor: 'true',
+                    TempoTapControl: 'Tempo In',
+                }, 'Circuit.MicroBlockDelayChip'),
+            ],
+            controlInterfaces: [{
+                id: 'trigger-input',
+                name: 'TRIGGER external',
+                role: 'trigger',
+                binding: {
+                    sourceComponentId: 'U1',
+                    controlId: 'U1:sampler-trigger',
+                    controlName: 'TRIGGER',
+                    property: 'SamplerTriggerControl',
+                },
+            }],
+        };
+
+        const iface = extractDeviceInterface(doc);
+
+        expect(iface.controls.map((control) => ({
+            id: control.id,
+            label: control.label,
+            kind: control.kind,
+            provenance: control.provenance,
+        }))).toEqual([
+            { id: 'LEVEL', label: 'LEVEL', kind: 'knob', provenance: 'source-inferred' },
+            { id: 'U1:tempo-tap', label: 'Tempo In', kind: 'jack', provenance: 'runtime-descriptor-inferred' },
+            { id: 'trigger-input', label: 'TRIGGER external', kind: 'jack', provenance: 'control-interface-declared' },
+        ]);
     });
 });
