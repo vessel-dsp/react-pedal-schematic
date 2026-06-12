@@ -168,6 +168,59 @@ export type ControlOutput = Readonly<{
     description?: string;
 }>;
 
+export type ControlContext = Readonly<{
+    id: string;
+    name: string;
+    role: string;
+    description?: string;
+}>;
+
+export type ControlGroup = Readonly<{
+    id: string;
+    name: string;
+    role: string;
+    contextIds?: readonly string[];
+    description?: string;
+}>;
+
+export type DeviceInterfaceControlKind =
+    | 'knob'
+    | 'slider'
+    | 'switch'
+    | 'selector'
+    | 'footswitch'
+    | 'led'
+    | 'jack';
+
+export type DeviceInterfaceBinding = Readonly<{
+    componentId: string;
+    controlId?: string;
+    controlName?: string;
+    property?: string;
+    externalInterfaceId?: string;
+}>;
+
+export type ControlApplicabilityPredicate = Readonly<{
+    allOf?: readonly string[];
+    anyOf?: readonly string[];
+}>;
+
+export type DeviceInterfaceControl = Readonly<{
+    id: string;
+    label: string;
+    kind: DeviceInterfaceControlKind;
+    role: string;
+    groupId?: string;
+    order?: number;
+    binding?: DeviceInterfaceBinding;
+    appliesWhen?: ControlApplicabilityPredicate;
+    description?: string;
+}>;
+
+export type DeviceInterface = Readonly<{
+    controls: readonly DeviceInterfaceControl[];
+}>;
+
 export type PanelGridIndexing = 'one-based' | 'zero-based';
 
 export type PanelRowOrder = 'top-to-bottom' | 'bottom-to-top';
@@ -204,6 +257,7 @@ export type PanelElementPlacement = Readonly<{
     kind: PanelControlKind;
     grid: PanelGridPosition;
     label?: string;
+    interfaceControlId?: string;
 }>;
 
 /** @deprecated Use PanelElementPlacement. */
@@ -231,6 +285,9 @@ export type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
     device?: CircuitDocumentDevice;
+    controlGroups?: readonly ControlGroup[];
+    controlContexts?: readonly ControlContext[];
+    deviceInterface?: DeviceInterface;
     panel?: PanelPlacementMetadata;
     controlInterfaces?: readonly ControlInterface[];
     controlOutputs?: readonly ControlOutput[];

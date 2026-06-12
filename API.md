@@ -33,6 +33,9 @@ type CircuitDocument = Readonly<{
     metadata: DocumentMetadata;
     source?: DocumentSource;
     device?: CircuitDocumentDevice;
+    controlGroups?: readonly ControlGroup[];
+    controlContexts?: readonly ControlContext[];
+    deviceInterface?: DeviceInterface;
     panel?: PanelPlacementMetadata;
     controlInterfaces?: readonly ControlInterface[];
     controlOutputs?: readonly ControlOutput[];
@@ -62,6 +65,13 @@ Important model exports:
 | `Warning` | Parser/export diagnostic carried on a document. |
 | `CircuitDocumentDevice` | Optional product/accessory identity metadata. |
 | `CircuitDocumentDeviceKind` | `'audio-pedal' | 'control-accessory' | 'utility' | 'unknown'`. |
+| `ControlGroup` | Logical/display grouping registry for semantic controls. |
+| `ControlContext` | Active device-state context registry for conditional controls. |
+| `DeviceInterface` | Semantic control list for product-level UI/runtime bindings. |
+| `DeviceInterfaceControl` | Stable semantic control descriptor. |
+| `DeviceInterfaceControlKind` | `'knob' | 'slider' | 'switch' | 'selector' | 'footswitch' | 'led' | 'jack'`. |
+| `DeviceInterfaceBinding` | Binding from a semantic control to a source component/control/property. |
+| `ControlApplicabilityPredicate` | Context predicate for conditional semantic controls. |
 | `ControlInterface` | External control/input interface metadata, separate from panel placement. |
 | `ControlInterfaceRole` | `'external-control' | 'tempo-tap' | 'trigger' | 'reset' | 'sampler-trigger' | 'expression' | 'unknown'`. |
 | `ControlInterfaceConnector` | Preferred connector values such as `'1/4-inch-mono-ts'` and `'1/4-inch-trs'`. |
@@ -128,12 +138,118 @@ panel:
           label: Drive
 ```
 
+`PanelElementPlacement.interfaceControlId` can join a visual grid element to a
+stable `deviceInterface.controls[].id`. Keep `bind` as the source schematic
+binding; use `interfaceControlId` only as the semantic join.
+
+### Semantic Device Interface Metadata
+
+`CircuitDocument.controlGroups`, `CircuitDocument.controlContexts`, and
+`CircuitDocument.deviceInterface` describe the user-visible control contract of
+the device. This sits above source component placement: it lets hosts address
+stable controls such as `delay-time`, `channel-a-gain`, or `tap-tempo` without
+guessing from schematic component ids.
+
+```ts
+type ControlContext = Readonly<{
+    id: string;
+    name: string;
+    role: string;
+    description?: string;
+}>;
+
+type ControlGroup = Readonly<{
+    id: string;
+    name: string;
+    role: string;
+    contextIds?: readonly string[];
+    description?: string;
+}>;
+
+type DeviceInterface = Readonly<{
+    controls: readonly DeviceInterfaceControl[];
+}>;
+
+type DeviceInterfaceControl = Readonly<{
+    id: string;
+    label: string;
+    kind: DeviceInterfaceControlKind;
+    role: string;
+    groupId?: string;
+    order?: number;
+    binding?: DeviceInterfaceBinding;
+    appliesWhen?: ControlApplicabilityPredicate;
+    description?: string;
+}>;
+
+type DeviceInterfaceBinding = Readonly<{
+    componentId: string;
+    controlId?: string;
+    controlName?: string;
+    property?: string;
+    externalInterfaceId?: string;
+}>;
+```
+
+Contract notes:
+
+- `role`, group roles, and context roles should be lower-kebab semantic tokens.
+- `groupId` references `controlGroups[].id`.
+- `appliesWhen.allOf` and `appliesWhen.anyOf` reference `controlContexts[].id`.
+- `binding.componentId` references a source component. `controlId`,
+  `controlName`, and `property` narrow the binding when a component exposes
+  multiple controls.
+- `externalInterfaceId` can link a semantic jack/control to a
+  `controlInterfaces[].id`.
+- Use `order` when multiple controls intentionally share the same group and
+  role.
+
+Example `.vdsp` semantic interface block:
+
+```yaml
+controlGroups:
+  - id: delay-panel
+    name: Delay Panel
+    role: primary-controls
+controlContexts:
+  - id: mode-delay
+    name: Delay Mode
+    role: mode
+deviceInterface:
+  controls:
+    - id: delay-time
+      label: Time
+      kind: knob
+      role: time
+      groupId: delay-panel
+      order: 1
+      binding:
+        componentId: U1
+        controlId: "U1:time"
+        controlName: TIME
+        property: TimeControl
+      appliesWhen:
+        allOf: [mode-delay]
+panel:
+  faces:
+    - id: top
+      layout: { kind: stompbox-grid, rows: 1, columns: 1, indexing: one-based }
+      elements:
+        - bind: { componentId: U1, controlId: "U1:time" }
+          kind: knob
+          label: Time
+          grid: { row: 1, column: 1 }
+          interfaceControlId: delay-time
+```
+
 ### Control Interface Metadata
 
 `CircuitDocument.controlInterfaces` describes product-level external control
 interfaces such as DD-3-style trigger/reset inputs, DD-5 tempo tap, expression
 jacks, and future CTL/EXP ports. This block is behavioral metadata; keep it
-separate from `panel`, which only places controls on a grid.
+separate from `panel`, which only places controls on a grid. When a host needs
+a stable semantic control for one of these jacks, add a
+`deviceInterface.controls[]` entry whose binding carries `externalInterfaceId`.
 
 ```ts
 type ControlInterface = Readonly<{
@@ -236,7 +352,7 @@ Producer contract:
 - `controlOutputs[].componentId` optionally links the output behavior to a visible jack component.
 - `inactiveValue` and `activeValue` are optional normalized contact-closure values after `polarity` is applied. When omitted, hosts can derive them as `0`/`1` for `normally-open` and `1`/`0` for `normally-closed`.
 - Runtime state such as pressed, released, or latched is host state and is not persisted in `.vdsp`.
-- Enclosure dimensions are not part of this V1 metadata. Use `panel.faces[]` and jack components for logical physical placement.
+- Enclosure dimensions are not part of this metadata. Use `panel.faces[]` and jack components for logical physical placement.
 
 Example Boss FS-5U `.vdsp` blocks:
 
@@ -389,6 +505,13 @@ with a valid `R` or `Resistance` value may also carry `Material: carbon-film`;
 that material value remains metadata unless a host or future upstream feature
 chooses to interpret it.
 
+Validation also checks semantic interface metadata: duplicate
+`deviceInterface.controls[].id` values, unresolved control groups or contexts,
+unresolved semantic bindings, duplicate unordered roles, and
+`panel.faces[].elements[].interfaceControlId` references. Components marked
+with `InterfaceOnly: true` or `Support: view-only` waive required electrical
+properties while still validating any values that are present.
+
 ## Connectivity
 
 ```ts
@@ -534,6 +657,7 @@ state = applyControlMessage(state, {
 | Export | Purpose |
 | --- | --- |
 | `extractPanel(document)` | Extracts knobs, sliders, switches, LEDs, jacks, and optional placement metadata. |
+| `extractDeviceInterface(document)` | Merges declared semantic controls, inferred panel controls, and external interfaces into one stable control contract. |
 | `defaultControlState(panel)` | Creates initial runtime state for controls. |
 | `applyControlMessage(state, message)` | Pure reducer for UI/DSP control messages. |
 | `validateMessage(panel, message)` | Returns `null` for a valid message or a short error string. |
@@ -630,9 +754,16 @@ Tempo tap descriptor controls are exposed as jacks with
 `TRIGGER`/`RESET` interfaces are exposed as `external-control` jacks. These
 ports are not added to runtime switch state.
 
+`extractDeviceInterface()` returns declared `.vdsp` controls when present and
+adds inferred controls from potentiometers, switches, LEDs, jacks, runtime
+descriptors, and `controlInterfaces`. Declared controls win for label, kind,
+role, grouping, and applicability. When a declared control omits `binding`, the
+matching inferred binding is returned as `inferredBinding` so hosts can inspect
+the likely source link without mutating the authored semantic contract.
+
 Related types:
 
-`Panel`, `PanelMessage`, `ControlState`, `ControlValue`, `Knob`, `KnobValue`, `KnobStep`, `KnobTaper`, `KnobControlMode`, `SliderControl`, `SliderValue`, `SliderOrientation`, `SliderRange`, `SwitchControl`, `SwitchValue`, `SwitchKind`, `LedIndicator`, `LedValue`, `JackPort`, `JackRole`, `JackAudioRole`, `ExternalControlAssignmentHint`.
+`Panel`, `PanelMessage`, `ControlState`, `ControlValue`, `Knob`, `KnobValue`, `KnobStep`, `KnobTaper`, `KnobControlMode`, `SliderControl`, `SliderValue`, `SliderOrientation`, `SliderRange`, `SwitchControl`, `SwitchValue`, `SwitchKind`, `LedIndicator`, `LedValue`, `JackPort`, `JackRole`, `JackAudioRole`, `ExternalControlAssignmentHint`, `ExtractedDeviceInterface`, `ExtractedDeviceInterfaceControl`, `DeviceInterfaceProvenance`.
 
 ## React UI
 
@@ -755,6 +886,14 @@ import {
 
 const panel = extractPanel(document);
 const controlState = defaultControlState(panel);
+```
+
+### Extract Semantic Controls
+
+```ts
+import { extractDeviceInterface } from '@vessel-dsp/react-pedal-schematic/core';
+
+const deviceInterface = extractDeviceInterface(document);
 ```
 
 ## Boundary Notes

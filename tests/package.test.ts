@@ -3,11 +3,13 @@ import {
     SchematicView,
     UI_VERSION,
     VERSION,
+    extractDeviceInterface,
     parseCircuitDocument,
     serializeCircuitJsonDocument,
 } from '@vessel-dsp/react-pedal-schematic';
 import {
     VERSION as CORE_VERSION,
+    extractDeviceInterface as extractCoreDeviceInterface,
     parseCircuitDocument as parseCoreCircuitDocument,
     serializeCircuitJsonDocument as serializeCoreCircuitJsonDocument,
 } from '@vessel-dsp/react-pedal-schematic/core';
@@ -189,6 +191,7 @@ describe('published import surface', () => {
         expect(SchematicView).toBe(SchematicViewSubpath);
         expect(parseCircuitDocument).toBe(parseCoreCircuitDocument);
         expect(serializeCircuitJsonDocument).toBe(serializeCoreCircuitJsonDocument);
+        expect(extractDeviceInterface).toBe(extractCoreDeviceInterface);
         expect(VERSION).toBe(CORE_VERSION);
     });
 });
@@ -238,10 +241,10 @@ describe('release metadata', () => {
         const pkg = await readPackageJson();
         const changelog = await readChangelog();
 
-        expect(pkg.version).toBe('0.4.0');
-        expect(VERSION).toBe('0.4.0');
-        expect(UI_VERSION).toBe('0.4.0');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.4.0\n\n');
+        expect(pkg.version).toBe('0.5.0');
+        expect(VERSION).toBe('0.5.0');
+        expect(UI_VERSION).toBe('0.5.0');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.5.0\n\n');
     });
 });
 

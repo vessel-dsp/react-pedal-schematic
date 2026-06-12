@@ -1,4 +1,4 @@
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 export type {
     CircuitDocument,
@@ -6,6 +6,9 @@ export type {
     CircuitDocumentDeviceKind,
     Component,
     ComponentKind,
+    ControlApplicabilityPredicate,
+    ControlContext,
+    ControlGroup,
     ControlInterface,
     ControlInterfaceAssignmentHint,
     ControlInterfaceBinding,
@@ -14,6 +17,10 @@ export type {
     ControlInterfaceRole,
     ControlOutput,
     ControlOutputSwitchMode,
+    DeviceInterface,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControl,
+    DeviceInterfaceControlKind,
     DocumentMetadata,
     DocumentSource,
     PanelColumnOrder,
@@ -134,7 +141,10 @@ export { findChainCorners, findWireChain } from './preview/wire-chains';
 export type {
     ControlState,
     ControlValue,
+    DeviceInterfaceProvenance,
     ExternalControlAssignmentHint,
+    ExtractedDeviceInterface,
+    ExtractedDeviceInterfaceControl,
     JackAudioRole,
     JackPort,
     JackRole,
@@ -158,6 +168,7 @@ export type {
 export {
     applyControlMessage,
     defaultControlState,
+    extractDeviceInterface,
     extractPanel,
     isKnobPositionOnStep,
     isKnob,

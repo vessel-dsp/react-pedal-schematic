@@ -103,6 +103,49 @@ runtime controls or panel ports. The parser accepts `indexing: one-based` or
 `one-based` indexing for readability. Legacy `panel.layout` + `controls[]`
 input is still accepted and normalized to one `top` face.
 
+Semantic device controls can be declared under top-level `controlGroups`,
+`controlContexts`, and `deviceInterface`. Use these blocks when a host needs a
+stable product-level control contract that is not coupled to schematic ids or
+physical panel placement. A panel element may carry `interfaceControlId` to join
+the visual grid position to a semantic control while preserving the source
+component binding in `bind`.
+
+```yaml
+controlGroups:
+  - id: delay-panel
+    name: Delay Panel
+    role: primary-controls
+controlContexts:
+  - id: mode-delay
+    name: Delay Mode
+    role: mode
+deviceInterface:
+  controls:
+    - id: delay-time
+      label: Time
+      kind: knob
+      role: time
+      groupId: delay-panel
+      order: 1
+      binding:
+        componentId: U1
+        controlId: "U1:time"
+        controlName: TIME
+        property: TimeControl
+      appliesWhen:
+        allOf: [mode-delay]
+panel:
+  faces:
+    - id: top
+      layout: { kind: stompbox-grid, rows: 1, columns: 1, indexing: one-based }
+      elements:
+        - bind: { componentId: U1, controlId: "U1:time" }
+          kind: knob
+          grid: { row: 1, column: 1 }
+          label: Time
+          interfaceControlId: delay-time
+```
+
 Audio jack routing metadata lives on source-visible jack components. Use
 `Role` for broad direction, `Interface` for the port family, and `AudioRole`
 for an explicit lower-kebab source subtype. `JackLabel` or `Label` can provide
@@ -200,9 +243,8 @@ board-level assignments should reference. `inactiveValue` and `activeValue` are
 optional normalized contact-closure values after polarity is applied. When they
 are omitted, hosts can derive `0`/`1` for `normally-open` outputs and `1`/`0`
 for `normally-closed` outputs. Runtime pressed/latched state is host state and
-is not persisted in `.vdsp`. Enclosure dimensions are not part of this V1
-metadata; use `panel.faces[]` and jack components for logical physical
-placement.
+is not persisted in `.vdsp`. Enclosure dimensions are not part of this metadata;
+use `panel.faces[]` and jack components for logical physical placement.
 
 Use `parseVdspCircuitDocument()` when callers want strict parsing with thrown
 errors. Use `validateVdspCircuitDocumentSchema()` for upload flows, editors, or

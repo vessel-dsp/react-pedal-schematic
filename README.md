@@ -57,7 +57,7 @@ const vdspSource = serializeVdspCircuitDocument(document);
 ```
 
 The full public API is documented in [API.md](./API.md). Format conversion is documented in [DOCUMENT.md](./DOCUMENT.md#format-conversion). It is semantic through `CircuitDocument`, not byte-for-byte source regeneration.
-Use `parseVdspCircuitDocument()` for strict `.vdsp` parsing and `validateVdspCircuitDocumentSchema()` when you need non-throwing file-schema validation. `.vdsp` also supports optional stompbox panel grid metadata for knob, switch, slider, LED, and jack placement, plus `controlInterfaces` metadata for external trigger/reset, tempo-tap, and expression-style inputs; see the examples in [DOCUMENT.md](./DOCUMENT.md#format-conversion).
+Use `parseVdspCircuitDocument()` for strict `.vdsp` parsing and `validateVdspCircuitDocumentSchema()` when you need non-throwing file-schema validation. `.vdsp` also supports optional stompbox panel grid metadata, semantic `deviceInterface` controls with groups/contexts, and `controlInterfaces` metadata for external trigger/reset, tempo-tap, and expression-style inputs; see the examples in [DOCUMENT.md](./DOCUMENT.md#format-conversion).
 
 ## React Preview
 

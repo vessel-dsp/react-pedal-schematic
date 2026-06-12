@@ -4,6 +4,12 @@ import type {
     CircuitDocument,
     CircuitDocumentDevice,
     Component,
+    ControlApplicabilityPredicate,
+    ControlContext,
+    ControlGroup,
+    DeviceInterface,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControl,
     ControlInterface,
     ControlInterfaceBinding,
     ControlOutput,
@@ -50,6 +56,15 @@ export function serializeInterchangeYaml(
     if (doc.device !== undefined) {
         root.device = deviceBlock(doc.device);
     }
+    if (doc.controlGroups !== undefined) {
+        root.controlGroups = doc.controlGroups.map(controlGroupBlock);
+    }
+    if (doc.controlContexts !== undefined) {
+        root.controlContexts = doc.controlContexts.map(controlContextBlock);
+    }
+    if (doc.deviceInterface !== undefined) {
+        root.deviceInterface = deviceInterfaceBlock(doc.deviceInterface);
+    }
     if (doc.panel !== undefined) {
         root.panel = panelBlock(doc.panel);
     }
@@ -89,6 +104,94 @@ function deviceBlock(device: CircuitDocumentDevice): MutableYamlObject {
     }
     if (device.audioProcessing !== undefined) {
         out.audioProcessing = device.audioProcessing;
+    }
+    return out;
+}
+
+function controlGroupBlock(group: ControlGroup): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: group.id,
+        name: group.name,
+        role: group.role,
+    };
+    if (group.contextIds !== undefined) {
+        out.contextIds = group.contextIds;
+    }
+    if (group.description !== undefined) {
+        out.description = group.description;
+    }
+    return out;
+}
+
+function controlContextBlock(context: ControlContext): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: context.id,
+        name: context.name,
+        role: context.role,
+    };
+    if (context.description !== undefined) {
+        out.description = context.description;
+    }
+    return out;
+}
+
+function deviceInterfaceBlock(deviceInterface: DeviceInterface): MutableYamlObject {
+    return {
+        controls: deviceInterface.controls.map(deviceInterfaceControlBlock),
+    };
+}
+
+function deviceInterfaceControlBlock(control: DeviceInterfaceControl): MutableYamlObject {
+    const out: MutableYamlObject = {
+        id: control.id,
+        label: control.label,
+        kind: control.kind,
+        role: control.role,
+    };
+    if (control.groupId !== undefined) {
+        out.groupId = control.groupId;
+    }
+    if (control.order !== undefined) {
+        out.order = control.order;
+    }
+    if (control.binding !== undefined) {
+        out.binding = deviceInterfaceBindingBlock(control.binding);
+    }
+    if (control.appliesWhen !== undefined) {
+        out.appliesWhen = controlApplicabilityPredicateBlock(control.appliesWhen);
+    }
+    if (control.description !== undefined) {
+        out.description = control.description;
+    }
+    return out;
+}
+
+function deviceInterfaceBindingBlock(binding: DeviceInterfaceBinding): MutableYamlObject {
+    const out: MutableYamlObject = {
+        componentId: binding.componentId,
+    };
+    if (binding.controlId !== undefined) {
+        out.controlId = binding.controlId;
+    }
+    if (binding.controlName !== undefined) {
+        out.controlName = binding.controlName;
+    }
+    if (binding.property !== undefined) {
+        out.property = binding.property;
+    }
+    if (binding.externalInterfaceId !== undefined) {
+        out.externalInterfaceId = binding.externalInterfaceId;
+    }
+    return out;
+}
+
+function controlApplicabilityPredicateBlock(predicate: ControlApplicabilityPredicate): MutableYamlObject {
+    const out: MutableYamlObject = {};
+    if (predicate.allOf !== undefined) {
+        out.allOf = predicate.allOf;
+    }
+    if (predicate.anyOf !== undefined) {
+        out.anyOf = predicate.anyOf;
     }
     return out;
 }
@@ -238,6 +341,9 @@ function panelElementBlock(element: PanelElementPlacement): MutableYamlObject {
     };
     if (element.label !== undefined) {
         out.label = element.label;
+    }
+    if (element.interfaceControlId !== undefined) {
+        out.interfaceControlId = element.interfaceControlId;
     }
     return out;
 }

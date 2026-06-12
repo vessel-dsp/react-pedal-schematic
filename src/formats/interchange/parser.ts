@@ -5,6 +5,12 @@ import type {
     CircuitDocumentDeviceKind,
     Component,
     ComponentKind,
+    ControlApplicabilityPredicate,
+    ControlContext,
+    ControlGroup,
+    DeviceInterface,
+    DeviceInterfaceBinding,
+    DeviceInterfaceControlKind,
     ControlInterface,
     ControlInterfaceAssignmentHint,
     ControlInterfaceConnector,
@@ -63,11 +69,17 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
     const controlInterfaces = parseControlInterfaces(root.controlInterfaces);
     const device = parseDevice(root.device);
     const controlOutputs = parseControlOutputs(root.controlOutputs);
+    const controlGroups = parseControlGroups(root.controlGroups);
+    const controlContexts = parseControlContexts(root.controlContexts);
+    const deviceInterface = parseDeviceInterface(root.deviceInterface);
 
     return {
         metadata: parseMetadata(root.metadata),
         source: parseSource(root.source),
         ...(device === undefined ? {} : { device }),
+        ...(controlGroups === undefined ? {} : { controlGroups }),
+        ...(controlContexts === undefined ? {} : { controlContexts }),
+        ...(deviceInterface === undefined ? {} : { deviceInterface }),
         ...(panel === undefined ? {} : { panel }),
         ...(controlInterfaces === undefined ? {} : { controlInterfaces }),
         ...(controlOutputs === undefined ? {} : { controlOutputs }),
@@ -76,6 +88,127 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
         directives: parseStringArray(root.directives, 'directives'),
         warnings: parseWarnings(root.diagnostics),
         rawAttributes: parseStringRecord(root.rawAttributes, 'rawAttributes'),
+    };
+}
+
+function parseControlGroups(value: YamlValue | undefined): readonly ControlGroup[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return optionalArray(value, 'controlGroups').map((item, index) => {
+        const path = `controlGroups[${index}]`;
+        const group = expectObject(item, path);
+        const contextIds = parseOptionalStringArray(group.contextIds, `${path}.contextIds`);
+        const description = parseOptionalString(group.description, `${path}.description`);
+        return {
+            id: expectString(group.id, `${path}.id`),
+            name: expectString(group.name, `${path}.name`),
+            role: expectString(group.role, `${path}.role`),
+            ...(contextIds === undefined ? {} : { contextIds }),
+            ...(description === undefined ? {} : { description }),
+        };
+    });
+}
+
+function parseControlContexts(value: YamlValue | undefined): readonly ControlContext[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return optionalArray(value, 'controlContexts').map((item, index) => {
+        const path = `controlContexts[${index}]`;
+        const context = expectObject(item, path);
+        const description = parseOptionalString(context.description, `${path}.description`);
+        return {
+            id: expectString(context.id, `${path}.id`),
+            name: expectString(context.name, `${path}.name`),
+            role: expectString(context.role, `${path}.role`),
+            ...(description === undefined ? {} : { description }),
+        };
+    });
+}
+
+function parseDeviceInterface(value: YamlValue | undefined): DeviceInterface | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const deviceInterface = expectObject(value, 'deviceInterface');
+    return {
+        controls: optionalArray(deviceInterface.controls, 'deviceInterface.controls').map((item, index) => {
+            const path = `deviceInterface.controls[${index}]`;
+            const control = expectObject(item, path);
+            const groupId = parseOptionalString(control.groupId, `${path}.groupId`);
+            const order = parseOptionalNumber(control.order, `${path}.order`);
+            const binding = parseOptionalDeviceInterfaceBinding(control.binding, `${path}.binding`);
+            const appliesWhen = parseOptionalApplicabilityPredicate(control.appliesWhen, `${path}.appliesWhen`);
+            const description = parseOptionalString(control.description, `${path}.description`);
+            return {
+                id: expectString(control.id, `${path}.id`),
+                label: expectString(control.label, `${path}.label`),
+                kind: parseDeviceInterfaceControlKind(control.kind, `${path}.kind`),
+                role: expectString(control.role, `${path}.role`),
+                ...(groupId === undefined ? {} : { groupId }),
+                ...(order === undefined ? {} : { order }),
+                ...(binding === undefined ? {} : { binding }),
+                ...(appliesWhen === undefined ? {} : { appliesWhen }),
+                ...(description === undefined ? {} : { description }),
+            };
+        }),
+    };
+}
+
+function parseDeviceInterfaceControlKind(
+    value: YamlValue | undefined,
+    path: string,
+): DeviceInterfaceControlKind {
+    const kind = expectString(value, path);
+    switch (kind) {
+        case 'knob':
+        case 'slider':
+        case 'switch':
+        case 'selector':
+        case 'footswitch':
+        case 'led':
+        case 'jack':
+            return kind;
+        default:
+            throw new Error(`${path}: expected knob, slider, switch, selector, footswitch, led, or jack`);
+    }
+}
+
+function parseOptionalDeviceInterfaceBinding(
+    value: YamlValue | undefined,
+    path: string,
+): DeviceInterfaceBinding | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const binding = expectObject(value, path);
+    const controlId = parseOptionalString(binding.controlId, `${path}.controlId`);
+    const controlName = parseOptionalString(binding.controlName, `${path}.controlName`);
+    const property = parseOptionalString(binding.property, `${path}.property`);
+    const externalInterfaceId = parseOptionalString(binding.externalInterfaceId, `${path}.externalInterfaceId`);
+    return {
+        componentId: expectString(binding.componentId, `${path}.componentId`),
+        ...(controlId === undefined ? {} : { controlId }),
+        ...(controlName === undefined ? {} : { controlName }),
+        ...(property === undefined ? {} : { property }),
+        ...(externalInterfaceId === undefined ? {} : { externalInterfaceId }),
+    };
+}
+
+function parseOptionalApplicabilityPredicate(
+    value: YamlValue | undefined,
+    path: string,
+): ControlApplicabilityPredicate | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const predicate = expectObject(value, path);
+    const allOf = parseOptionalStringArray(predicate.allOf, `${path}.allOf`);
+    const anyOf = parseOptionalStringArray(predicate.anyOf, `${path}.anyOf`);
+    return {
+        ...(allOf === undefined ? {} : { allOf }),
+        ...(anyOf === undefined ? {} : { anyOf }),
     };
 }
 
@@ -609,6 +742,7 @@ function parsePanelElements(
         const elementPath = `${path}[${index}]`;
         const element = expectObject(item, elementPath);
         const label = parseOptionalString(element.label, `${elementPath}.label`);
+        const interfaceControlId = parseOptionalString(element.interfaceControlId, `${elementPath}.interfaceControlId`);
         return {
             bind: parsePanelElementBinding(element, elementPath),
             kind: parsePanelControlKind(
@@ -619,6 +753,7 @@ function parsePanelElements(
             ),
             grid: parsePanelGridPosition(element.grid, `${elementPath}.grid`, layout),
             ...(label === undefined ? {} : { label }),
+            ...(interfaceControlId === undefined ? {} : { interfaceControlId }),
         };
     });
 }
@@ -988,6 +1123,13 @@ function parseOptionalString(value: YamlValue | undefined, path: string): string
         return undefined;
     }
     return expectString(value, path);
+}
+
+function parseOptionalStringArray(value: YamlValue | undefined, path: string): readonly string[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return expectArray(value, path).map((item, index) => expectString(item, `${path}[${index}]`));
 }
 
 function parseOptionalBoolean(value: YamlValue | undefined, path: string): boolean | undefined {
