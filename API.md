@@ -4,6 +4,14 @@ The workspace exposes separate packages for headless circuit/device tooling and 
 
 ## Import Surfaces
 
+| Import | Package | Notes |
+| --- | --- | --- |
+| `@vessel-dsp/core` | Public | React-free parsing, validation, model, editor, panel, preview-layout, and export APIs. |
+| `@vessel-dsp/react-component` | Public | React components plus core helper re-exports for app code. |
+| `@vessel-dsp/react-component/ui` | Public | UI-focused React subpath. |
+| `@vessel-dsp/simulation` | Workspace-private | Simulation readiness and compile APIs. Not published in the current release. |
+| `@vessel-dsp/simulation/runtime` | Workspace-private | Runtime engine and WASM adapter contracts. |
+
 ```ts
 // React apps: UI plus core helpers.
 import { SchematicView, parseCircuitDocument } from '@vessel-dsp/react-component';
@@ -19,6 +27,8 @@ import { analyzeSimulationReadiness, compileSimulationProgram } from '@vessel-ds
 ```
 
 The `@vessel-dsp/core` package is React-free. Use it when you only need parsing, validation, conversion, layout metadata, or editor state.
+
+The old `@vessel-dsp/react-pedal-schematic` package is replaced, not wrapped. Use `@vessel-dsp/core` for former `/core` imports and `@vessel-dsp/react-component` for React imports.
 
 ## Version Constants
 
@@ -825,6 +835,18 @@ Related UI exports:
 | `SimulationStatus` | React readiness/runtime status component. |
 | `SimulationStatusProps` | Props for `SimulationStatus`. |
 
+### `SimulationStatusProps`
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `ready` | `boolean` | Readiness result from host state or `analyzeSimulationReadiness()`. |
+| `diagnostics` | `readonly SimulationStatusDiagnostic[]` | Diagnostics to render. |
+| `componentSupport` | `ReadonlyMap<string, SimulationStatusSupportLevel>` | Optional component-id to support-level map. |
+| `runtimeState` | `'ready' | 'missing-runtime' | 'running' | 'failed'` | Host runtime state. Defaults to `'ready'`. |
+| `runtimeError` | `string` | Optional failed-runtime message. |
+| `className` | `string` | Host CSS class. |
+| `maxDiagnostics` | `number` | Maximum rendered diagnostic rows. Defaults to `6`. |
+
 Styling hooks:
 
 | CSS variable | Purpose |
@@ -872,6 +894,27 @@ const readiness = analyzeSimulationReadiness(document);
     runtimeState={readiness.ready ? 'missing-runtime' : 'ready'}
 />;
 ```
+
+Main simulation exports:
+
+| Export | Purpose |
+| --- | --- |
+| `SIMULATION_VERSION` | Simulation package version string. |
+| `analyzeSimulationReadiness(document)` | Returns `ready`, diagnostics, and component support levels. |
+| `compileSimulationProgram(document)` | Returns deterministic `SimulationProgram` plus diagnostics. |
+| `supportLevelForComponent(component)` | Returns the configured support level for a component-like value. |
+| `isRuntimeDescriptor(component)` | Detects imported audio-engine runtime descriptors. |
+
+Runtime subpath exports:
+
+```ts
+import {
+    configureRuntimeProgram,
+    createWasmRuntimeAdapter,
+} from '@vessel-dsp/simulation/runtime';
+```
+
+`configureRuntimeProgram()` maps a `SimulationProgram` onto a host-provided engine interface in stable block order. `createWasmRuntimeAdapter()` validates required WASM exports and returns diagnostics for missing exports instead of throwing.
 
 ## Common Workflows
 

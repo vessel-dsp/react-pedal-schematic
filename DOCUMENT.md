@@ -7,8 +7,33 @@ The workspace currently has three public import surfaces:
 - `@vessel-dsp/react-component/ui`: React UI subpath.
 
 The `@vessel-dsp/core` package does not depend on React. Use it in workers, server-side import pipelines, tests, or build tools.
+The workspace-private `@vessel-dsp/simulation` package is available in this repo for readiness checks, compile tests, and runtime adapter development, but it is not published as a public package in the current release.
 
 For the full public API surface, see [API.md](./API.md).
+
+## Install And Import
+
+Install the public packages together for React apps:
+
+```bash
+npm install @vessel-dsp/core @vessel-dsp/react-component
+```
+
+Headless tools can install only the core package:
+
+```bash
+npm install @vessel-dsp/core
+```
+
+The old `@vessel-dsp/react-pedal-schematic` package is replaced, not wrapped for compatibility.
+
+```ts
+// Headless code
+import { parseCircuitDocumentFile } from '@vessel-dsp/core';
+
+// React code
+import { SchematicView } from '@vessel-dsp/react-component';
+```
 
 ## Parse A Source File
 
@@ -372,6 +397,8 @@ const readiness = analyzeSimulationReadiness(document);
 const result = compileSimulationProgram(document);
 ```
 
+`readiness.ready` is `false` when the document has blocking diagnostics such as missing ground, unsupported components, missing values/models, unsupported directives, or floating nodes. `result.program` is deterministic even when diagnostics are present; unsupported components are omitted from runnable blocks and reported explicitly.
+
 React surfaces can render the result without owning the audio runtime:
 
 ```tsx
@@ -386,6 +413,17 @@ import { SimulationStatus } from '@vessel-dsp/react-component/ui';
 ```
 
 The playground Simulation tab shows the same readiness diagnostics, compiled block counts, and missing-runtime state. A host application supplies the actual runtime adapter.
+
+Runtime hosts should consume `@vessel-dsp/simulation/runtime` and provide their own engine or WASM exports:
+
+```ts
+import {
+    configureRuntimeProgram,
+    createWasmRuntimeAdapter,
+} from '@vessel-dsp/simulation/runtime';
+```
+
+The runtime adapter boundary is intentionally separate from `SchematicView`; rendering a schematic must not create an audio device or assume a solver is available.
 
 ## Styling Notes
 

@@ -13,6 +13,14 @@ audio-circuit schematics such as amp stages, tone filters, and utility circuits.
 
 ![@vessel-dsp/react-component playground showing the symbol library, schematic canvas, and inspector](./docs/images/playground-schematic-editor.png)
 
+## Packages
+
+| Package | Status | Use it for |
+| --- | --- | --- |
+| `@vessel-dsp/core` | Public npm package | React-free parsing, validation, editing commands, `.vdsp`, netlist, preview-layout helpers, panel/device metadata, and export adapters. |
+| `@vessel-dsp/react-component` | Public npm package | React schematic/editor components, plus core helper re-exports for app integrations. |
+| `@vessel-dsp/simulation` | Workspace-private package | Simulation readiness, deterministic simulation IR compilation, and runtime/WASM adapter contracts. |
+
 ## Install
 
 ```bash
@@ -54,6 +62,22 @@ import { analyzeSimulationReadiness } from '@vessel-dsp/simulation';
 
 const readiness = analyzeSimulationReadiness(document);
 ```
+
+## Migration From 0.4.x
+
+Replace imports from the old package with the new package split:
+
+```ts
+// Before
+import { parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
+import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
+
+// After
+import { parseCircuitDocument } from '@vessel-dsp/core';
+import { SchematicView } from '@vessel-dsp/react-component';
+```
+
+There is no compatibility package for `@vessel-dsp/react-pedal-schematic`.
 
 ## Supported Inputs
 
