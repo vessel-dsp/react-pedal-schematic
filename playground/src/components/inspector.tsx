@@ -1,4 +1,8 @@
 import { useState, type ChangeEvent } from 'react';
+import {
+    isParsedQuantity,
+    propertyStringValue,
+} from '@vessel-dsp/react-pedal-schematic';
 import type {
     Component,
     DocumentCommand,
@@ -162,7 +166,7 @@ function PropertyField(props: {
     disabled: boolean;
 }): React.ReactElement {
     const { componentId, propertyName, value, dispatch, disabled } = props;
-    const display = typeof value === 'string' ? value : value.raw;
+    const display = propertyStringValue(value) ?? JSON.stringify(value);
     const [draft, setDraft] = useState<string>(display);
 
     if (draft !== display && document.activeElement?.getAttribute('data-prop') !== propertyName) {
@@ -176,7 +180,7 @@ function PropertyField(props: {
         dispatch({ type: 'set-property', componentId, propertyName, value: draft });
     }
 
-    const subtitle = typeof value === 'string' ? 'text' : `${value.value}${value.unit ? ' ' + value.unit : ''}`;
+    const subtitle = isParsedQuantity(value) ? `${value.value}${value.unit ? ' ' + value.unit : ''}` : 'text';
 
     return (
         <div className="space-y-1.5">

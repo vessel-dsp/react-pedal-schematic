@@ -1,5 +1,6 @@
 import { parseQuantity } from '../model/quantity';
 import type { CircuitDocument, Component, ComponentKind, Point, PropertyValue } from '../model/types';
+import { isParsedQuantity } from '../model/properties';
 import { buildComponent } from './factory';
 import { tidyDocumentLayout } from './layout';
 
@@ -310,7 +311,7 @@ function removeProperty(doc: CircuitDocument, componentId: string, propertyName:
 
 function nextValue(component: Component, propertyName: string, rawValue: string): PropertyValue {
     const existing = component.properties[propertyName];
-    const existingWasQuantity = existing !== undefined && typeof existing !== 'string';
+    const existingWasQuantity = isParsedQuantity(existing);
     if (existingWasQuantity) {
         const parsed = parseQuantity(rawValue);
         if (parsed !== null) {
@@ -332,8 +333,12 @@ function propertyEquals(a: PropertyValue | undefined, b: PropertyValue): boolean
     if (typeof a === 'string' && typeof b === 'string') {
         return a === b;
     }
-    if (typeof a !== 'string' && typeof b !== 'string') {
+    if (isParsedQuantity(a) && isParsedQuantity(b)) {
         return a.raw === b.raw && a.value === b.value && a.unit === b.unit;
+    }
+    if ((typeof a === 'number' || typeof a === 'boolean' || a === null) &&
+        (typeof b === 'number' || typeof b === 'boolean' || b === null)) {
+        return Object.is(a, b);
     }
     return false;
 }

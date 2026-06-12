@@ -72,9 +72,16 @@ Important model exports:
 | `ControlOutputSwitchMode` | `'momentary' | 'latching'`. |
 
 `Component.properties` is an open metadata map. Parsers, editors, and `.vdsp`
-round-trips preserve scalar or parsed-quantity properties even when the key is
-not part of a kind's validation rules. Validation rules describe the minimum
-properties required for a usable component, not an exhaustive whitelist.
+round-trips preserve scalar, parsed-quantity, and structured object/list
+properties even when the key is not part of a kind's validation rules.
+Validation rules describe the minimum properties required for a usable
+component, not an exhaustive whitelist.
+
+For `circuit-interchange/v2` runtime descriptors, reusable microblock data is
+preserved as explicit properties: delay `mechanism`, reverb/octave `algorithm`,
+compressor `topology`, tone-stack `sections`, and active-EQ `descriptor` plus
+`bands`. Hosts should treat those fields as the canonical v2 descriptor data
+instead of recovering behavior from old `Profile` strings.
 
 ### Panel Placement Metadata
 
@@ -279,7 +286,7 @@ Types:
 
 ## `.vdsp` Source API
 
-`.vdsp` is strict `circuit-interchange/v1` YAML around `CircuitDocument`.
+`.vdsp` is strict `circuit-interchange/v2` YAML around `CircuitDocument`.
 
 | Export | Signature | Notes |
 | --- | --- | --- |

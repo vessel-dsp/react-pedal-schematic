@@ -1,4 +1,4 @@
-schema: circuit-interchange/v1
+schema: circuit-interchange/v2
 metadata:
   name: "LPB-1-style BJT Boost"
   description: "Compact single-transistor boost preset for browser WASM validation."

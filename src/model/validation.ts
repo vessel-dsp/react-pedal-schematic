@@ -1,4 +1,4 @@
-import { parseQuantity } from './quantity';
+import { propertyQuantityValue, propertyStringValue } from './properties';
 import { extractPanel } from '../panel/extract';
 import type {
     CircuitDocument,
@@ -420,11 +420,7 @@ function findProperty(component: Component, rule: PropertyRule): PropertyValue |
 }
 
 function propertyString(component: Component, name: string): string | null {
-    const value = component.properties[name];
-    if (value === undefined) {
-        return null;
-    }
-    return typeof value === 'string' ? value : value.raw;
+    return propertyStringValue(component.properties[name]);
 }
 
 function propertyStringAny(component: Component, names: readonly string[]): string | null {
@@ -438,10 +434,7 @@ function propertyStringAny(component: Component, names: readonly string[]): stri
 }
 
 function coerceQuantity(value: PropertyValue): ParsedQuantity | null {
-    if (typeof value === 'string') {
-        return parseQuantity(value);
-    }
-    return value;
+    return propertyQuantityValue(value);
 }
 
 function isRawQuantityExpression(value: string): boolean {

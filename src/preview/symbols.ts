@@ -1,3 +1,4 @@
+import { propertyStringValue } from '../model/properties';
 import type { ComponentKind, PropertyValue } from '../model/types';
 import { SYMBOL_CONTENT, type SymbolContent } from './symbols/svg-content';
 
@@ -164,14 +165,7 @@ function shortName(fullType: string | null): string | null {
 }
 
 function propertyText(properties: SymbolProperties, name: string): string | null {
-    const value = properties[name];
-    if (value === undefined) {
-        return null;
-    }
-    if (typeof value === 'string') {
-        return value;
-    }
-    return value.raw;
+    return propertyStringValue(properties[name]);
 }
 
 export const COMPONENT_KINDS: readonly ComponentKind[] = [

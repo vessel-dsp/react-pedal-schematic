@@ -1,4 +1,5 @@
 import { getPinNode, resolveConnectivity, type Connectivity } from '../../model/connectivity';
+import { isParsedQuantity, isPropertyObject } from '../../model/properties';
 import type {
     CircuitDocument,
     CircuitDocumentDevice,
@@ -38,7 +39,7 @@ export function serializeInterchangeYaml(
 ): string {
     const connectivity = resolveConnectivity(doc);
     const root: MutableYamlObject = {
-        schema: 'circuit-interchange/v1',
+        schema: 'circuit-interchange/v2',
         metadata: {
             name: doc.metadata.name,
             description: doc.metadata.description,
@@ -309,8 +310,17 @@ function propertiesBlock(properties: Readonly<Record<string, PropertyValue>>): M
 }
 
 function propertyValueBlock(value: PropertyValue): YamlValue {
-    if (typeof value === 'string') {
+    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         return value;
+    }
+    if (Array.isArray(value)) {
+        return value.map(propertyValueBlock);
+    }
+    if (isPropertyObject(value)) {
+        return propertiesBlock(value);
+    }
+    if (!isParsedQuantity(value)) {
+        return null;
     }
     return {
         raw: value.raw,

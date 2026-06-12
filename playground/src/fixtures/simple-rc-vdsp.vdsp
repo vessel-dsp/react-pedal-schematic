@@ -1,4 +1,4 @@
-schema: circuit-interchange/v1
+schema: circuit-interchange/v2
 metadata:
   name: RC Low-Pass Filter
   description: Hand-written minimal RC circuit in .vdsp format.

@@ -20,7 +20,7 @@ describe('serializeInterchangeYaml', () => {
             sourceFormat: 'schx',
         });
 
-        expect(yaml).toContain('schema: circuit-interchange/v1');
+        expect(yaml).toContain('schema: circuit-interchange/v2');
         expect(yaml).toContain('format: schx');
         expect(yaml).toContain('filename: test-filter.schx');
         expect(yaml).toContain('components:');
@@ -172,5 +172,54 @@ describe('serializeInterchangeYaml', () => {
         expect(yaml).toContain('kind: jack');
         expect(yaml).not.toContain('controls:');
         expect(yaml).not.toContain('controlKind:');
+    });
+
+    test('serializes structured runtime descriptor properties as nested Source data', () => {
+        const doc: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            metadata: {
+                name: 'Explicit delay descriptor',
+                description: 'Profile-free reusable runtime descriptor.',
+                partNumber: '',
+            },
+            components: [{
+                id: 'U1',
+                kind: 'ic',
+                name: 'U1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [
+                    { name: 'input', position: { x: 0, y: -20 } },
+                    { name: 'output', position: { x: 0, y: 20 } },
+                ],
+                properties: {
+                    RuntimeDescriptor: 'true',
+                    DescriptorType: 'microblock-delay-chip',
+                    mechanism: {
+                        memoryType: 'bbd',
+                        stageCount: 3207,
+                        artifactSeed: 17,
+                        clockNoiseRms: 0.001,
+                        supplySensitive: true,
+                        dryBlendPolicy: 'dry-unity',
+                    },
+                    minDelayMs: 12.5,
+                    maxDelayMs: 800,
+                },
+                sourceTypeName: 'Circuit.MicroBlockDelayChip',
+            }],
+        };
+
+        const yaml = serializeInterchangeYaml(doc);
+
+        expect(yaml).toContain('DescriptorType: microblock-delay-chip');
+        expect(yaml).toContain('mechanism:');
+        expect(yaml).toContain('memoryType: bbd');
+        expect(yaml).toContain('stageCount: 3207');
+        expect(yaml).toContain('supplySensitive: true');
+        expect(yaml).toContain('dryBlendPolicy: dry-unity');
+        expect(yaml).toContain('minDelayMs: 12.5');
+        expect(yaml).not.toContain('Profile:');
     });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Break `.vdsp` / interchange compatibility to strict `circuit-interchange/v2`; v1 documents are rejected without migration or fallback parsing.
+- Add recursive structured component property values so Source YAML can preserve runtime descriptor objects, arrays, numbers, booleans, nulls, and parsed quantities.
+- Extract explicit LiveSPICE microblock descriptor metadata for tone stack, active EQ, delay, reverb, compressor, and octave descriptors without depending on legacy `Profile` strings.
+
 ## 0.3.2
 
 - Add `JackPort.audioRole` and `JackAudioRole` for source-visible audio jack subtypes such as `guitar-input`, `bass-input`, `output-a-mono`, and `stereo-output-b`.

@@ -1,3 +1,4 @@
+import { propertyStringValue } from '../model/properties';
 import type { CircuitDocument, Point, PropertyValue } from '../model/types';
 import { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from './label-layout';
 
@@ -80,11 +81,5 @@ export function viewBoxString(bounds: Bounds): string {
 }
 
 function stringValue(value: PropertyValue | undefined): string | null {
-    if (value === undefined) {
-        return null;
-    }
-    if (typeof value === 'string') {
-        return value;
-    }
-    return value.raw;
+    return propertyStringValue(value);
 }

@@ -1,5 +1,6 @@
 import { getPinNode, resolveConnectivity, type Connectivity, type NodeId } from './connectivity';
 import { parseQuantity } from './quantity';
+import { propertyQuantityValue, propertyStringValue } from './properties';
 import type { CircuitDocument, Component, ComponentKind, ParsedQuantity } from './types';
 
 export type SpiceLetter = 'R' | 'C' | 'L' | 'D' | 'Q' | 'J' | 'M' | 'V' | 'I';
@@ -296,7 +297,7 @@ function extractValue(component: Component): { value: ParsedQuantity | null; pre
         if (typeof raw === 'string') {
             return { value: parseQuantity(raw), present: raw.trim().length > 0 };
         }
-        return { value: raw, present: true };
+        return { value: propertyQuantityValue(raw), present: true };
     }
     return { value: null, present: false };
 }
@@ -345,7 +346,10 @@ function extractExtras(
         if (consumed.has(key)) {
             continue;
         }
-        extras[key] = typeof value === 'string' ? value : value.raw;
+        const text = propertyStringValue(value);
+        if (text !== null) {
+            extras[key] = text;
+        }
     }
     return extras;
 }

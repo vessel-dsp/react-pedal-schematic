@@ -1,4 +1,4 @@
-export const VERSION = '0.3.2';
+export const VERSION = '0.4.0';
 
 export type {
     CircuitDocument,
@@ -29,6 +29,7 @@ export type {
     PanelRowOrder,
     ParsedQuantity,
     Point,
+    PropertyObject,
     PropertyValue,
     Rotation,
     Terminal,
@@ -36,6 +37,15 @@ export type {
     Wire,
 } from './model/types';
 export { EMPTY_DOCUMENT } from './model/types';
+export {
+    isParsedQuantity,
+    isPropertyObject,
+    propertyBooleanValue,
+    propertyNumericValue,
+    propertyQuantityValue,
+    propertyStringValue,
+    propertyValueForSourceAttribute,
+} from './model/properties';
 
 export { parseQuantity } from './model/quantity';
 

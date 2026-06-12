@@ -1,4 +1,4 @@
-schema: circuit-interchange/v1
+schema: circuit-interchange/v2
 metadata:
   name: Voltage Divider
   description: Simple resistive voltage divider in .vdsp interchange format.

@@ -49,7 +49,7 @@ Conversion goes through the normalized `CircuitDocument` model:
   -> .vdsp / .schx / .cir
 ```
 
-`.vdsp` is the project-native Source format. It is strict `circuit-interchange/v1` YAML around a `CircuitDocument`, intended for inspection, copy/paste, light edits, LLM review, and downstream handoff. The schema id remains `circuit-interchange/v1`; `.vdsp` is the product file extension.
+`.vdsp` is the project-native Source format. It is strict `circuit-interchange/v2` YAML around a `CircuitDocument`, intended for inspection, copy/paste, light edits, LLM review, and downstream handoff. The schema id remains `circuit-interchange/v2`; `.vdsp` is the product file extension.
 
 Parsed `.vdsp` documents expose scalar source provenance on `document.source`.
 Fields such as `format`, `filename`, `version`, `url`, and host-specific
@@ -211,16 +211,24 @@ CLI checks that should report schema errors without throwing.
 ### Component Property Metadata
 
 Component `properties` are an open metadata map. The strict `.vdsp` parser
-accepts scalar values and parsed quantity objects for any property key, and the
-serializer emits every property on the component. Validation rules define the
-minimum required fields for each component kind rather than a closed property
-catalog.
+accepts scalar values, parsed quantity objects, and structured object/list
+properties for any property key, and the serializer emits every property on the
+component. Validation rules define the minimum required fields for each
+component kind rather than a closed property catalog.
 
 Passive material metadata follows that rule. `Material: carbon-film` on a
 resistor round-trips as metadata and does not change validation or preview
 behavior. `Material: electrolytic` on a capacitor also round-trips as metadata;
 the preview layer currently uses that value to choose the electrolytic capacitor
 glyph.
+
+In `circuit-interchange/v2`, imported runtime descriptor ICs can carry
+profile-free structured properties. Delay descriptors use `mechanism`, reverb
+and octave descriptors use `algorithm`, compressors use `topology`, tone stacks
+use `sections`, and active EQ descriptors use `descriptor` plus `bands`. Source
+files may still preserve a raw source `Profile` attribute when it exists, but
+v2 `.vdsp` documents should not depend on old profile names as the canonical
+microblock identity.
 
 ```ts
 import {
@@ -261,7 +269,7 @@ Current support:
 
 | Format | Import | Export | Notes |
 | --- | --- | --- | --- |
-| `.vdsp` / `.yaml` | `parseCircuitDocumentFile()` | `serializeVdspCircuitDocument()` | Strict `circuit-interchange/v1` YAML for Source view and handoff. |
+| `.vdsp` / `.yaml` | `parseCircuitDocumentFile()` | `serializeVdspCircuitDocument()` | Strict `circuit-interchange/v2` YAML for Source view and handoff. |
 | `.schx` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | `serializeSchx()` | Best current graphical round-trip target. |
 | `.asc` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | Not yet supported | LTspice import preserves supported semantic layout, but exact ASC round-trip is not implemented. |
 | `.cir` / `.net` | `parseCircuitDocument()` or `parseCircuitDocumentFile()` | `serializeSpiceNetlist()` | Connectivity-first; graphical layout is not preserved in netlists. |

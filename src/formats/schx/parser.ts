@@ -13,6 +13,7 @@ import type {
 } from '../../model/types';
 import { splitWiresAtJunctions } from '../../model/wires';
 import { isSchxRuntimeDescriptor, lookupSchxDef, shortenSchxType, type SchxComponentDef } from './catalog';
+import { runtimeDescriptorProperties } from './runtime-descriptors';
 import { mapTerminal, normalizeRotation } from './transforms';
 
 const ELEMENT_REGEX = /<Element\b([^>]*?)\/>|<Element\b([^>]*?)>([\s\S]*?)<\/Element>/g;
@@ -136,7 +137,7 @@ function parseSymbolElement(
 
     const propertyEntries = Object.entries(componentAttrs).filter(([k]) => k !== '_Type');
     const properties = runtimeDescriptor
-        ? withRuntimeDescriptorProperties(buildProperties(propertyEntries, def))
+        ? withRuntimeDescriptorProperties(buildProperties(propertyEntries, def), shortType)
         : buildProperties(propertyEntries, def);
 
     const terminals = (def?.terminals ?? []).map((terminal) => ({
@@ -197,10 +198,12 @@ function buildProperties(
 
 function withRuntimeDescriptorProperties(
     properties: Readonly<Record<string, PropertyValue>>,
+    shortType: string,
 ): Readonly<Record<string, PropertyValue>> {
     return {
         ...properties,
         RuntimeDescriptor: 'true',
+        ...runtimeDescriptorProperties(shortType, properties),
     };
 }
 

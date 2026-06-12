@@ -1,3 +1,4 @@
+import { isParsedQuantity } from '../../model/properties';
 import type {
     CircuitDocument,
     CircuitDocumentDevice,
@@ -48,7 +49,7 @@ type ParsedPair = Readonly<{
     rest: string;
 }>;
 
-const INTERCHANGE_SCHEMA = 'circuit-interchange/v1';
+const INTERCHANGE_SCHEMA = 'circuit-interchange/v2';
 
 export function parseInterchangeYaml(source: string): CircuitDocument {
     const value = parseYamlSubset(source);
@@ -775,17 +776,24 @@ function parsePropertyValue(value: YamlValue, path: string): PropertyValue {
             unit: expectString(value.unit, `${path}.unit`),
         };
     }
+    if (Array.isArray(value)) {
+        return value.map((item, index) => parsePropertyValue(item, `${path}[${index}]`));
+    }
+    if (isYamlObject(value)) {
+        const out: Record<string, PropertyValue> = {};
+        for (const [key, child] of Object.entries(value)) {
+            out[key] = parsePropertyValue(child, `${path}.${key}`);
+        }
+        return out;
+    }
     if (isScalar(value)) {
-        return scalarText(value);
+        return value;
     }
     throw new Error(`${path}: expected scalar property value or parsed quantity`);
 }
 
 function isParsedQuantityValue(value: YamlValue): value is ParsedQuantity {
-    if (!isYamlObject(value)) {
-        return false;
-    }
-    return 'raw' in value && 'value' in value && 'unit' in value;
+    return isParsedQuantity(value);
 }
 
 function parseWires(value: YamlValue | undefined): readonly Wire[] {

@@ -1,3 +1,4 @@
+import { isParsedQuantity, propertyNumericValue, propertyStringValue } from '../model/properties';
 import type { CircuitDocument, Component, ControlInterface, ParsedQuantity, PropertyValue } from '../model/types';
 import type {
     ExternalControlAssignmentHint,
@@ -539,11 +540,7 @@ function shortType(sourceTypeName: string | null): string | null {
 }
 
 function propertyString(component: Component, name: string): string | null {
-    const value = component.properties[name];
-    if (value === undefined) {
-        return null;
-    }
-    return typeof value === 'string' ? value : value.raw;
+    return propertyStringValue(component.properties[name]);
 }
 
 function nonEmptyString(value: string | null): string | undefined {
@@ -563,21 +560,11 @@ function propertyStringAny(component: Component, names: readonly string[]): stri
 
 function quantityProperty(component: Component, name: string): ParsedQuantity | undefined {
     const value = component.properties[name];
-    if (value === undefined || typeof value === 'string') {
-        return undefined;
-    }
-    return value;
+    return isParsedQuantity(value) ? value : undefined;
 }
 
 function parseNumeric(value: PropertyValue | undefined): number | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (typeof value === 'string') {
-        const n = Number.parseFloat(value);
-        return Number.isFinite(n) ? n : undefined;
-    }
-    return Number.isFinite(value.value) ? value.value : undefined;
+    return propertyNumericValue(value);
 }
 
 function parseNumericAny(component: Component, names: readonly string[]): number | undefined {

@@ -50,7 +50,18 @@ export type Terminal = Readonly<{
     position: Point;
 }>;
 
-export type PropertyValue = ParsedQuantity | string;
+export type PropertyObject = Readonly<{
+    readonly [key: string]: PropertyValue;
+}>;
+
+export type PropertyValue =
+    | ParsedQuantity
+    | string
+    | number
+    | boolean
+    | null
+    | readonly PropertyValue[]
+    | PropertyObject;
 
 export type Component = Readonly<{
     id: string;

@@ -62,7 +62,7 @@ describe('interchange YAML fixture coverage', () => {
                     sourceFormat: fixture.format,
                 });
 
-                collectYamlFailure(failures, yaml, fixture.filename, 'schema: circuit-interchange/v1', 'schema');
+                collectYamlFailure(failures, yaml, fixture.filename, 'schema: circuit-interchange/v2', 'schema');
                 collectYamlFailure(failures, yaml, fixture.filename, `format: ${fixture.format}`, 'source format');
                 collectYamlFailure(failures, yaml, fixture.filename, fixture.filename, 'filename');
                 collectYamlFailure(failures, yaml, fixture.filename, 'components:', 'components block');

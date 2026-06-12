@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdir, readFile } from 'node:fs/promises';
 import { parseLtspiceAsc } from '../../../src/formats/ltspice/parser';
+import { isParsedQuantity } from '../../../src/model/properties';
 
 // Source: https://github.com/cushychicken/ltspice-guitar-pedals (real LTspice
 // pedal schematics, Windows-1252 encoded). These fixtures are why the parser
@@ -64,7 +65,7 @@ describe('LTspice guitar-pedal fixtures (cushychicken corpus)', () => {
         const c4 = doc.components.find((c) => c.id === 'C4');
         expect(c4?.kind).toBe('capacitor');
         const value = c4?.properties.C;
-        expect(typeof value === 'object' && value !== null ? value.value : null).toBeCloseTo(1e-4);
+        expect(isParsedQuantity(value) ? value.value : null).toBeCloseTo(1e-4);
     });
 
     test('Opamps/<Model> symbols become opamp kind with model captured from path', async () => {

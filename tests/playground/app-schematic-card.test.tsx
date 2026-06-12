@@ -269,7 +269,7 @@ describe('playground Schematic tab', () => {
         expect(markup).toContain('data-source-format-select="true"');
         expect(markup).toContain('data-source-format-value=".vdsp"');
         expect(markup).toContain('data-source-output-view="true"');
-        expect(markup).toContain('schema: circuit-interchange/v1');
+        expect(markup).toContain('schema: circuit-interchange/v2');
         expect(markup).toContain('filename: empty.vdsp');
         expect(markup).not.toContain('data-source-vdsp-apply="true"');
         expect(markup).not.toContain('Export');
@@ -318,7 +318,7 @@ describe('playground Schematic tab', () => {
             title: 'Simple RC filter (.vdsp)',
             description: 'Hand-written minimal RC circuit in .vdsp format.',
             filename: 'simple-rc-vdsp.vdsp',
-            source: `schema: circuit-interchange/v1
+            source: `schema: circuit-interchange/v2
 metadata:
   name: RC Low-Pass Filter
   description: ''
@@ -356,7 +356,7 @@ rawAttributes: {}`,
         expect(document.metadata.name).toBe('RC Low-Pass Filter');
         expect(markup).toContain('data-source-output-view="true"');
         expect(markup).toContain('data-source-format-value=".vdsp"');
-        expect(markup).toContain('schema: circuit-interchange/v1');
+        expect(markup).toContain('schema: circuit-interchange/v2');
         expect(markup).toContain('filename: simple-rc-vdsp.vdsp');
         expect(markup).not.toContain('Raw .vdsp');
     });
@@ -372,7 +372,7 @@ rawAttributes: {}`,
         const spice = sourceTextForFormat('spice', undefined, document);
 
         expect(schx).toContain('<Schematic');
-        expect(vdsp).toContain('schema: circuit-interchange/v1');
+        expect(vdsp).toContain('schema: circuit-interchange/v2');
         expect(vdsp).toContain('filename: copyable-source.vdsp');
         expect(spice).toContain('.TITLE Copyable Source');
         expect(spice).toContain('.END');

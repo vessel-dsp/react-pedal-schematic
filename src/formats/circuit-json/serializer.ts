@@ -1,5 +1,5 @@
 import { getPinNode, resolveConnectivity, type Connectivity, type NodeId } from '../../model/connectivity';
-import { parseQuantity } from '../../model/quantity';
+import { propertyQuantityValue, propertyStringValue } from '../../model/properties';
 import type { CircuitDocument, Component, ComponentKind, ParsedQuantity, PropertyValue } from '../../model/types';
 
 export type CircuitJsonExportTarget = 'tscircuit';
@@ -527,13 +527,7 @@ function quantity(component: Component, key: QuantityKey): QuantityLookup | null
 }
 
 function propertyQuantity(value: PropertyValue | undefined): ParsedQuantity | null {
-    if (value === undefined) {
-        return null;
-    }
-    if (typeof value === 'string') {
-        return parseQuantity(value);
-    }
-    return value;
+    return propertyQuantityValue(value);
 }
 
 function missingQuantityComponent(
@@ -553,8 +547,9 @@ function missingQuantityComponent(
 function firstStringProperty(component: Component, names: readonly string[]): string | null {
     for (const name of names) {
         const value = component.properties[name];
-        if (typeof value === 'string' && value.trim().length > 0) {
-            return value;
+        const text = propertyStringValue(value);
+        if (text !== null && text.trim().length > 0) {
+            return text;
         }
     }
     return null;
@@ -583,7 +578,10 @@ function inferMosfetMode(component: Component): 'enhancement' | 'depletion' {
 function searchablePropertyText(component: Component): string {
     const values: string[] = [component.name, component.sourceTypeName ?? ''];
     for (const value of Object.values(component.properties)) {
-        values.push(typeof value === 'string' ? value : value.raw);
+        const text = propertyStringValue(value);
+        if (text !== null) {
+            values.push(text);
+        }
     }
     return values.join(' ').toLowerCase();
 }

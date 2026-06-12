@@ -1,3 +1,4 @@
+import { propertyValueForSourceAttribute } from '../../model/properties';
 import type { CircuitDocument, Component, Point, PropertyValue, Wire } from '../../model/types';
 import {
     defaultDefForKind,
@@ -53,9 +54,16 @@ function elementAttributes(component: Component): Record<string, string> {
 function componentAttributes(component: Component): Record<string, string> {
     const type = component.sourceTypeName ?? guessSourceType(component);
     const attrs: Record<string, string> = { _Type: type };
+    const skipDerivedDescriptorKeys = component.properties.RuntimeDescriptor === 'true';
 
     for (const [key, value] of Object.entries(component.properties)) {
-        attrs[key] = stringifyPropertyValue(value);
+        if (skipDerivedDescriptorKeys && DERIVED_RUNTIME_DESCRIPTOR_KEYS.has(key)) {
+            continue;
+        }
+        const serialized = stringifyPropertyValue(value);
+        if (serialized !== null) {
+            attrs[key] = serialized;
+        }
     }
 
     if (component.kind === 'led' && attrs.Type === undefined) {
@@ -87,12 +95,98 @@ function guessSourceType(component: Component): string {
     return fullSchxType(shortName);
 }
 
-function stringifyPropertyValue(value: PropertyValue): string {
-    if (typeof value === 'string') {
-        return value;
-    }
-    return value.raw;
+function stringifyPropertyValue(value: PropertyValue): string | null {
+    return propertyValueForSourceAttribute(value);
 }
+
+const DERIVED_RUNTIME_DESCRIPTOR_KEYS: ReadonlySet<string> = new Set([
+    'DescriptorType',
+    'mechanism',
+    'algorithm',
+    'topology',
+    'descriptor',
+    'bands',
+    'sections',
+    'controlLaw',
+    'overallGainDb',
+    'maxSections',
+    'toneControlName',
+    'minToneWipe',
+    'maxToneWipe',
+    'defaultToneWipe',
+    'defaultBassWipe',
+    'defaultMiddleWipe',
+    'defaultTrebleWipe',
+    'inputGain',
+    'outputGain',
+    'minDelayMs',
+    'maxDelayMs',
+    'defaultDelayMs',
+    'feedback',
+    'minFeedback',
+    'maxFeedback',
+    'mix',
+    'minMix',
+    'maxMix',
+    'level',
+    'minOutputLevel',
+    'maxOutputLevel',
+    'tone',
+    'modRateHz',
+    'minModRateHz',
+    'maxModRateHz',
+    'modDepthMs',
+    'minModDepthMs',
+    'maxModDepthMs',
+    'inputDrive',
+    'minInputDrive',
+    'maxInputDrive',
+    'headroom',
+    'stereoOutputMode',
+    'wetOnly',
+    'dryUnity',
+    'hold',
+    'samplerRecordPlay',
+    'preDelayMs',
+    'decay',
+    'damping',
+    'size',
+    'detectorMode',
+    'sensitivity',
+    'minSensitivity',
+    'maxSensitivity',
+    'attackMs',
+    'minAttackMs',
+    'maxAttackMs',
+    'releaseMs',
+    'minReleaseMs',
+    'maxReleaseMs',
+    'ratio',
+    'thresholdDb',
+    'kneeDb',
+    'dividerMode',
+    'dividerStages',
+    'trackerCutoffHz',
+    'schmittHysteresis',
+    'gateThreshold',
+    'gateRelease',
+    'square1CutoffHz',
+    'square2CutoffHz',
+    'chopperPreCutoffHz',
+    'chopperPostCutoffHz',
+    'chopperControlCutoffHz',
+    'directLevel',
+    'oct1Level',
+    'oct2Level',
+    'toneHz',
+    'minToneHz',
+    'maxToneHz',
+    'carrierModRateHz',
+    'minCarrierModRateHz',
+    'maxCarrierModRateHz',
+    'carrierModAmount',
+    'carrierModShape',
+]);
 
 function pointToString(p: Point): string {
     return `${p.x},${p.y}`;

@@ -23,6 +23,7 @@ import { orthogonalPath, pointsToSvg } from '../preview/routing';
 import { findSnap } from '../preview/snap';
 import { symbolFor } from '../preview/symbols';
 import type { CircuitDocument, Component, Point, PropertyValue, Wire } from '../model/types';
+import { propertyStringValue } from '../model/properties';
 import { extractPanel } from '../panel/extract';
 import { nearestKnobStep } from '../panel/knobs';
 import type { ControlState, ControlValue, KnobStep, SliderControl } from '../panel/types';
@@ -1624,11 +1625,5 @@ function HaloText(props: {
 }
 
 function stringValue(value: PropertyValue | undefined): string | null {
-    if (value === undefined) {
-        return null;
-    }
-    if (typeof value === 'string') {
-        return value;
-    }
-    return value.raw;
+    return propertyStringValue(value);
 }

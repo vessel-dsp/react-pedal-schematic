@@ -102,6 +102,27 @@ describe('serializeSchx', () => {
         expect(xml).not.toContain('MicroBlockOverdriveStage');
     });
 
+    test('preserves lowercase metadata on non-runtime components', () => {
+        const component: Component = {
+            id: 'U1',
+            kind: 'ic',
+            name: 'U1',
+            origin: { x: 20, y: 40 },
+            rotation: 0,
+            flipped: false,
+            terminals: [],
+            properties: {
+                PartNumber: 'opaque block',
+                level: 'inspection-only',
+            },
+            sourceTypeName: null,
+        };
+
+        const xml = serializeSchx({ ...EMPTY_DOCUMENT, components: [component] });
+
+        expect(xml).toContain('level="inspection-only"');
+    });
+
     test('output is reparseable into an equivalent document', () => {
         const original: CircuitDocument = {
             metadata: { name: 'Roundtrip', description: '', partNumber: '' },

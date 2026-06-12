@@ -29,7 +29,7 @@ import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-
 
 ## Supported Inputs
 
-- Project-native `.vdsp` Source documents (`circuit-interchange/v1` YAML)
+- Project-native `.vdsp` Source documents (`circuit-interchange/v2` YAML)
 - LiveSPICE `.schx`
 - LTspice `.asc`
 - SPICE-style `.cir` / `.net`

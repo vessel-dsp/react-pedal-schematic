@@ -72,7 +72,7 @@ describe('vdsp file format', () => {
     });
 
     test('parseCircuitDocumentFile parses .vdsp via interchange YAML', async () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Test Circuit
   description: ""
@@ -92,7 +92,7 @@ rawAttributes: {}`;
     });
 
     test('parseVdspCircuitDocument parses .vdsp source directly', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Direct VDSP
   description: ""
@@ -114,7 +114,7 @@ rawAttributes: {}`;
     });
 
     test('validateVdspCircuitDocumentSchema returns a parsed document for valid .vdsp', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Valid Schema
   description: ""
@@ -137,8 +137,34 @@ rawAttributes: {}`;
         expect(result.errors).toEqual([]);
     });
 
-    test('validateVdspCircuitDocumentSchema reports schema errors without throwing', () => {
+    test('validateVdspCircuitDocumentSchema rejects v1 without migration', () => {
         const yaml = `schema: circuit-interchange/v1
+metadata:
+  name: Old Schema
+  description: ""
+  partNumber: ""
+source: {}
+components: []
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const result = validateVdspCircuitDocumentSchema(yaml);
+
+        expect(result.valid).toBe(false);
+        if (result.valid) {
+            throw new Error('expected v1 .vdsp to be rejected');
+        }
+        expect(result.errors).toEqual([{
+            code: 'vdsp-schema-invalid',
+            message: 'unsupported interchange schema: circuit-interchange/v1',
+        }]);
+    });
+
+    test('validateVdspCircuitDocumentSchema reports schema errors without throwing', () => {
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad Panel
   description: ""
@@ -177,7 +203,7 @@ rawAttributes: {}`;
     });
 
     test('validateVdspCircuitDocumentSchema reports control accessory schema errors without throwing', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad Accessory
   description: ""
@@ -214,7 +240,7 @@ rawAttributes: {}`;
     });
 
     test('parseCircuitDocumentFile parses .yaml via interchange YAML', async () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Test Circuit
   description: ""

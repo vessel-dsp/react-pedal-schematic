@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parseLtspiceAsc } from '../../../src/formats/ltspice/parser';
+import { isParsedQuantity } from '../../../src/model/properties';
 import { getPinNode, resolveConnectivity } from '../../../src/model/connectivity';
 import { toNetlistView } from '../../../src/model/netlist';
 import type { CircuitDocument } from '../../../src/model/types';
@@ -54,7 +55,7 @@ describe('parseLtspiceAsc', () => {
         expect(r1.properties.Value).toBe('10k');
         expect(c1.kind).toBe('capacitor');
         const cValue = c1.properties.C;
-        if (cValue === undefined || typeof cValue === 'string') {
+        if (!isParsedQuantity(cValue)) {
             throw new Error('C1 should expose a parsed capacitance property');
         }
         expect(cValue.value).toBeCloseTo(47e-9);
@@ -207,6 +208,6 @@ SYMATTR Value AC 1
         expect(c.kind).toBe('capacitor');
         // The C property should parse as 100 µF = 1e-4 F.
         const cValue = c.properties.C;
-        expect(typeof cValue === 'object' && cValue !== null ? cValue.value : null).toBeCloseTo(1e-4);
+        expect(isParsedQuantity(cValue) ? cValue.value : null).toBeCloseTo(1e-4);
     });
 });

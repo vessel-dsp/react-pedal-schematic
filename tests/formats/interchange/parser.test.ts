@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
     EMPTY_DOCUMENT,
+    isParsedQuantity,
     parseCircuitDocument,
     parseInterchangeYaml,
     serializeInterchangeYaml,
@@ -149,7 +150,7 @@ describe('parseInterchangeYaml', () => {
     });
 
     test('parses panel faces with multi-control runtime descriptor bindings', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: DD-3 panel
   description: ""
@@ -226,7 +227,7 @@ rawAttributes: {}`;
     });
 
     test('normalizes legacy single-grid controls to one top face', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Legacy panel
   description: ""
@@ -361,7 +362,7 @@ rawAttributes: {}`;
     });
 
     test('rejects unsupported standalone control accessory schema values', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad accessory
   description: ""
@@ -387,7 +388,7 @@ rawAttributes: {}`;
     });
 
     test('rejects unsupported standalone control accessory output switch modes', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad accessory output
   description: ""
@@ -413,7 +414,7 @@ rawAttributes: {}`;
     });
 
     test('rejects unsupported panel grid indexing annotations', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad panel
   description: ""
@@ -437,7 +438,7 @@ rawAttributes: {}`;
     });
 
     test('rejects malformed panel faces with missing binding component ids', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad panel binding
   description: ""
@@ -468,7 +469,7 @@ rawAttributes: {}`;
     });
 
     test('rejects out-of-bounds grid coordinates per panel face', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Bad face coordinate
   description: ""
@@ -500,7 +501,7 @@ rawAttributes: {}`;
     });
 
     test('validates panel grid coordinates against the declared indexing mode', () => {
-        const oneBasedWithZero = `schema: circuit-interchange/v1
+        const oneBasedWithZero = `schema: circuit-interchange/v2
 metadata:
   name: Bad panel coordinate
   description: ""
@@ -615,15 +616,216 @@ rawAttributes: {}`;
         expect(delay?.properties.StereoOutputMode).toBe('WetDry');
         expect(reverb?.properties.StereoOutputMode).toBe('Spread');
         expect(delay?.properties.Level).toBe('1.0');
-        if (feedback === undefined || typeof feedback === 'string') {
+        if (!isParsedQuantity(feedback)) {
             throw new Error('Feedback should parse as a quantity');
         }
         expect(feedback.raw).toBe('1e-12');
         expect(parsed.warnings.filter((warning) => warning.code === 'runtime-descriptor-imported')).toHaveLength(2);
     });
 
+    test('round-trips v2 explicit microblock descriptor properties without a Profile property', () => {
+        const yaml = `schema: circuit-interchange/v2
+metadata:
+  name: Explicit microblocks
+  description: Reusable descriptors, not profile aliases.
+  partNumber: ""
+source: {}
+components:
+  - id: TS1
+    kind: ic
+    name: TS1
+    sourceTypeName: Circuit.MicroBlockToneStack
+    origin:
+      x: 0
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-tone-stack
+      overallGainDb: -3
+      maxSections: 2
+      sections:
+        - gain: 1
+          zeroHz: 720
+          poleHz: 1600
+        - gain: 0.8
+          zeroHz: 2500
+          poleHz: 8000
+  - id: EQ1
+    kind: ic
+    name: EQ1
+    sourceTypeName: Circuit.MicroBlockActiveEq
+    origin:
+      x: 100
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-active-eq
+      descriptor:
+        preEmphasisGainDb: 3
+        saturationMode: asymmetric-input
+        saturationPositiveScale: 0.8
+        saturationNegativeScale: 0.6
+      bands:
+        - type: low-shelf
+          frequencyHz: 120
+          minFrequencyHz: 80
+          maxFrequencyHz: 240
+          gainDb: 4
+          minGainDb: -15
+          maxGainDb: 15
+          q: 0.7
+  - id: DLY1
+    kind: ic
+    name: DLY1
+    sourceTypeName: Circuit.MicroBlockDelayChip
+    origin:
+      x: 200
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-delay-chip
+      mechanism:
+        memoryType: bbd
+        stageCount: 3207
+        artifactSeed: 17
+        clockNoiseRms: 0.001
+        clockFeedthroughHz: 12000
+        clockJitterDepthMs: 0.02
+        companderResidualAmount: 0.1
+        baseBandwidthHz: 6200
+        darkBandwidthHz: 1800
+        feedbackLimit: 0.92
+        quantizationBits: 12
+        memoryCompressionMode: none
+        supplySensitive: true
+        minDelayFloorMs: 4
+        dryBlendPolicy: dry-unity
+      minDelayMs: 12.5
+      maxDelayMs: 800
+  - id: RVB1
+    kind: ic
+    name: RVB1
+    sourceTypeName: Circuit.MicroBlockReverb
+    origin:
+      x: 300
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-reverb
+      algorithm:
+        profileAllPassMode: plate
+        tankBaseMs:
+          - 29
+          - 37
+          - 41
+          - 43
+        profileAllPassBaseMs:
+          - 4
+          - 8
+        profileAllPassSizeMs:
+          - 2
+          - 4
+        brightBandwidthHz: 8500
+        darkBandwidthHz: 2400
+        feedbackTrim: 0.82
+        springFlutterBaseSamples: 0
+        springFlutterSizeSamples: 0
+        dampingMinimum: 0.1
+        dampingScale: 0.7
+  - id: CMP1
+    kind: ic
+    name: CMP1
+    sourceTypeName: Circuit.MicroBlockCompressor
+    origin:
+      x: 400
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-compressor
+      topology:
+        topology: ota
+        otaProfileScale: 0.98
+        makeupGainScale: 2.8
+      detectorMode: rms
+      ratio: 4
+      thresholdDb: -24
+  - id: OCT1
+    kind: ic
+    name: OCT1
+    sourceTypeName: Circuit.MicroBlockOctave
+    origin:
+      x: 500
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals: []
+    properties:
+      RuntimeDescriptor: "true"
+      DescriptorType: microblock-octave
+      algorithm: octave-down-flipflop
+      dividerMode: 4013-toggle
+      dividerStages: 2
+      trackerCutoffHz: 800
+nodes: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        const parsed = parseInterchangeYaml(yaml);
+        const serialized = serializeInterchangeYaml(parsed);
+        const reparsed = parseInterchangeYaml(serialized);
+
+        expect(parsed.components[0]?.properties.sections).toEqual([
+            { gain: 1, zeroHz: 720, poleHz: 1600 },
+            { gain: 0.8, zeroHz: 2500, poleHz: 8000 },
+        ]);
+        expect(parsed.components[1]?.properties.descriptor).toEqual({
+            preEmphasisGainDb: 3,
+            saturationMode: 'asymmetric-input',
+            saturationPositiveScale: 0.8,
+            saturationNegativeScale: 0.6,
+        });
+        expect(parsed.components[2]?.properties.mechanism).toMatchObject({
+            memoryType: 'bbd',
+            stageCount: 3207,
+            supplySensitive: true,
+            dryBlendPolicy: 'dry-unity',
+        });
+        expect(parsed.components[3]?.properties.algorithm).toMatchObject({
+            profileAllPassMode: 'plate',
+            tankBaseMs: [29, 37, 41, 43],
+        });
+        expect(parsed.components[4]?.properties.topology).toEqual({
+            topology: 'ota',
+            otaProfileScale: 0.98,
+            makeupGainScale: 2.8,
+        });
+        expect(parsed.components[5]?.properties.algorithm).toBe('octave-down-flipflop');
+        expect(serialized).toContain('schema: circuit-interchange/v2');
+        expect(serialized).not.toContain('Profile:');
+        expect(reparsed.components.map((component) => component.properties)).toEqual(
+            parsed.components.map((component) => component.properties),
+        );
+    });
+
     test('preserves source provenance fields through parse and serialize', () => {
-        const yaml = `schema: circuit-interchange/v1
+        const yaml = `schema: circuit-interchange/v2
 metadata:
   name: Boss DM-3
   description: Source-visible analog delay graph.
@@ -656,6 +858,12 @@ rawAttributes: {}`;
     test('rejects YAML without the supported interchange schema', () => {
         expect(() => parseInterchangeYaml('schema: something-else\ncomponents: []\n')).toThrow(
             'unsupported interchange schema',
+        );
+    });
+
+    test('rejects v1 interchange YAML as an unsupported schema', () => {
+        expect(() => parseInterchangeYaml('schema: circuit-interchange/v1\ncomponents: []\n')).toThrow(
+            'unsupported interchange schema: circuit-interchange/v1',
         );
     });
 });
