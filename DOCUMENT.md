@@ -1,12 +1,12 @@
 # Integration Notes
 
-`@vessel-dsp/react-pedal-schematic` has three public import surfaces:
+The workspace currently has three public import surfaces:
 
-- `@vessel-dsp/react-pedal-schematic`: React UI surface plus the core helpers most React apps need.
-- `@vessel-dsp/react-pedal-schematic/core`: headless parsing, validation, editing, netlist, and export helpers.
-- `@vessel-dsp/react-pedal-schematic/ui`: React UI compatibility subpath.
+- `@vessel-dsp/react-component`: React UI surface plus the core helpers most React apps need.
+- `@vessel-dsp/core`: headless parsing, validation, editing, netlist, and export helpers.
+- `@vessel-dsp/react-component/ui`: React UI subpath.
 
-The headless `/core` entrypoint does not depend on React. Use it in workers, server-side import pipelines, tests, or build tools.
+The `@vessel-dsp/core` package does not depend on React. Use it in workers, server-side import pipelines, tests, or build tools.
 
 For the full public API surface, see [API.md](./API.md).
 
@@ -17,7 +17,7 @@ import {
     parseCircuitDocument,
     validateDocument,
     toNetlistView,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 const document = parseCircuitDocument(sourceText, {
     filename: 'example.asc',
@@ -32,7 +32,7 @@ Pass a `filename` when possible. The dispatcher uses the extension to choose `.s
 Use `parseCircuitDocumentFile()` when the input may also be a project-native `.vdsp` or `.yaml` document:
 
 ```ts
-import { parseCircuitDocumentFile } from '@vessel-dsp/react-pedal-schematic/core';
+import { parseCircuitDocumentFile } from '@vessel-dsp/core';
 
 const document = parseCircuitDocumentFile(sourceText, {
     filename: 'example.vdsp',
@@ -276,7 +276,7 @@ microblock identity.
 import {
     parseVdspCircuitDocument,
     validateVdspCircuitDocumentSchema,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 const validation = validateVdspCircuitDocumentSchema(sourceText);
 if (!validation.valid) {
@@ -294,7 +294,7 @@ import {
     serializeSchx,
     serializeSpiceNetlist,
     serializeVdspCircuitDocument,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 const document = parseCircuitDocumentFile(inputText, {
     filename: 'pedal.schx',
@@ -321,7 +321,7 @@ Conversion is semantic, not byte-for-byte source regeneration. Unsupported compo
 ## Render A Schematic
 
 ```tsx
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-component';
 
 export function Preview({ document }) {
     return (
@@ -344,7 +344,7 @@ Use the `wireFlow` prop:
 <SchematicView document={document} wireFlow="all" />
 ```
 
-`wireFlow="all"` dims the base wire stroke to light gray and draws an animated semi-opaque light-blue dash overlay on top of every rendered wire. It is intentionally visual only: connectivity is known, but current direction is not simulated.
+`wireFlow="all"` dims the base wire stroke to light gray and draws an animated semi-opaque light-blue dash overlay on top of every rendered wire. It is intentionally visual only: connectivity is known, but current direction is not inferred from this overlay.
 
 A full React toggle example is available at [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).
 
@@ -357,6 +357,35 @@ The playground schematic toolbar includes a `Signal flow` button. It toggles the
 ```
 
 Keep this off by default in product integrations unless the user explicitly asks to trace connections.
+
+## Check Simulation Readiness
+
+The workspace-private `@vessel-dsp/simulation` package evaluates a `CircuitDocument` against explicit support levels and diagnostics:
+
+```ts
+import {
+    analyzeSimulationReadiness,
+    compileSimulationProgram,
+} from '@vessel-dsp/simulation';
+
+const readiness = analyzeSimulationReadiness(document);
+const result = compileSimulationProgram(document);
+```
+
+React surfaces can render the result without owning the audio runtime:
+
+```tsx
+import { SimulationStatus } from '@vessel-dsp/react-component/ui';
+
+<SimulationStatus
+    ready={readiness.ready}
+    diagnostics={readiness.diagnostics}
+    componentSupport={readiness.componentSupport}
+    runtimeState={readiness.ready ? 'missing-runtime' : 'ready'}
+/>;
+```
+
+The playground Simulation tab shows the same readiness diagnostics, compiled block counts, and missing-runtime state. A host application supplies the actual runtime adapter.
 
 ## Styling Notes
 
@@ -383,4 +412,4 @@ For interactive editor integrations, pass the callback props:
 />
 ```
 
-Use editor commands from `@vessel-dsp/react-pedal-schematic/core` to keep document changes explicit and undoable in non-React contexts.
+Use editor commands from `@vessel-dsp/core` to keep document changes explicit and undoable in non-React contexts.

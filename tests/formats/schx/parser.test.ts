@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { isParsedQuantity } from '../../../src';
-import { parseSchx } from '../../../src/formats/schx/parser';
-import { getPinNode, resolveConnectivity } from '../../../src/model/connectivity';
+import { isParsedQuantity } from '../../../packages/core/src';
+import { parseSchx } from '../../../packages/core/src/formats/schx/parser';
+import { getPinNode, resolveConnectivity } from '../../../packages/core/src/model/connectivity';
 
 const ASSEMBLY = 'Circuit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null';
 const SYMBOL_T = `Circuit.Symbol, ${ASSEMBLY}`;

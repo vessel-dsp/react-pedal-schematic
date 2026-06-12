@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { EMPTY_DOCUMENT, parseCircuitDocument, serializeInterchangeYaml, type CircuitDocument } from '../../../src';
+import { EMPTY_DOCUMENT, parseCircuitDocument, serializeInterchangeYaml, type CircuitDocument } from '../../../packages/core/src';
 
 const source = `<?xml version="1.0" encoding="utf-8"?>
 <Schematic Name="Test filter">

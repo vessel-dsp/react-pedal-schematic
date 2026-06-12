@@ -7,8 +7,8 @@ import {
     isSlider,
     isSwitch,
     validateMessage,
-} from '../../src/panel';
-import type { Panel } from '../../src/panel';
+} from '../../packages/core/src/panel';
+import type { Panel } from '../../packages/core/src/panel';
 
 const SAMPLE_PANEL: Panel = {
     knobs: [

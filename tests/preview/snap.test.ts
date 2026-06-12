@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { findSnap } from '../../src/preview/snap';
-import type { Component, Wire } from '../../src/model/types';
+import { findSnap } from '../../packages/core/src/preview/snap';
+import type { Component, Wire } from '../../packages/core/src/model/types';
 
 function makeComponent(id: string, originX: number, originY: number, terminals: ReadonlyArray<[name: string, x: number, y: number]>): Component {
     return {

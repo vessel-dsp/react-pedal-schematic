@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { extractDeviceInterface, extractPanel } from '../../src/panel';
-import { parseSchx } from '../../src/formats/schx/parser';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type PropertyValue } from '../../src/model/types';
+import { extractDeviceInterface, extractPanel } from '../../packages/core/src/panel';
+import { parseSchx } from '../../packages/core/src/formats/schx/parser';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type PropertyValue } from '../../packages/core/src/model/types';
 
 async function loadFixture(name: string): Promise<string> {
     return Bun.file(new URL(`../fixtures/schx/${name}.schx`, import.meta.url)).text();

@@ -1,30 +1,58 @@
-# @vessel-dsp/react-pedal-schematic
+# Vessel DSP Circuit Workspace
 
-[![npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-pedal-schematic.svg)](https://www.npmjs.com/package/@vessel-dsp/react-pedal-schematic)
+[![core npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Fcore.svg)](https://www.npmjs.com/package/@vessel-dsp/core)
+[![react npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-component.svg)](https://www.npmjs.com/package/@vessel-dsp/react-component)
 
-React circuit-schematic tooling for guitar pedals and nearby audio electronics. The library renders a stylable SVG schematic preview, and also includes format-aware parsing, validation, inspection, light editing, and export helpers.
+Headless circuit/device tooling, simulation-readiness checks, and React editing
+components for guitar pedals and nearby audio electronics.
 
-The project is pedal-first, but the model and fixtures also cover nearby audio-circuit schematics such as amp stages, tone filters, and utility circuits.
+`@vessel-dsp/react-pedal-schematic` is replaced by `@vessel-dsp/react-component` and `@vessel-dsp/core`.
 
-![@vessel-dsp/react-pedal-schematic playground showing the symbol library, schematic canvas, and inspector](./docs/images/playground-schematic-editor.png)
+The project is pedal-first, but the model and fixtures also cover nearby
+audio-circuit schematics such as amp stages, tone filters, and utility circuits.
+
+![@vessel-dsp/react-component playground showing the symbol library, schematic canvas, and inspector](./docs/images/playground-schematic-editor.png)
 
 ## Install
 
 ```bash
-npm install @vessel-dsp/react-pedal-schematic
+npm install @vessel-dsp/core @vessel-dsp/react-component
 ```
 
-React apps can import the UI component and document helpers from the package root:
+Headless consumers use `@vessel-dsp/core`:
 
 ```ts
-import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
+import { parseCircuitDocument, validateDocument } from '@vessel-dsp/core';
+
+const document = parseCircuitDocument(sourceText, {
+    filename: 'pedal.asc',
+});
+
+const issues = validateDocument(document);
 ```
 
-Headless consumers can avoid the React entrypoint:
+React apps use `@vessel-dsp/react-component`:
+
+```tsx
+import { parseCircuitDocument } from '@vessel-dsp/react-component';
+import { SchematicView } from '@vessel-dsp/react-component/ui';
+
+const document = parseCircuitDocument(sourceText, {
+    filename: 'pedal.schx',
+});
+
+export function CircuitPreview() {
+    return <SchematicView document={document} />;
+}
+```
+
+Simulation readiness is currently exposed from the workspace-private
+`@vessel-dsp/simulation` package and surfaced in the playground:
 
 ```ts
-import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic/core';
+import { analyzeSimulationReadiness } from '@vessel-dsp/simulation';
+
+const readiness = analyzeSimulationReadiness(document);
 ```
 
 ## Supported Inputs
@@ -34,20 +62,11 @@ import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-
 - LTspice `.asc`
 - SPICE-style `.cir` / `.net`
 
-Use the source-format dispatcher for `.schx`, `.asc`, `.cir`, and `.net` consumer integrations:
+Use `parseCircuitDocumentFile()` when accepting project-native `.vdsp` Source
+files as well as source schematics.
 
 ```ts
-import { parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
-
-const document = parseCircuitDocument(sourceText, {
-    filename: 'pedal.asc',
-});
-```
-
-Use `parseCircuitDocumentFile()` when accepting project-native `.vdsp` Source files as well as source schematics:
-
-```ts
-import { parseCircuitDocumentFile, serializeVdspCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
+import { parseCircuitDocumentFile, serializeVdspCircuitDocument } from '@vessel-dsp/core';
 
 const document = parseCircuitDocumentFile(sourceText, {
     filename: 'pedal.vdsp',
@@ -56,36 +75,6 @@ const document = parseCircuitDocumentFile(sourceText, {
 const vdspSource = serializeVdspCircuitDocument(document);
 ```
 
-The full public API is documented in [API.md](./API.md). Format conversion is documented in [DOCUMENT.md](./DOCUMENT.md#format-conversion). It is semantic through `CircuitDocument`, not byte-for-byte source regeneration.
-Use `parseVdspCircuitDocument()` for strict `.vdsp` parsing and `validateVdspCircuitDocumentSchema()` when you need non-throwing file-schema validation. `.vdsp` also supports optional stompbox panel grid metadata, semantic `deviceInterface` controls with groups/contexts, and `controlInterfaces` metadata for external trigger/reset, tempo-tap, and expression-style inputs; see the examples in [DOCUMENT.md](./DOCUMENT.md#format-conversion).
-
-## React Preview
-
-```tsx
-import { useState } from 'react';
-import { SchematicView, type WireFlowMode } from '@vessel-dsp/react-pedal-schematic';
-import type { CircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
-
-export function CircuitPreview(props: { document: CircuitDocument }) {
-    const [wireFlow, setWireFlow] = useState<WireFlowMode>('none');
-
-    return (
-        <>
-            <button
-                type="button"
-                aria-pressed={wireFlow === 'all'}
-                onClick={() => setWireFlow((mode) => mode === 'all' ? 'none' : 'all')}
-            >
-                Signal flow
-            </button>
-            <SchematicView document={props.document} wireFlow={wireFlow} />
-        </>
-    );
-}
-```
-
-`wireFlow="all"` is a visual overlay only. It dims the base wires to light gray and animates light-blue dashes along wires so users can trace connectivity; it does not claim simulated current direction. Override the colors with `--cpe-wire-flow-base` and `--cpe-wire-flow` on the `SchematicView` host element.
-
 ## Development
 
 ```bash
@@ -93,7 +82,7 @@ bun install
 bun test
 bun run typecheck
 bun run build
-npm pack --dry-run
+bun run pack:dry-run
 bun run build:playground
 bun run dev
 ```
@@ -102,4 +91,5 @@ bun run dev
 
 MIT License. See [LICENSE.md](./LICENSE.md).
 
-More integration notes and a full example live in [DOCUMENT.md](./DOCUMENT.md) and [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).
+More integration notes and a full example live in [DOCUMENT.md](./DOCUMENT.md)
+and [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).

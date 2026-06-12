@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { buildRenderableWires } from '../../src/preview/renderable-wires';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Point, type Wire } from '../../src/model/types';
+import { buildRenderableWires } from '../../packages/core/src/preview/renderable-wires';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Point, type Wire } from '../../packages/core/src/model/types';
 
 function makeWire(id: string, a: Point, b: Point): Wire {
     return { id, endpoints: [a, b] };

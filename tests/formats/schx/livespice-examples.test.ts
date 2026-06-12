@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdir } from 'node:fs/promises';
-import { parseSchx } from '../../../src/formats/schx/parser';
-import { serializeSchx } from '../../../src/formats/schx/serializer';
+import { parseSchx } from '../../../packages/core/src/formats/schx/parser';
+import { serializeSchx } from '../../../packages/core/src/formats/schx/serializer';
 
 const EXAMPLES_DIR = new URL('../../fixtures/schx/livespice-examples/', import.meta.url);
 

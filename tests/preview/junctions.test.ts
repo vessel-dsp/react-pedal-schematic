@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { findJunctions } from '../../src/preview/junctions';
-import type { Point, Wire } from '../../src/model/types';
+import { findJunctions } from '../../packages/core/src/preview/junctions';
+import type { Point, Wire } from '../../packages/core/src/model/types';
 
 function makeWire(id: string, a: Point, b: Point): Wire {
     return { id, endpoints: [a, b] };

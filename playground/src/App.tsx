@@ -20,8 +20,14 @@ import {
     type Point,
     type ValidationIssue,
     type Warning,
-} from '@vessel-dsp/react-pedal-schematic';
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
+} from '@vessel-dsp/react-component';
+import { SchematicView, SimulationStatus } from '@vessel-dsp/react-component/ui';
+import {
+    analyzeSimulationReadiness,
+    compileSimulationProgram,
+    type SimulationCompileResult,
+    type SimulationReadiness,
+} from '@vessel-dsp/simulation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,11 +63,11 @@ const sourceOutputFormats: ReadonlyArray<Readonly<{ value: SourceOutputFormat; l
 ];
 
 const editorReducer: EditorReducer = (state, command) => applyEditorCommand(state, command);
-const reactDependencyExample = `npm install @vessel-dsp/react-pedal-schematic`;
-const githubRepositoryUrl = 'https://github.com/vessel-dsp/react-pedal-schematic';
+const reactDependencyExample = `npm install @vessel-dsp/react-component`;
+const githubRepositoryUrl = 'https://github.com/vessel-dsp/react-component';
 
-const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic';
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
+const reactIntegrationExample = `import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-component';
+import { SchematicView } from '@vessel-dsp/react-component/ui';
 
 export function CircuitPreview(props: { source: string; filename: string }) {
   const document = parseCircuitDocument(props.source, { filename: props.filename });
@@ -113,6 +119,8 @@ export function FixtureSession(props: {
     const document = editorState.document;
     const view: NetlistView = useMemo(() => toNetlistView(document), [document]);
     const issues: readonly ValidationIssue[] = useMemo(() => validateDocument(document), [document]);
+    const simulationReadiness = useMemo(() => analyzeSimulationReadiness(document), [document]);
+    const simulationCompileResult = useMemo(() => compileSimulationProgram(document), [document]);
     const selectedComponent = editorState.selectedId
         ? document.components.find((c) => c.id === editorState.selectedId) ?? null
         : null;
@@ -127,6 +135,8 @@ export function FixtureSession(props: {
             document={document}
             view={view}
             issues={issues}
+            simulationReadiness={simulationReadiness}
+            simulationCompileResult={simulationCompileResult}
             selectedComponent={selectedComponent}
         />
     );
@@ -149,6 +159,8 @@ type PlaygroundShellProps = Readonly<{
     document: EditorState['document'];
     view: NetlistView;
     issues: readonly ValidationIssue[];
+    simulationReadiness?: SimulationReadiness | undefined;
+    simulationCompileResult?: SimulationCompileResult | undefined;
     selectedComponent: SelectedComponent;
 }>;
 
@@ -169,7 +181,21 @@ export function useSchematicWorkspace(): SchematicWorkspaceContextValue {
 }
 
 export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement {
-    const { fixture, onFixtureChange, fixtureId, editorState, dispatch, document, view, issues, selectedComponent } = props;
+    const {
+        fixture,
+        onFixtureChange,
+        fixtureId,
+        editorState,
+        dispatch,
+        document,
+        view,
+        issues,
+        selectedComponent,
+    } = props;
+    const fallbackSimulationReadiness = useMemo(() => analyzeSimulationReadiness(document), [document]);
+    const fallbackSimulationCompileResult = useMemo(() => compileSimulationProgram(document), [document]);
+    const simulationReadiness = props.simulationReadiness ?? fallbackSimulationReadiness;
+    const simulationCompileResult = props.simulationCompileResult ?? fallbackSimulationCompileResult;
     const diagnostics = useMemo(
         () => buildDisplayDiagnostics(document.warnings, issues, view.warnings),
         [document.warnings, issues, view.warnings],
@@ -179,7 +205,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
             <header className="border-b border-border">
                 <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                        <h1 className="break-words text-lg font-semibold tracking-tight">@vessel-dsp/react-pedal-schematic</h1>
+                        <h1 className="break-words text-lg font-semibold tracking-tight">@vessel-dsp/react-component</h1>
                         <p className="text-sm text-muted-foreground">
                             Web circuit editor library for audio electronics — playground &amp; docs.
                         </p>
@@ -190,7 +216,7 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                                 href={githubRepositoryUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                aria-label="Star @vessel-dsp/react-pedal-schematic on GitHub"
+                                aria-label="Star @vessel-dsp/react-component on GitHub"
                             >
                                 <Star aria-hidden="true" />
                                 Star
@@ -246,6 +272,9 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
                         <TabsTrigger value="netlist">
                             Netlist <Badge variant="secondary" className="ml-2">{view.components.length}</Badge>
                         </TabsTrigger>
+                        <TabsTrigger value="simulation">
+                            Simulation <IssueBadge count={simulationReadiness.diagnostics.length} />
+                        </TabsTrigger>
                         <TabsTrigger value="warnings">
                             Warnings <IssueBadge count={diagnostics.count} />
                         </TabsTrigger>
@@ -269,6 +298,13 @@ export function PlaygroundShell(props: PlaygroundShellProps): React.ReactElement
 
                     <TabsContent value="source" className="m-0" forceMount>
                         <SourcePanel fixture={fixture} document={document} />
+                    </TabsContent>
+
+                    <TabsContent value="simulation" className="m-0" forceMount>
+                        <SimulationPanel
+                            readiness={simulationReadiness}
+                            compileResult={simulationCompileResult}
+                        />
                     </TabsContent>
 
                     <TabsContent value="warnings" className="m-0" forceMount>
@@ -299,7 +335,7 @@ function IntegrationDocs(): React.ReactElement {
                     <div>
                         <h3 className="text-sm font-medium">Current dependency</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Use <span className="font-mono">@vessel-dsp/react-pedal-schematic</span> from npm for
+                            Use <span className="font-mono">@vessel-dsp/react-component</span> from npm for
                             application integrations.
                         </p>
                     </div>
@@ -322,6 +358,49 @@ function IntegrationDocs(): React.ReactElement {
                 </section>
             </CardContent>
         </Card>
+    );
+}
+
+function SimulationPanel(props: {
+    readiness: SimulationReadiness;
+    compileResult: SimulationCompileResult;
+}): React.ReactElement {
+    const { readiness, compileResult } = props;
+    const runtimeDescriptorCount = compileResult.program.blocks.filter((block) => block.kind === 'runtime-descriptor').length;
+    const staticBlockCount = compileResult.program.blocks.length - runtimeDescriptorCount;
+
+    return (
+        <section data-simulation-panel="true" className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 className="text-base font-semibold">Simulation</h2>
+                </div>
+                <Badge variant="outline" className="font-mono">@vessel-dsp/simulation</Badge>
+            </div>
+
+            <SimulationStatus
+                ready={readiness.ready}
+                diagnostics={readiness.diagnostics}
+                componentSupport={readiness.componentSupport}
+                runtimeState={readiness.ready ? 'missing-runtime' : 'ready'}
+            />
+
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SimulationMetric label="Compiled blocks" value={compileResult.program.blocks.length} />
+                <SimulationMetric label="Static blocks" value={staticBlockCount} />
+                <SimulationMetric label="Runtime descriptors" value={runtimeDescriptorCount} />
+                <SimulationMetric label="Ground node" value={compileResult.program.groundNodeId ?? '—'} />
+            </dl>
+        </section>
+    );
+}
+
+function SimulationMetric(props: { label: string; value: number | string }): React.ReactElement {
+    return (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+            <dt className="text-[11px] font-medium text-muted-foreground">{props.label}</dt>
+            <dd className="mt-1 font-mono text-sm">{props.value}</dd>
+        </div>
     );
 }
 

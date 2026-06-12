@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { computeDocumentBounds, viewBoxString } from '../../src/preview/bounds';
-import { EMPTY_DOCUMENT, type CircuitDocument } from '../../src/model/types';
+import { computeDocumentBounds, viewBoxString } from '../../packages/core/src/preview/bounds';
+import { EMPTY_DOCUMENT, type CircuitDocument } from '../../packages/core/src/model/types';
 
 describe('computeDocumentBounds', () => {
     test('returns a sensible fallback for an empty document', () => {

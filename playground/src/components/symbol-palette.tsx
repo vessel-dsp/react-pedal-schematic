@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react';
-import { colorForKind, symbolFor, type ComponentKind } from '@vessel-dsp/react-pedal-schematic';
+import { colorForKind, symbolFor, type ComponentKind } from '@vessel-dsp/react-component';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 

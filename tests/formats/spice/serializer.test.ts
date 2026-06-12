@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { parseSpiceNetlist } from '../../../src/formats/spice/parser';
-import { serializeSpiceNetlist } from '../../../src/formats/spice/serializer';
-import { EMPTY_DOCUMENT } from '../../../src/model/types';
+import { parseSpiceNetlist } from '../../../packages/core/src/formats/spice/parser';
+import { serializeSpiceNetlist } from '../../../packages/core/src/formats/spice/serializer';
+import { EMPTY_DOCUMENT } from '../../../packages/core/src/model/types';
 
 describe('serializeSpiceNetlist', () => {
     test('emits a placeholder comment when there is no title', () => {
         const text = serializeSpiceNetlist(EMPTY_DOCUMENT);
-        expect(text).toContain('* @vessel-dsp/react-pedal-schematic');
+        expect(text).toContain('* @vessel-dsp/core');
         expect(text.trim().endsWith('.END')).toBe(true);
     });
 

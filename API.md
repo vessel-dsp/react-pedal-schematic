@@ -1,21 +1,24 @@
 # API Reference
 
-`@vessel-dsp/react-pedal-schematic` exposes a React schematic view plus a headless circuit document toolchain for parsing, validation, editing, conversion, preview helpers, and panel control metadata.
+The workspace exposes separate packages for headless circuit/device tooling and React rendering. Use `@vessel-dsp/core` for parsing, validation, editing, conversion, preview helpers, panel/device metadata, and layout-oriented data. Use `@vessel-dsp/react-component` for React components that render those documents.
 
 ## Import Surfaces
 
 ```ts
 // React apps: UI plus core helpers.
-import { SchematicView, parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView, parseCircuitDocument } from '@vessel-dsp/react-component';
 
 // Headless tools, workers, tests, and server-side pipelines.
-import { parseCircuitDocument, validateDocument } from '@vessel-dsp/react-pedal-schematic/core';
+import { parseCircuitDocument, validateDocument } from '@vessel-dsp/core';
 
-// UI compatibility subpath. Equivalent to the React root for UI consumers.
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic/ui';
+// UI subpath. Equivalent to the React root for UI consumers.
+import { SchematicView, SimulationStatus } from '@vessel-dsp/react-component/ui';
+
+// Workspace-private simulation package for readiness and runtime adapters.
+import { analyzeSimulationReadiness, compileSimulationProgram } from '@vessel-dsp/simulation';
 ```
 
-The `/core` entrypoint is React-free. Use it when you only need parsing, validation, conversion, or editor state.
+The `@vessel-dsp/core` package is React-free. Use it when you only need parsing, validation, conversion, layout metadata, or editor state.
 
 ## Version Constants
 
@@ -768,7 +771,7 @@ Related types:
 ## React UI
 
 ```tsx
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
+import { SchematicView } from '@vessel-dsp/react-component';
 
 <SchematicView
     document={document}
@@ -819,6 +822,8 @@ Related UI exports:
 | `SchematicViewProps` | Props for `SchematicView`. |
 | `WireFlowMode` | `'none' | 'all'`. |
 | `ControlOverlayContext` | Context passed to custom control overlays. |
+| `SimulationStatus` | React readiness/runtime status component. |
+| `SimulationStatusProps` | Props for `SimulationStatus`. |
 
 Styling hooks:
 
@@ -829,6 +834,45 @@ Styling hooks:
 | `--cpe-wire-flow` | Animated flow overlay color. |
 | `--cpe-control-accent` | Live control overlay accent color. |
 
+## Simulation
+
+`@vessel-dsp/simulation` is a workspace-private package for the current release. It depends on `@vessel-dsp/core`, compiles from `CircuitDocument`, and reports explicit support diagnostics instead of claiming arbitrary SPICE compatibility.
+
+```ts
+import {
+    analyzeSimulationReadiness,
+    compileSimulationProgram,
+} from '@vessel-dsp/simulation';
+
+const readiness = analyzeSimulationReadiness(document);
+const result = compileSimulationProgram(document);
+```
+
+Simulation support levels:
+
+| Level | Meaning |
+| --- | --- |
+| `unsupported` | Component remains visible but cannot be simulated by V1. |
+| `static-netlist` | Component can be compiled into simulation IR. |
+| `realtime-runtime-descriptor` | Runtime descriptor can be configured through host runtime metadata. |
+| `realtime-mna` | Component can target a realtime MNA primitive adapter. |
+
+`SimulationStatus` is a presentational React component. It accepts readiness diagnostics and a host-supplied runtime state; it does not create an audio context or own solver state.
+
+```tsx
+import { SimulationStatus } from '@vessel-dsp/react-component/ui';
+import { analyzeSimulationReadiness } from '@vessel-dsp/simulation';
+
+const readiness = analyzeSimulationReadiness(document);
+
+<SimulationStatus
+    ready={readiness.ready}
+    diagnostics={readiness.diagnostics}
+    componentSupport={readiness.componentSupport}
+    runtimeState={readiness.ready ? 'missing-runtime' : 'ready'}
+/>;
+```
+
 ## Common Workflows
 
 ### Parse, Validate, Render
@@ -838,7 +882,7 @@ import {
     SchematicView,
     parseCircuitDocumentFile,
     validateDocument,
-} from '@vessel-dsp/react-pedal-schematic';
+} from '@vessel-dsp/react-component';
 
 const document = parseCircuitDocumentFile(sourceText, { filename });
 const issues = validateDocument(document);
@@ -852,7 +896,7 @@ const issues = validateDocument(document);
 import {
     parseCircuitDocument,
     serializeVdspCircuitDocument,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 const document = parseCircuitDocument(sourceText, { filename: 'pedal.schx' });
 const source = serializeVdspCircuitDocument(document, { filename: 'pedal.vdsp' });
@@ -864,7 +908,7 @@ const source = serializeVdspCircuitDocument(document, { filename: 'pedal.vdsp' }
 import {
     createEditorState,
     applyEditorCommand,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 let editor = createEditorState(document);
 
@@ -882,7 +926,7 @@ editor = applyEditorCommand(editor, {
 import {
     extractPanel,
     defaultControlState,
-} from '@vessel-dsp/react-pedal-schematic/core';
+} from '@vessel-dsp/core';
 
 const panel = extractPanel(document);
 const controlState = defaultControlState(panel);
@@ -891,7 +935,7 @@ const controlState = defaultControlState(panel);
 ### Extract Semantic Controls
 
 ```ts
-import { extractDeviceInterface } from '@vessel-dsp/react-pedal-schematic/core';
+import { extractDeviceInterface } from '@vessel-dsp/core';
 
 const deviceInterface = extractDeviceInterface(document);
 ```
@@ -899,6 +943,7 @@ const deviceInterface = extractDeviceInterface(document);
 ## Boundary Notes
 
 - The library parses and represents circuits; it is not a SPICE solver.
+- Realtime simulation is capability-gated through `@vessel-dsp/simulation` readiness diagnostics and host runtime adapters.
 - `.vdsp` is an editable Source view around `CircuitDocument`; it is not a promise of byte-for-byte source regeneration.
 - Graphical formats preserve layout where supported. SPICE netlists are connectivity-first.
 - React UI components do not depend on shadcn/ui. The playground does, but the library does not.

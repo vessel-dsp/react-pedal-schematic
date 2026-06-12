@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { serializeCircuitJsonDocument } from '../../../src/formats/circuit-json/serializer';
+import { serializeCircuitJsonDocument } from '../../../packages/core/src/formats/circuit-json/serializer';
 import {
     EMPTY_DOCUMENT,
     type CircuitDocument,
@@ -8,7 +8,7 @@ import {
     type Point,
     type PropertyValue,
     type Wire,
-} from '../../../src/model/types';
+} from '../../../packages/core/src/model/types';
 
 type CircuitJsonRecord = Readonly<Record<string, unknown>>;
 

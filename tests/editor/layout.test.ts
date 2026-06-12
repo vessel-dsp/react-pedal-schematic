@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { tidyDocumentLayout } from '../../src/editor/layout';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Point } from '../../src/model/types';
+import { tidyDocumentLayout } from '../../packages/core/src/editor/layout';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Point } from '../../packages/core/src/model/types';
 
 const DISPLAY_HALF = 20;
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { parseSchx } from '../../../src/formats/schx/parser';
-import { getPinNode, resolveConnectivity, type Connectivity } from '../../../src/model/connectivity';
-import type { CircuitDocument } from '../../../src/model/types';
+import { parseSchx } from '../../../packages/core/src/formats/schx/parser';
+import { getPinNode, resolveConnectivity, type Connectivity } from '../../../packages/core/src/model/connectivity';
+import type { CircuitDocument } from '../../../packages/core/src/model/types';
 
 async function loadFixture(name: string): Promise<CircuitDocument> {
     const url = new URL(`../../fixtures/schx/${name}.schx`, import.meta.url);

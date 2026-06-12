@@ -128,14 +128,20 @@ export {
 export type { TidyLayoutOptions } from './editor';
 
 export type { Bounds } from './preview/bounds';
+export { computeComponentBox } from './preview/box-layout';
 export { computeDocumentBounds, viewBoxString } from './preview/bounds';
 export { colorForKind } from './preview/colors';
 export type { SymbolDef } from './preview/symbols';
 export { symbolFor, COMPONENT_KINDS } from './preview/symbols';
 export type { HangingEndpoint } from './preview/hanging';
 export { findHangingEndpoints } from './preview/hanging';
+export { findJunctions } from './preview/junctions';
+export { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from './preview/label-layout';
 export type { Port, WireBodyHit } from './preview/ports';
 export { collectPorts, findNearestPort, findNearestWireBodyHit } from './preview/ports';
+export { buildRenderableWires } from './preview/renderable-wires';
+export { orthogonalPath, pointsToSvg } from './preview/routing';
+export { findSnap } from './preview/snap';
 export { findChainCorners, findWireChain } from './preview/wire-chains';
 
 export type {

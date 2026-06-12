@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { getPinNode, pinKey, resolveConnectivity } from '../../src/model/connectivity';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type Point, type Wire } from '../../src/model/types';
+import { getPinNode, pinKey, resolveConnectivity } from '../../packages/core/src/model/connectivity';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type Point, type Wire } from '../../packages/core/src/model/types';
 
 function makeComponent(
     id: string,

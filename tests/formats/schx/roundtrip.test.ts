@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { parseSchx } from '../../../src/formats/schx/parser';
-import { serializeSchx } from '../../../src/formats/schx/serializer';
-import { resolveConnectivity } from '../../../src/model/connectivity';
-import { toNetlistView } from '../../../src/model/netlist';
+import { parseSchx } from '../../../packages/core/src/formats/schx/parser';
+import { serializeSchx } from '../../../packages/core/src/formats/schx/serializer';
+import { resolveConnectivity } from '../../../packages/core/src/model/connectivity';
+import { toNetlistView } from '../../../packages/core/src/model/netlist';
 
 const FIXTURES: readonly string[] = [
     'passive-divider',

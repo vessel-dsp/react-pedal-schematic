@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import { parseLtspiceAsc } from '../../src/formats/ltspice/parser';
-import { parseSchx } from '../../src/formats/schx/parser';
-import { EMPTY_DOCUMENT, type CircuitDocument } from '../../src/model/types';
-import { SchematicView } from '../../src/ui/schematic';
+import { parseLtspiceAsc } from '../../packages/core/src/formats/ltspice/parser';
+import { parseSchx } from '../../packages/core/src/formats/schx/parser';
+import { EMPTY_DOCUMENT, type CircuitDocument } from '../../packages/core/src/model/types';
+import { SchematicView } from '../../packages/react-component/src/schematic';
 
 async function renderFixture(name: string): Promise<string> {
     const url = new URL(`../fixtures/schx/${name}.schx`, import.meta.url);

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { parseLtspiceAsc } from '../../../src/formats/ltspice/parser';
-import { isParsedQuantity } from '../../../src/model/properties';
-import { getPinNode, resolveConnectivity } from '../../../src/model/connectivity';
-import { toNetlistView } from '../../../src/model/netlist';
-import type { CircuitDocument } from '../../../src/model/types';
-import { validateDocument } from '../../../src/model/validation';
+import { parseLtspiceAsc } from '../../../packages/core/src/formats/ltspice/parser';
+import { isParsedQuantity } from '../../../packages/core/src/model/properties';
+import { getPinNode, resolveConnectivity } from '../../../packages/core/src/model/connectivity';
+import { toNetlistView } from '../../../packages/core/src/model/netlist';
+import type { CircuitDocument } from '../../../packages/core/src/model/types';
+import { validateDocument } from '../../../packages/core/src/model/validation';
 
 const SIMPLE_RC_URL = new URL('../../fixtures/asc/simple-rc.asc', import.meta.url);
 

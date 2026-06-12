@@ -7,7 +7,7 @@ export function serializeSpiceNetlist(doc: CircuitDocument): string {
     if (titleLine.length > 0) {
         lines.push(`.TITLE ${titleLine}`);
     } else {
-        lines.push('* @vessel-dsp/react-pedal-schematic — serialized netlist');
+        lines.push('* @vessel-dsp/core — serialized netlist');
     }
 
     const view = toNetlistView(doc);

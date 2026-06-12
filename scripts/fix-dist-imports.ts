@@ -67,5 +67,5 @@ function hasExtension(specifier: string): boolean {
 }
 
 if (import.meta.main) {
-    await rewriteDistImports();
+    await rewriteDistImports(process.argv[2] ?? 'dist');
 }

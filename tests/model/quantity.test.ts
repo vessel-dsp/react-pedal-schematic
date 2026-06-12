@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseQuantity } from '../../src/model/quantity';
+import { parseQuantity } from '../../packages/core/src/model/quantity';
 
 describe('parseQuantity', () => {
     test('returns null for empty input', () => {

@@ -7,8 +7,8 @@ import {
     detectCircuitFormat,
     parseCircuitDocument,
     type CircuitFormat,
-} from '../../../src/formats/document';
-import { serializeCircuitJsonDocument } from '../../../src/formats/circuit-json/serializer';
+} from '../../../packages/core/src/formats/document';
+import { serializeCircuitJsonDocument } from '../../../packages/core/src/formats/circuit-json/serializer';
 
 const FIXTURES_DIR = new URL('../../fixtures/', import.meta.url);
 const SUPPORTED_EXTENSIONS = /\.(schx|asc|cir|net|spice)$/i;

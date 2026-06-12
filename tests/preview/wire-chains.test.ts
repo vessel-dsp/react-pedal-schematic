@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { findChainCorners, findWireChain } from '../../src/preview/wire-chains';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../src/model/types';
+import { findChainCorners, findWireChain } from '../../packages/core/src/preview/wire-chains';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../packages/core/src/model/types';
 
 function makeComponent(id: string, terminals: Array<[name: string, x: number, y: number]>): Component {
     return {

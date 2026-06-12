@@ -7,7 +7,7 @@ import {
     parseCircuitDocument,
     serializeInterchangeYaml,
     type CircuitFormat,
-} from '../../../src';
+} from '../../../packages/core/src';
 
 const FIXTURES_DIR = new URL('../../fixtures/', import.meta.url);
 const SUPPORTED_EXTENSIONS = /\.(schx|asc|cir|net|spice)$/i;

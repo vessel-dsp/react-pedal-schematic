@@ -9,7 +9,7 @@ import {
     validateDocument,
     type CircuitDocument,
     type EditorCommand,
-} from '@vessel-dsp/react-pedal-schematic';
+} from '@vessel-dsp/react-component';
 import {
     parseFixtureDocument,
     PlaygroundShell,
@@ -83,8 +83,8 @@ describe('playground Schematic tab', () => {
             }),
         );
 
-        expect(markup).toContain('aria-label="Star @vessel-dsp/react-pedal-schematic on GitHub"');
-        expect(markup).toContain('href="https://github.com/vessel-dsp/react-pedal-schematic"');
+        expect(markup).toContain('aria-label="Star @vessel-dsp/react-component on GitHub"');
+        expect(markup).toContain('href="https://github.com/vessel-dsp/react-component"');
         expect(markup).toContain('target="_blank"');
         expect(markup).toContain('rel="noreferrer"');
         expect(markup).toContain('Star');
@@ -400,11 +400,76 @@ rawAttributes: {}`,
 
         expect(markup).toContain('trigger-integration');
         expect(markup).toContain('React integration');
-        expect(markup).toContain('@vessel-dsp/react-pedal-schematic');
-        expect(markup).toContain('npm install @vessel-dsp/react-pedal-schematic');
+        expect(markup).toContain('@vessel-dsp/react-component');
+        expect(markup).toContain('npm install @vessel-dsp/react-component');
         expect(markup).not.toContain('github:indiejoseph/react-pedal-schematic');
         expect(markup).toContain('SchematicView');
         expect(markup).toContain('parseCircuitDocument');
+    });
+
+    test('renders simulation readiness with missing runtime state', () => {
+        const editorState = createEditorState(parseSchx(emptySchx));
+        const document = editorState.document;
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'empty',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('trigger-simulation');
+        expect(markup).toContain('Simulation');
+        expect(markup).toContain('@vessel-dsp/simulation');
+        expect(markup).toContain('data-simulation-status-state="missing-runtime"');
+        expect(markup).toContain('No runtime adapter');
+    });
+
+    test('renders simulation blockers for unsupported components', () => {
+        const document: CircuitDocument = {
+            ...EMPTY_DOCUMENT,
+            components: [{
+                id: 'U1',
+                kind: 'unsupported',
+                name: 'U1',
+                origin: { x: 0, y: 0 },
+                rotation: 0,
+                flipped: false,
+                terminals: [],
+                properties: { InstName: 'U1' },
+                sourceTypeName: 'ltspice:unknown-runtime',
+            }],
+        };
+        const editorState = createEditorState(document);
+        const dispatch = (_command: EditorCommand): void => {};
+        const noop = (): void => {};
+
+        const markup = renderToStaticMarkup(
+            createElement(PlaygroundShell, {
+                fixtureId: 'unsupported',
+                fixture: undefined,
+                onFixtureChange: noop,
+                editorState,
+                dispatch,
+                document,
+                view: toNetlistView(document),
+                issues: validateDocument(document),
+                selectedComponent: null,
+            }),
+        );
+
+        expect(markup).toContain('data-simulation-status-state="unsupported"');
+        expect(markup).toContain('data-simulation-diagnostic-code="unsupported-component"');
+        expect(markup).toContain('U1: ltspice:unknown-runtime is not supported by simulation V1');
     });
 
     test('does not render a Live Panel playground tab or demo', () => {
@@ -518,7 +583,8 @@ rawAttributes: {}`,
 
         expect(markup).toMatch(/Warnings[\s\S]*?>1<\/span>/);
         expect(markup).toContain('unknown-ltspice-symbol');
-        expect(markup).not.toContain('unsupported-component');
+        expect(markup).toContain('data-simulation-diagnostic-code="unsupported-component"');
+        expect(markup).not.toContain('U1: unsupported source type ltspice:lm13700_ns');
         expect(markup).not.toContain('skipped from netlist');
     });
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { findHangingEndpoints } from '../../src/preview/hanging';
-import { parseSchx } from '../../src/formats/schx/parser';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../src/model/types';
+import { findHangingEndpoints } from '../../packages/core/src/preview/hanging';
+import { parseSchx } from '../../packages/core/src/formats/schx/parser';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../packages/core/src/model/types';
 
 async function loadFixture(name: string): Promise<CircuitDocument> {
     const url = new URL(`../fixtures/schx/${name}.schx`, import.meta.url);

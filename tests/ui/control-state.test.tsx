@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type Point, type Terminal } from '../../src/model/types';
-import { SchematicView, type SchematicViewProps } from '../../src/ui/schematic';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type ComponentKind, type Point, type Terminal } from '../../packages/core/src/model/types';
+import { SchematicView, type SchematicViewProps } from '../../packages/react-component/src/schematic';
 
 function makeComponent(
     kind: ComponentKind,

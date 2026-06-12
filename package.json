@@ -1,70 +1,25 @@
 {
-    "name": "@vessel-dsp/react-pedal-schematic",
+    "name": "@vessel-dsp/workspace",
     "version": "0.5.0",
-    "description": "React schematic editor library for guitar pedal circuits with LiveSPICE, LTspice, and SPICE import helpers.",
-    "keywords": [
-        "react",
-        "schematic",
-        "guitar-pedal",
-        "electronics",
-        "spice",
-        "ltspice",
-        "livespice"
-    ],
-    "homepage": "https://vessel-dsp.github.io/react-pedal-schematic/",
-    "bugs": {
-        "url": "https://github.com/vessel-dsp/react-pedal-schematic/issues"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/vessel-dsp/react-pedal-schematic.git"
-    },
+    "private": true,
+    "description": "Workspace for Vessel DSP circuit, device, React, and simulation packages.",
     "license": "MIT",
-    "sideEffects": false,
     "type": "module",
-    "exports": {
-        ".": {
-            "types": "./dist/ui/index.d.ts",
-            "import": "./dist/ui/index.js"
-        },
-        "./core": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-        },
-        "./ui": {
-            "types": "./dist/ui/index.d.ts",
-            "import": "./dist/ui/index.js"
-        },
-        "./package.json": {
-            "default": "./package.json"
-        }
-    },
-    "main": "./dist/ui/index.js",
-    "module": "./dist/ui/index.js",
-    "types": "./dist/ui/index.d.ts",
-    "files": [
-        "dist",
-        "src",
-        "API.md",
-        "README.md",
-        "LICENSE.md",
-        "DOCUMENT.md",
-        "CHANGELOG.md",
-        "docs/images",
-        "examples"
+    "workspaces": [
+        "packages/*"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.build.json && bun run scripts/fix-dist-imports.ts && bun run check:dist",
+        "build": "bun run --cwd packages/core build && bun run --cwd packages/react-component build && bun run --cwd packages/simulation build && bun run check:dist",
         "build:playground": "vite build",
         "check:dist": "node scripts/check-dist-entrypoints.mjs",
-        "clean": "rm -rf dist gh-pages",
-        "clean:dist": "rm -rf dist",
+        "clean": "rm -rf packages/*/dist gh-pages",
+        "clean:dist": "rm -rf packages/*/dist",
         "dev": "vite",
         "generate:canvas-bg": "bun run scripts/generate-canvas-bg.ts",
         "generate:symbols": "bun run scripts/generate-symbol-content.ts",
         "lint": "biome lint --diagnostic-level=error .",
+        "pack:dry-run": "bun run --cwd packages/core pack:dry-run && bun run --cwd packages/react-component pack:dry-run",
         "prepack": "bun run clean:dist && bun run typecheck && bun test && bun run build",
-        "pack:dry-run": "npm pack --dry-run",
         "preview": "vite preview",
         "test": "bun test",
         "typecheck": "tsc --noEmit"
@@ -90,21 +45,6 @@
         "typescript": "^5.6.0",
         "vite": "^8.0.16",
         "zod": "3"
-    },
-    "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
-    },
-    "peerDependenciesMeta": {
-        "react": {
-            "optional": true
-        },
-        "react-dom": {
-            "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public"
     },
     "packageManager": "bun@1.2.2"
 }

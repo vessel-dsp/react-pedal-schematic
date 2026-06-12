@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdir, readFile } from 'node:fs/promises';
-import { parseLtspiceAsc } from '../../../src/formats/ltspice/parser';
-import { isParsedQuantity } from '../../../src/model/properties';
+import { parseLtspiceAsc } from '../../../packages/core/src/formats/ltspice/parser';
+import { isParsedQuantity } from '../../../packages/core/src/model/properties';
 
 // Source: https://github.com/cushychicken/ltspice-guitar-pedals (real LTspice
 // pedal schematics, Windows-1252 encoded). These fixtures are why the parser

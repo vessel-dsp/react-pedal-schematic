@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { applyDocumentCommand } from '../../src/editor/commands';
-import { EMPTY_DOCUMENT, type Component, type ComponentKind, type PropertyValue } from '../../src/model/types';
+import { applyDocumentCommand } from '../../packages/core/src/editor/commands';
+import { EMPTY_DOCUMENT, type Component, type ComponentKind, type PropertyValue } from '../../packages/core/src/model/types';
 
 function makeComponent(
     id: string,

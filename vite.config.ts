@@ -12,9 +12,11 @@ export default defineConfig(({ command }) => ({
     resolve: {
         alias: {
             '@': resolve(__dirname, 'playground/src'),
-            '@vessel-dsp/react-pedal-schematic/core': resolve(__dirname, 'src/index.ts'),
-            '@vessel-dsp/react-pedal-schematic/ui': resolve(__dirname, 'src/ui/index.tsx'),
-            '@vessel-dsp/react-pedal-schematic': resolve(__dirname, 'src/ui/index.tsx'),
+            '@vessel-dsp/core': resolve(__dirname, 'packages/core/src/index.ts'),
+            '@vessel-dsp/react-component/ui': resolve(__dirname, 'packages/react-component/src/ui.tsx'),
+            '@vessel-dsp/react-component': resolve(__dirname, 'packages/react-component/src/index.tsx'),
+            '@vessel-dsp/simulation/runtime': resolve(__dirname, 'packages/simulation/src/runtime/index.ts'),
+            '@vessel-dsp/simulation': resolve(__dirname, 'packages/simulation/src/index.ts'),
         },
     },
     build: {

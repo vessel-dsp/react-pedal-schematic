@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { toNetlistView } from '../../src/model/netlist';
+import { toNetlistView } from '../../packages/core/src/model/netlist';
 import {
     EMPTY_DOCUMENT,
     type CircuitDocument,
@@ -8,7 +8,7 @@ import {
     type Point,
     type PropertyValue,
     type Wire,
-} from '../../src/model/types';
+} from '../../packages/core/src/model/types';
 
 function makeComponent(
     id: string,

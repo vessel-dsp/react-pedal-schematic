@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { COMPONENT_KINDS, symbolFor } from '../../src/preview/symbols';
+import { COMPONENT_KINDS, symbolFor } from '../../packages/core/src/preview/symbols';
 
 function countOccurrences(haystack: string, needle: string): number {
     let n = 0;

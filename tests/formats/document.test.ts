@@ -10,8 +10,8 @@ import {
     serializeVdspCircuitDocument,
     validateVdspCircuitDocumentSchema,
     vdspFileExtension,
-} from '../../src/formats/document';
-import { EMPTY_DOCUMENT } from '../../src/model/types';
+} from '../../packages/core/src/formats/document';
+import { EMPTY_DOCUMENT } from '../../packages/core/src/model/types';
 
 const SIMPLE_ASC_URL = new URL('../fixtures/asc/simple-rc.asc', import.meta.url);
 

@@ -2,12 +2,12 @@ import { useState, type ChangeEvent } from 'react';
 import {
     isParsedQuantity,
     propertyStringValue,
-} from '@vessel-dsp/react-pedal-schematic';
+} from '@vessel-dsp/react-component';
 import type {
     Component,
     DocumentCommand,
     PropertyValue,
-} from '@vessel-dsp/react-pedal-schematic';
+} from '@vessel-dsp/react-component';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

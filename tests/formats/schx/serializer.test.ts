@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { parseSchx } from '../../../src/formats/schx/parser';
-import { serializeSchx } from '../../../src/formats/schx/serializer';
-import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../../src/model/types';
+import { parseSchx } from '../../../packages/core/src/formats/schx/parser';
+import { serializeSchx } from '../../../packages/core/src/formats/schx/serializer';
+import { EMPTY_DOCUMENT, type CircuitDocument, type Component, type Wire } from '../../../packages/core/src/model/types';
 
 describe('serializeSchx', () => {
     test('emits a well-formed XML header and Schematic root', () => {

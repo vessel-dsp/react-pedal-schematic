@@ -1,4 +1,39 @@
 import {
+    buildRenderableWires,
+    collectPorts,
+    colorForKind,
+    computeComponentBox,
+    computeDocumentBounds,
+    computeLabelTextBoxLayout,
+    extractPanel,
+    findChainCorners,
+    findHangingEndpoints,
+    findJunctions,
+    findNearestPort,
+    findNearestWireBodyHit,
+    findSnap,
+    findWireChain,
+    nearestKnobStep,
+    orthogonalPath,
+    pointsToSvg,
+    propertyStringValue,
+    shouldRenderLabelTextBox,
+    symbolFor,
+    viewBoxString,
+    type Bounds,
+    type CircuitDocument,
+    type Component,
+    type ControlState,
+    type ControlValue,
+    type KnobStep,
+    type Point,
+    type Port,
+    type PropertyValue,
+    type SliderControl,
+    type Wire,
+    type WireBodyHit,
+} from '@vessel-dsp/core';
+import {
     useEffect,
     useMemo,
     useRef,
@@ -10,23 +45,6 @@ import {
     type ReactNode,
     type WheelEvent,
 } from 'react';
-import { computeComponentBox } from '../preview/box-layout';
-import { computeDocumentBounds, type Bounds, viewBoxString } from '../preview/bounds';
-import { colorForKind } from '../preview/colors';
-import { findHangingEndpoints } from '../preview/hanging';
-import { findJunctions } from '../preview/junctions';
-import { computeLabelTextBoxLayout, shouldRenderLabelTextBox } from '../preview/label-layout';
-import { collectPorts, findNearestPort, findNearestWireBodyHit, type Port, type WireBodyHit } from '../preview/ports';
-import { findChainCorners, findWireChain } from '../preview/wire-chains';
-import { buildRenderableWires } from '../preview/renderable-wires';
-import { orthogonalPath, pointsToSvg } from '../preview/routing';
-import { findSnap } from '../preview/snap';
-import { symbolFor } from '../preview/symbols';
-import type { CircuitDocument, Component, Point, PropertyValue, Wire } from '../model/types';
-import { propertyStringValue } from '../model/properties';
-import { extractPanel } from '../panel/extract';
-import { nearestKnobStep } from '../panel/knobs';
-import type { ControlState, ControlValue, KnobStep, SliderControl } from '../panel/types';
 
 export type SchematicViewProps = Readonly<{
     document: CircuitDocument;

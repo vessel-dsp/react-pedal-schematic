@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { parseSpiceNetlist } from '../../../src/formats/spice/parser';
-import { resolveConnectivity } from '../../../src/model/connectivity';
-import { toNetlistView } from '../../../src/model/netlist';
-import type { Component } from '../../../src/model/types';
+import { parseSpiceNetlist } from '../../../packages/core/src/formats/spice/parser';
+import { resolveConnectivity } from '../../../packages/core/src/model/connectivity';
+import { toNetlistView } from '../../../packages/core/src/model/netlist';
+import type { Component } from '../../../packages/core/src/model/types';
 
 function nonGround(components: readonly Component[]): readonly Component[] {
     return components.filter((c) => c.kind !== 'ground');

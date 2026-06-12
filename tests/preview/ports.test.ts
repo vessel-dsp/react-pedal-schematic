@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { collectPorts, findNearestPort, findNearestWireBodyHit, type Port } from '../../src/preview/ports';
-import type { Component, Wire } from '../../src/model/types';
+import { collectPorts, findNearestPort, findNearestWireBodyHit, type Port } from '../../packages/core/src/preview/ports';
+import type { Component, Wire } from '../../packages/core/src/model/types';
 
 function makeComponent(id: string, terminals: Array<[name: string, x: number, y: number]>): Component {
     return {

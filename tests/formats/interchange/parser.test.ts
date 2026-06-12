@@ -6,7 +6,7 @@ import {
     parseInterchangeYaml,
     serializeInterchangeYaml,
     type CircuitDocument,
-} from '../../../src';
+} from '../../../packages/core/src';
 
 const source = `<?xml version="1.0" encoding="utf-8"?>
 <Schematic Name="Test filter">

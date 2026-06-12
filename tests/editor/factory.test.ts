@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildComponent } from '../../src/editor/factory';
+import { buildComponent } from '../../packages/core/src/editor/factory';
 
 describe('buildComponent', () => {
     test('creates a resistor with two terminals shifted to the requested origin', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { EMPTY_DOCUMENT, type CircuitDocument } from '../../src/model/types';
+import { EMPTY_DOCUMENT, type CircuitDocument } from '../../packages/core/src/model/types';
 import { buildJointDiagramModel, movedOriginForNodePosition } from '../../playground/src/lib/joint-diagram';
 
 describe('buildJointDiagramModel', () => {

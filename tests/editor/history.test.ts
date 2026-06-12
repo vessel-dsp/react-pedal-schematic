@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { applyEditorCommand, canRedo, canUndo, createEditorState } from '../../src/editor/history';
-import { EMPTY_DOCUMENT, type Component, type ComponentKind } from '../../src/model/types';
+import { applyEditorCommand, canRedo, canUndo, createEditorState } from '../../packages/core/src/editor/history';
+import { EMPTY_DOCUMENT, type Component, type ComponentKind } from '../../packages/core/src/model/types';
 
 function makeComponent(id: string, kind: ComponentKind = 'resistor'): Component {
     return {

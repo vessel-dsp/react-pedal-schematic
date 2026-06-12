@@ -4,9 +4,9 @@ Guidance for Claude Code and other coding agents working in this repository.
 
 ## Project
 
-`@vessel-dsp/react-pedal-schematic` is a React schematic editor library focused on **guitar effects pedals**. It provides format-aware import, parsing, validation, preview, inspection, light editing, and export for pedal electronics schematics and netlists. The broader audio-circuit surface — tube and solid-state amplifiers, hi-fi stages, eurorack modules, audio filters, mic preamps, and similar designs — can inform compatibility fixtures, but the product scope and first-class symbol work are pedal-first.
+Vessel DSP is a TypeScript workspace for audio-circuit and device documents. The canonical packages are `@vessel-dsp/core` for headless circuit/device data, format conversion, schematic/wiring/panel/PCB-oriented layout metadata, and validation, and `@vessel-dsp/react-component` for React rendering surfaces. Guitar effects pedals remain the first fixture and UX target, while stompbox and amplifier enclosures, wiring layouts, PCB layouts, and broader audio hardware metadata are now valid core concerns.
 
-The library is consumer-agnostic. Any web application can embed it through a typed API; the library itself ships no opinions about how the host renders results or what downstream tooling consumes them.
+The packages are consumer-agnostic. Any web application can embed them through typed APIs; the core package itself ships no opinions about how the host renders results or what downstream tooling consumes them.
 
 Target formats:
 
@@ -14,27 +14,29 @@ Target formats:
 - LTspice `.asc` schematic (graphical, SYMBOL/WIRE/FLAG/IOPIN/TEXT);
 - SPICE-style `.cir` / `.net` netlists (connectivity);
 - project-native `.vdsp` Source format (strict `circuit-interchange/v2` YAML; LLM-friendly, schema name intentionally rename-safe);
-- project-native `.vdsp` Source format (strict `circuit-interchange/v2` YAML; LLM-friendly, schema name intentionally rename-safe);
 - later KiCad schematic/netlist formats;
 - later tscircuit / Circuit JSON interop for PCB and web preview workflows.
 
-The library is not a real-time audio engine, not a SPICE simulator, not a wiring-diagram tool, and not a PCB fabrication tool. It produces reliable circuit documents and compatible schematic previews that other applications can consume.
+The core package is not a full SPICE solver and does not promise fabrication-ready PCB output. Realtime simulation is a staged capability under `@vessel-dsp/simulation`, with explicit readiness diagnostics and support levels instead of a blanket promise that every imported document can run as audio DSP.
 
 ## Distribution
 
-The repo has two distinct deliverables that build from the same source tree:
+The repo has three package deliverables plus the playground/docs site:
 
-- **Library** → npm as `@vessel-dsp/react-pedal-schematic`. Lives under `src/`. The package root is the React-friendly surface from `src/ui/index.tsx` plus core helper re-exports; `@vessel-dsp/react-pedal-schematic/core` maps to the headless `src/index.ts`; `@vessel-dsp/react-pedal-schematic/ui` remains a UI compatibility subpath. The library does not bundle a UI component framework; consumers bring their own styling.
-- **Playground + docs site** → GitHub Pages. Lives under `playground/`. A Vite + React + Tailwind v4 + shadcn/ui SPA that imports the library directly from `src/` for development, demonstrates every supported format and component, and serves the reference documentation. Hosted at the project's GitHub Pages URL via a GitHub Actions deploy workflow.
+- **Core package** -> npm as `@vessel-dsp/core`. Lives under `packages/core/`. This is the React-free surface for formats, normalized documents, editor commands, preview/layout helpers, panel/device metadata, and conversion helpers.
+- **React package** -> npm as `@vessel-dsp/react-component`. Lives under `packages/react-component/`. The root re-exports core helpers for React apps, and `@vessel-dsp/react-component/ui` exposes UI-only React components. It does not bundle a UI component framework; consumers bring their own styling.
+- **Simulation package** -> workspace-private `@vessel-dsp/simulation` for now. Lives under `packages/simulation/`. It analyzes simulation readiness, compiles explicit simulation IR from `CircuitDocument`, and exposes runtime adapter interfaces without pulling React or browser-only APIs into core.
+- **Playground + docs site** -> GitHub Pages. Lives under `playground/`. A Vite + React + Tailwind v4 + shadcn/ui SPA that imports the packages directly through workspace aliases for development, demonstrates supported formats and components, and serves the reference documentation. Hosted at the project's GitHub Pages URL via a GitHub Actions deploy workflow.
 
-The playground is the canonical demo and visual test surface. New features land in the library first, then get exercised in the playground.
+The playground is the canonical demo and visual test surface. New capabilities land in the packages first, then get exercised in the playground.
 
 ## Scope Boundaries
 
 Keep the first version small:
 
-- Do import, parse, validate, preview, inspect, edit, and export audio circuit documents.
-- Do not implement real-time audio DSP, signal simulation, or solver code.
+- Do import, parse, validate, preview, inspect, edit, and export audio circuit and device documents.
+- Do model schematic, panel/enclosure, wiring-layout, PCB-layout, and conversion metadata when it is useful to audio hardware workflows.
+- Keep realtime simulation explicit and capability-gated through `@vessel-dsp/simulation`.
 - Do not implement a full SPICE solver in V1.
 - Do not promise exact LiveSPICE, LTspice, KiCad, or tscircuit compatibility unless tested against fixtures.
 - Do not use a generic graph editor as the canonical document model.
@@ -267,23 +269,37 @@ Use TypeScript for both the library and the playground. Use Bun for scripts and 
 
 Preferred module boundaries:
 
-### Library (`src/`)
+### Core Package (`packages/core/src/`)
 
-- `src/formats/document.ts`: cross-format entry — `CircuitFormat`, `detectCircuitFormat(filename)`, `parseCircuitDocument(source, options)`.
-- `src/formats/schx/*`: `.schx` parser, serializer, type mapping, fixture tests.
-- `src/formats/ltspice/*`: `.asc` parser, symbol catalog, terminal mapping, fixture tests.
-- `src/formats/spice/*`: `.cir` / `.net` lexer/parser, serializer, directive preservation, fixture tests.
-- `src/formats/interchange/*`: LLM-friendly intermediary YAML serializer/parser and fixture coverage tests.
-- `src/model/*`: normalized circuit document model, component/terminal/wire/node types, validation.
-- `src/components/*`: pedal/audio component catalog — terminal maps, property schemas, taper curves, and schematic symbol metadata.
-- `src/editor/*`: editor commands such as add, move, rotate, flip, connect, delete, rename, edit property.
-- `src/preview/*`: SVG schematic preview, fixture-driven symbol inventory, tscircuit preview/export, auto-layout for netlists.
-- `src/ui/*`: optional React component subpath. Ships UI primitives that render the model (canvas, palette, inspector). These must not depend on shadcn/ui or any specific design system — consumers bring their own styling.
-- `src/index.ts`: public headless API — formats, model, editor, component catalog.
-- `src/ui/index.tsx`: public React component API.
+- `packages/core/src/formats/document.ts`: cross-format entry — `CircuitFormat`, `detectCircuitFormat(filename)`, `parseCircuitDocument(source, options)`.
+- `packages/core/src/formats/schx/*`: `.schx` parser, serializer, type mapping, fixture tests.
+- `packages/core/src/formats/ltspice/*`: `.asc` parser, symbol catalog, terminal mapping, fixture tests.
+- `packages/core/src/formats/spice/*`: `.cir` / `.net` lexer/parser, serializer, directive preservation, fixture tests.
+- `packages/core/src/formats/interchange/*`: LLM-friendly intermediary YAML serializer/parser and fixture coverage tests.
+- `packages/core/src/model/*`: normalized circuit document model, component/terminal/wire/node types, validation.
+- `packages/core/src/components/*`: audio component catalog — terminal maps, property schemas, taper curves, and schematic symbol metadata.
+- `packages/core/src/editor/*`: editor commands such as add, move, rotate, flip, connect, delete, rename, edit property.
+- `packages/core/src/preview/*`: SVG schematic preview, fixture-driven symbol inventory, tscircuit preview/export, auto-layout for netlists.
+- `packages/core/src/panel/*`: stompbox/enclosure panel placement and validation metadata.
+- `packages/core/src/index.ts`: public headless API — formats, model, editor, component catalog, preview/layout helpers, and panel/device metadata.
+
+### React Package (`packages/react-component/src/`)
+
+- `packages/react-component/src/index.tsx`: public React API. Re-exports `@vessel-dsp/core`, then exports React components.
+- `packages/react-component/src/ui.tsx`: UI subpath for React consumers.
+- `packages/react-component/src/schematic.tsx`: framework-specific schematic renderer and interaction props.
+- `packages/react-component/src/simulation-status.tsx`: presentational simulation readiness/runtime status UI. It accepts readiness data from hosts or `@vessel-dsp/simulation` but does not own audio runtime state.
+
+### Simulation Package (`packages/simulation/src/`)
+
+- `packages/simulation/src/readiness.ts`: simulation support diagnostics for grounding, unsupported components, missing values/models, directives, and floating nodes.
+- `packages/simulation/src/compile.ts`: `CircuitDocument` -> explicit `SimulationProgram`.
+- `packages/simulation/src/support-matrix.ts`: explicit `ComponentKind` support levels.
+- `packages/simulation/src/runtime/*`: runtime engine and WASM adapter contracts. Keep these React-free and avoid browser-only APIs in the package root.
+
 - `tests/fixtures/*`: real-world audio circuit fixtures (`.schx`, `.asc`, `.cir`, `.net`) plus provenance notes and round-trip/interchange baselines.
 
-Keep parsing and transformation code independent of React. The headless entrypoint must work without pulling in the UI layer so that headless consumers (build tools, validators, exporters, server-side renderers) can use the library directly.
+Keep parsing and transformation code independent of React. `@vessel-dsp/core` must work without pulling in the UI layer so that headless consumers (build tools, validators, exporters, server-side renderers) can use it directly.
 
 ### Playground + docs (`playground/`)
 
@@ -294,7 +310,8 @@ Keep parsing and transformation code independent of React. The headless entrypoi
 - `playground/src/index.css`: Tailwind v4 entry + theme tokens.
 - `playground/src/pages/*`: playground views (import circuit, inspect, preview) and docs pages.
 
-The playground imports the library through Vite path aliases (`@vessel-dsp/react-pedal-schematic`, `@vessel-dsp/react-pedal-schematic/core`, `@vessel-dsp/react-pedal-schematic/ui`) so changes to `src/` are picked up live during development.
+The playground imports the packages through Vite path aliases (`@vessel-dsp/core`, `@vessel-dsp/react-component`, `@vessel-dsp/react-component/ui`, and `@vessel-dsp/simulation`) so changes under `packages/*/src/` are picked up live during development.
+The playground Simulation tab shows `@vessel-dsp/simulation` readiness diagnostics, compiled block counts, support-level counts, and missing-runtime state. It must stay separate from `SchematicView` and any concrete audio engine.
 
 ## UI Rules
 
@@ -307,7 +324,7 @@ The playground imports the library through Vite path aliases (`@vessel-dsp/react
 - Keep unsupported components visible and explicitly marked.
 - Editing must not silently change circuit behavior.
 - Use **shadcn/ui** for all playground and docs UI chrome (buttons, dialogs, tabs, cards, command palette, etc.). Install via the shadcn CLI; treat the copied component sources as project-owned and edit freely.
-- The library's `src/ui/*` does *not* depend on shadcn/ui. Keep it stylable from the outside via class hooks or render-prop slots so consumers can theme it with their own design system.
+- `packages/react-component/src/*` does *not* depend on shadcn/ui. Keep it stylable from the outside via class hooks or render-prop slots so consumers can theme it with their own design system.
 
 ## Development Rules
 
@@ -318,8 +335,8 @@ The playground imports the library through Vite path aliases (`@vessel-dsp/react
 - Preserve source fidelity first; clever normalization comes after round-trip tests exist.
 - Treat the interchange YAML as a serialized Source/export/edit adapter around `CircuitDocument`, not as a second in-memory canonical model and not as a source-format round-trip mechanism.
 - Never silently perform lossy format conversion. Emit diagnostics for unsupported components, synthesized layout, dropped directives, ignored source graphics, and missing serializer support.
-- Keep the headless library boundary clean — `src/index.ts` and everything it transitively imports must not depend on React.
-- New components are added to `src/components/*` with terminal maps, property schemas, symbol metadata, and at least one fixture that exercises them.
+- Keep the headless library boundary clean — `packages/core/src/index.ts` and everything it transitively imports must not depend on React.
+- New components are added to `packages/core/src/components/*` with terminal maps, property schemas, symbol metadata, and at least one fixture that exercises them.
 
 ## Verification
 
@@ -338,7 +355,7 @@ Status: planned
 
 ### Phase 0: Project Scaffold
 
-Goal: create the library project + the GH Pages playground with strict TypeScript, a runnable test setup, working dev server, and clear module boundaries.
+Goal: create the package workspace + the GH Pages playground with strict TypeScript, a runnable test setup, working dev server, and clear module boundaries.
 
 Library tasks:
 
@@ -346,17 +363,17 @@ Library tasks:
 - [x] Add `CLAUDE.md`.
 - [x] Symlink `AGENTS.md` to `CLAUDE.md`.
 - [x] Initialize `package.json` (Bun + TypeScript strict + `bun test`).
-- [x] Add `tsconfig.json` (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes, verbatimModuleSyntax) and `tsconfig.build.json` for library emit.
-- [x] Set up dual entrypoints: `src/index.ts` (headless) and `src/ui/index.tsx` (React).
+- [x] Add `tsconfig.json` (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes, verbatimModuleSyntax), shared package configs, and per-package build configs.
+- [x] Set up package entrypoints: `packages/core/src/index.ts` (headless), `packages/react-component/src/index.tsx` (React), and `packages/simulation/src/index.ts` (simulation).
 - [x] Wire scripts: `bun test`, `bun run typecheck`, `bun run build`, `bun run clean`.
 
 Playground tasks:
 
 - [x] Install Vite + React + Tailwind v4 + shadcn/ui prerequisites.
 - [x] Create `playground/` (Vite root) with `index.html`, `src/main.tsx`, `src/App.tsx`, `src/index.css`.
-- [x] Add `vite.config.ts` with React + Tailwind plugins, `@vessel-dsp/react-pedal-schematic` / `@vessel-dsp/react-pedal-schematic/core` / `@vessel-dsp/react-pedal-schematic/ui` path aliases to `src/`, GH Pages `base` path, and `outDir` → `gh-pages/`.
+- [x] Add `vite.config.ts` with React + Tailwind plugins, `@vessel-dsp/core` / `@vessel-dsp/react-component` / `@vessel-dsp/react-component/ui` / `@vessel-dsp/simulation` path aliases to `packages/*/src/`, GH Pages `base` path, and `outDir` -> `gh-pages/`.
 - [x] Add `components.json` and a Tailwind v4 + shadcn token CSS (`playground/src/index.css`); `cn()` helper at `playground/src/lib/utils.ts`.
-- [x] Single shared `tsconfig.json` covers library + tests + playground via `paths` aliases; build config stays in `tsconfig.build.json`.
+- [x] Single shared root `tsconfig.json` covers packages + tests + playground via `paths` aliases; package build configs stay under `packages/*/tsconfig.build.json`.
 - [x] Add scripts: `bun run dev`, `bun run build:playground`, `bun run preview`.
 - [x] Hello-world `App.tsx` renders the library's `VERSION` and the shadcn `Button` to prove the alias and shadcn-ui pipeline work.
 - [x] Add `.github/workflows/deploy.yml` that builds the playground and deploys to GitHub Pages on push to `main`.
@@ -364,8 +381,8 @@ Playground tasks:
 Success criteria:
 
 - `bun install && bun test && bun run typecheck` succeed on a clean checkout.
-- The headless entrypoint compiles and imports nothing from `src/ui/*` or React.
-- `bun run dev` starts the Vite playground and renders a shadcn-styled hello page that imports from the library via its package alias.
+- The core entrypoint compiles and imports nothing from `packages/react-component/*` or React.
+- `bun run dev` starts the Vite playground and renders a shadcn-styled app that imports from the workspace package aliases.
 - `bun run build:playground` emits a static site under `gh-pages/`.
 - Scope, audio-domain focus, format separation, and distribution targets are documented in `CLAUDE.md`.
 
@@ -497,23 +514,23 @@ Goal: make imported pedal circuits understandable before full editing exists, wi
 
 Tasks:
 
-- [x] Add SVG schematic preview. `src/preview/symbols.ts` provides framework-agnostic symbol data (per-kind `Primitive[]` in local coords) covering 26 `ComponentKind`s; `src/preview/bounds.ts` computes the document viewBox with fallback + padding; `src/ui/schematic.tsx` exposes `<SchematicView document={...} />` that renders wires + components via `currentColor` so consumers can theme it.
+- [x] Add SVG schematic preview. `packages/core/src/preview/symbols.ts` provides framework-agnostic symbol data (per-kind `Primitive[]` in local coords) covering 26 `ComponentKind`s; `packages/core/src/preview/bounds.ts` computes the document viewBox with fallback + padding; `packages/react-component/src/schematic.tsx` exposes `<SchematicView document={...} />` that renders wires + components via `currentColor` so consumers can theme it.
 - [x] Mark unsupported/view-only components in the preview with explicit styling — unsupported kinds render with reduced opacity + dashed strokes via `stroke-dasharray`.
 - [x] Wire the playground to load bundled fixtures (`playground/src/fixtures/*.schx` via `?raw` imports), render them in a shadcn-styled shell (`Card` / `Tabs` / `Select` / `Badge`), and expose four tabs: Schematic, Netlist (table of `NetlistView` rows), Warnings (parser + validation + netlist diagnostics), Raw `.schx`.
 - [x] **Boxy renderer (CircuitSetu-style frame).** Each component is wrapped in a rounded `<rect>` (`src/preview/box-layout.ts`, `HALF_SIZE=11`, `PAD=0`). Symbol primitives shrunk significantly (resistor body 22×32 → 10×14; BJT/JFET circle r=14 → r=7; op-amp triangle 56×44 → 21×20; port symbols r=18 → r=7; pot body 22×32 → 10×14) so leads dominate visually and connectors land exactly on box edges. Filled connector dots are drawn at every terminal world position. Component name labels sit below the box (outside) with a halo for readability.
 - [x] **Pan + zoom.** SVG viewBox is state-managed inside `SchematicView`. Mousewheel zooms anchored at the cursor (clamped to `[0.1×, 10×]` of initial bounds). Drag on empty canvas pans (3 px threshold separates "click to deselect" from "drag to pan"). `userSelect: none` + `touchAction: none` on the SVG so drags don't trigger text selection or touch scroll.
-- [x] **Orthogonal wire routing** (`src/preview/routing.ts`). Each wire renders as a `<polyline>`: straight 2-point path for axis-aligned wires, single-elbow L-shape for diagonal wires (horizontal-first when `|dx| ≥ |dy|`, vertical-first otherwise).
-- [x] **Junction dots** (`src/preview/junctions.ts`). `findJunctions(wires, terminals)` flags any wire endpoint that sits on another wire's middle (T-junction) or any endpoint shared by ≥3 wires (Y/X-junction); terminal positions are excluded since the terminal dots already mark them. Rendered as small filled circles on top of components.
-- [x] **Wire splitting at T-junctions** (`src/model/wires.ts`, `splitWiresAtJunctions`). Called by every parser (`parseSchx`, `parseLtspiceAsc`) after wire collection. Any wire whose middle is touched by another wire's endpoint is split into shorter segments at the junction point. Result: every electrical junction is at a real wire endpoint, so when a component is dragged only the segments that actually touch its terminals move, and the junction stays put. Original `passive-divider` has 10 wires → 13 after splitting (one split on the horizontal R1→O1 trunk, two splits on the ground rail).
-- [x] **Runtime wire splitting at terminal positions** (`src/preview/renderable-wires.ts`, `buildRenderableWires`). On every render, `SchematicView` re-derives the displayed wire set by additionally splitting wires wherever a component terminal lands on a wire body — including positions that are only reached after a drag. This is what keeps a terminal-on-wire-middle case (e.g. drag a component so its pin lands on a trunk) visually and electrically T-junction-correct without committing extra wires to the model.
-- [x] **Inferred junction dots** (`src/preview/junctions.ts`). In addition to wire-endpoint T- and Y/X-junctions, `findJunctions` now flags any *component terminal* that lands on the middle of a wire — so editor-induced junctions render a dot the moment the user drops a component onto a wire.
-- [x] **SVG symbol library refactor** (`src/preview/symbols/`). Per-kind symbol artwork now lives as standalone `.svg` files (`resistor.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `capacitor.svg`, `capacitor-electrolytic.svg`, `diode.svg`, `diode-zener.svg`, `led.svg`, `jfet-n.svg`, `jfet-p.svg`, `mosfet-n.svg`, `mosfet-p.svg`, `triode.svg`, `pentode.svg`, `tube-diode.svg`, `transformer.svg`, `opamp.svg`, `ic-block.svg`, `optocoupler.svg`, `photoresistor.svg`, `potentiometer.svg`, `variable-resistor.svg`, `switch-spst.svg`, `switch-spdt.svg`, `switch-3pdt.svg`, `switch-toggle.svg`, `switch-rotary.svg`, `relay.svg`, `inductor.svg`, `battery.svg`, `voltage-source.svg`, `current-source.svg`, `rail.svg`, `ground.svg`, `jack-input.svg`, `jack-output.svg`, `port.svg`, `named-wire.svg`, `label.svg`, `unsupported.svg`). `svg-content.ts` exposes them as inlineable `<g>` markup so the renderer can place them into the schematic surface alongside the box frame. Inline `Primitive[]` shapes in `src/preview/symbols.ts` are still used by the boxed inspection view; the SVG files are the source of truth for the schematic preview surface.
+- [x] **Orthogonal wire routing** (`packages/core/src/preview/routing.ts`). Each wire renders as a `<polyline>`: straight 2-point path for axis-aligned wires, single-elbow L-shape for diagonal wires (horizontal-first when `|dx| >= |dy|`, vertical-first otherwise).
+- [x] **Junction dots** (`packages/core/src/preview/junctions.ts`). `findJunctions(wires, terminals)` flags any wire endpoint that sits on another wire's middle (T-junction) or any endpoint shared by >=3 wires (Y/X-junction); terminal positions are excluded since the terminal dots already mark them. Rendered as small filled circles on top of components.
+- [x] **Wire splitting at T-junctions** (`packages/core/src/model/wires.ts`, `splitWiresAtJunctions`). Called by every parser (`parseSchx`, `parseLtspiceAsc`) after wire collection. Any wire whose middle is touched by another wire's endpoint is split into shorter segments at the junction point. Result: every electrical junction is at a real wire endpoint, so when a component is dragged only the segments that actually touch its terminals move, and the junction stays put. Original `passive-divider` has 10 wires -> 13 after splitting (one split on the horizontal R1 -> O1 trunk, two splits on the ground rail).
+- [x] **Runtime wire splitting at terminal positions** (`packages/core/src/preview/renderable-wires.ts`, `buildRenderableWires`). On every render, `SchematicView` re-derives the displayed wire set by additionally splitting wires wherever a component terminal lands on a wire body, including positions that are only reached after a drag. This is what keeps a terminal-on-wire-middle case visually and electrically T-junction-correct without committing extra wires to the model.
+- [x] **Inferred junction dots** (`packages/core/src/preview/junctions.ts`). In addition to wire-endpoint T- and Y/X-junctions, `findJunctions` now flags any *component terminal* that lands on the middle of a wire so editor-induced junctions render a dot the moment the user drops a component onto a wire.
+- [x] **SVG symbol library refactor** (`packages/core/src/preview/symbols/`). Per-kind symbol artwork now lives as standalone `.svg` files (`resistor.svg`, `bjt-npn.svg`, `bjt-pnp.svg`, `capacitor.svg`, `capacitor-electrolytic.svg`, `diode.svg`, `diode-zener.svg`, `led.svg`, `jfet-n.svg`, `jfet-p.svg`, `mosfet-n.svg`, `mosfet-p.svg`, `triode.svg`, `pentode.svg`, `tube-diode.svg`, `transformer.svg`, `opamp.svg`, `ic-block.svg`, `optocoupler.svg`, `photoresistor.svg`, `potentiometer.svg`, `variable-resistor.svg`, `switch-spst.svg`, `switch-spdt.svg`, `switch-3pdt.svg`, `switch-toggle.svg`, `switch-rotary.svg`, `relay.svg`, `inductor.svg`, `battery.svg`, `voltage-source.svg`, `current-source.svg`, `rail.svg`, `ground.svg`, `jack-input.svg`, `jack-output.svg`, `port.svg`, `named-wire.svg`, `label.svg`, `unsupported.svg`). `svg-content.ts` exposes them as inlineable `<g>` markup so the renderer can place them into the schematic surface alongside the box frame. Inline `Primitive[]` shapes in `packages/core/src/preview/symbols.ts` are still used by the boxed inspection view; the SVG files are the source of truth for the schematic preview surface.
 - [x] First-pass LTspice input/output jack rendering and LED support are now driven by the SVG library and the `led` `ComponentKind`.
 - [ ] Add a fixture-driven **guitar-pedal symbol inventory** report/test. It should scan bundled pedal fixtures, count observed source component types/kinds, and fail when an observed pedal symbol lacks a schematic-view plan.
 - [ ] Replace the temporary generic boxed schematic glyphs for supported pedal components with a hand-redrawn project-native schematic symbol set. Start from the observed pedal inventory and common guitar-pedal schematics: R, C, electrolytic C, inductor, diode, LED, BJT, JFET, MOSFET, op-amp, potentiometer, variable resistor, input/output jack, rail, ground, battery/DC source, SPDT/3PDT/footswitch, label/named wire/test point.
 - [ ] Treat wah filters as a recognized subcircuit/role annotation, not as a monolithic component. Keep the schematic as inductor + pot + R/C/transistor network.
 - [ ] Add simple auto-layout preview for netlist-only imports — waits for Phase 4 `.cir` parser.
-- [x] Add initial headless Circuit JSON source-domain exporter for the subset of the catalog that maps cleanly (`src/formats/circuit-json/serializer.ts`).
+- [x] Add initial headless Circuit JSON source-domain exporter for the subset of the catalog that maps cleanly (`packages/core/src/formats/circuit-json/serializer.ts`).
 - [ ] Add tscircuit preview/export adapter with footprint/pin mapping for the subset of the catalog that maps cleanly.
 - [ ] Expand op-amp / diode-clipper / tube-triode fixtures so the playground exercises every catalog branch.
 
@@ -535,9 +552,9 @@ The playground has two modes:
 
 Tasks:
 
-- [x] `src/editor/commands.ts` — pure `applyDocumentCommand(doc, command)` reducer. Commands: `delete-component`, `rename-component`, `set-property` (auto-`parseQuantity` when prior value was a quantity), `remove-property`, `move-component` (shifts terminals by the delta AND rewrites any wire endpoint that matches an old terminal position, so wires follow the dragged component).
-- [x] `src/editor/history.ts` — `EditorState = { document, selectedId, past, future }` + `applyEditorCommand` with select / undo / redo / pass-through. History capped at 200 entries. Deleting the selected component clears selection.
-- [x] `SchematicView` accepts `editMode`, `selectedId`, `onSelect`, `onMoveComponent`, `snapTo` (default 10), `snapRadius` (default 12), `minZoom` / `maxZoom`. Pointer events handle click-to-select, background-click-to-deselect, drag-to-move (with pointer capture). Selected components get a thicker outline. While dragging, wires connected to the dragged component re-route in real time and a snap target indicator appears when a dragged terminal comes within `snapRadius` of another component's terminal (`src/preview/snap.ts` — `findSnap` picks the closest target and adjusts the candidate origin so the terminals coincide exactly).
+- [x] `packages/core/src/editor/commands.ts` — pure `applyDocumentCommand(doc, command)` reducer. Commands: `delete-component`, `rename-component`, `set-property` (auto-`parseQuantity` when prior value was a quantity), `remove-property`, `move-component` (shifts terminals by the delta AND rewrites any wire endpoint that matches an old terminal position, so wires follow the dragged component).
+- [x] `packages/core/src/editor/history.ts` — `EditorState = { document, selectedId, past, future }` + `applyEditorCommand` with select / undo / redo / pass-through. History capped at 200 entries. Deleting the selected component clears selection.
+- [x] `SchematicView` accepts `editMode`, `selectedId`, `onSelect`, `onMoveComponent`, `snapTo` (default 10), `snapRadius` (default 12), `minZoom` / `maxZoom`. Pointer events handle click-to-select, background-click-to-deselect, drag-to-move (with pointer capture). Selected components get a thicker outline. While dragging, wires connected to the dragged component re-route in real time and a snap target indicator appears when a dragged terminal comes within `snapRadius` of another component's terminal (`packages/core/src/preview/snap.ts` — `findSnap` picks the closest target and adjusts the candidate origin so the terminals coincide exactly).
 - [x] Playground mode toggle (Preview / Edit) + Undo / Redo / Delete buttons + selection info bar. Editor state reducer mounted with a `key={fixtureId}` so switching fixtures resets the history.
 - [x] **Inspector panel** (`playground/src/components/inspector.tsx`). 320-px right column on `lg` screens, stacked on mobile. Shows the selected component's id (header) + kind (badge), editable name (commits on blur / Enter), read-only meta chips (origin, rotation, terminal count, source type), per-property `<Input>` row with parsed `value + unit` subtitle, `×` remove button per property, and a destructive Delete button. All edit affordances disabled in Preview mode. Built with shadcn `Input` / `Label` / `Separator`.
 - [x] **Connectivity correctness**: `resolveConnectivity` now unions wire endpoints with the wires they sit on mid-segment, so T-junctions are electrically merged even when one side is dragged into a diagonal. Combined with `splitWiresAtJunctions` at parse time, every junction stays self-consistent through edits.
@@ -554,20 +571,20 @@ Success criteria:
 - A user can import a `.schx`, move/edit components, export it, and re-import it without topology loss.
 - Netlist imports can be inspected and edited conservatively without losing original directives.
 
-### Phase 7: Library Packaging & Public API
+### Phase 7: Package Workspace & Public API
 
-Goal: publish a clean, typed, consumer-friendly library that other web apps can embed.
+Goal: publish clean, typed, consumer-friendly packages that other web apps can embed.
 
 Tasks:
 
-- [x] Lock the public surface as package root `@vessel-dsp/react-pedal-schematic` (React UI + core helper re-exports), `@vessel-dsp/react-pedal-schematic/core` (headless parsers/model/editor/preview helpers), and `@vessel-dsp/react-pedal-schematic/ui` (React UI compatibility subpath).
+- [x] Lock the public surface as `@vessel-dsp/core` (headless parsers/model/editor/preview helpers) and `@vessel-dsp/react-component` / `@vessel-dsp/react-component/ui` (React UI plus core helper re-exports for React apps). No backwards-compatible `@vessel-dsp/react-pedal-schematic` package is shipped.
 - [x] Verify the headless entrypoint has no React dependency through `tests/smoke.test.ts`.
-- [x] Produce ESM + type declaration build output suitable for npm publishing via `tsconfig.build.json`.
+- [x] Produce ESM + type declaration build output suitable for npm publishing via per-package `tsconfig.build.json` files.
 - [x] Declare `react` / `react-dom` as peer dependencies for the React UI surface.
-- [x] Add npm publish readiness metadata: public package name `@vessel-dsp/react-pedal-schematic`, `files`, `main`/`module`/`types`, export map, `publishConfig`, `prepack`, and `pack:dry-run`.
+- [x] Add npm publish readiness metadata for `@vessel-dsp/core` and `@vessel-dsp/react-component`: `files`, `main`/`module`/`types`, export maps, `publishConfig`, build scripts, and dry-run packing.
 
 Success criteria:
 
-- A web app can install the library and use the headless API through `@vessel-dsp/react-pedal-schematic/core` without React in its bundle.
-- A React web app can import `SchematicView` and common helpers from `@vessel-dsp/react-pedal-schematic`, or keep using the `@vessel-dsp/react-pedal-schematic/ui` subpath.
-- The build output is reproducible, typechecked, tested, and packable with `npm pack --dry-run`.
+- A web app can install `@vessel-dsp/core` and use the headless API without React in its bundle.
+- A React web app can import `SchematicView` and common helpers from `@vessel-dsp/react-component`, or use the `@vessel-dsp/react-component/ui` subpath.
+- The build output is reproducible, typechecked, tested, and packable with `npm pack --dry-run` for the public packages.

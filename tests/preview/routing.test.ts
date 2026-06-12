@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { orthogonalPath, pointsToSvg } from '../../src/preview/routing';
+import { orthogonalPath, pointsToSvg } from '../../packages/core/src/preview/routing';
 
 describe('orthogonalPath', () => {
     test('returns a 2-point path when already on the same vertical', () => {
