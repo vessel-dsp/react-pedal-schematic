@@ -46,6 +46,10 @@
         "pack:dry-run": "npm pack --dry-run",
         "typecheck": "tsc --noEmit -p tsconfig.json"
     },
+    "dependencies": {
+        "circuit-json": "0.0.433",
+        "zod": "3"
+    },
     "publishConfig": {
         "access": "public"
     }

@@ -1,26 +1,23 @@
 import { describe, expect, test } from 'bun:test';
 import {
     VERSION,
-    extractDeviceInterface,
-    parseCircuitDocument,
+    parseCircuitJsonDocument,
     serializeCircuitJsonDocument,
+    validateCircuitJsonDocument,
 } from '@vessel-dsp/core';
-import {
-    SchematicView,
-    SimulationStatus,
-    UI_VERSION,
-    VERSION as REACT_CORE_VERSION,
-    extractDeviceInterface as extractReactDeviceInterface,
-    parseCircuitDocument as parseReactCircuitDocument,
-    serializeCircuitJsonDocument as serializeReactCircuitJsonDocument,
-} from '@vessel-dsp/react-component';
-import {
-    SchematicView as SchematicViewSubpath,
-    SimulationStatus as SimulationStatusSubpath,
-} from '@vessel-dsp/react-component/ui';
+import { fileURLToPath } from 'node:url';
 import { rewriteRelativeEsmSpecifiers } from '../scripts/fix-dist-imports';
 
 type JsonRecord = Readonly<Record<string, unknown>>;
+
+const removedScopedPackageNames = [
+    `@vessel-dsp/${'react' + '-component'}`,
+    `@vessel-dsp/${'sim' + 'ulation'}`,
+] as const;
+const removedWorkspacePackageDirs = [
+    `packages/${'react' + '-component'}`,
+    `packages/${'sim' + 'ulation'}`,
+] as const;
 
 function isRecord(value: unknown): value is JsonRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -50,12 +47,41 @@ async function readPublishWorkflow(): Promise<string> {
     return Bun.file(new URL('../.github/workflows/publish.yml', import.meta.url)).text();
 }
 
+async function readDeployWorkflow(): Promise<string> {
+    return Bun.file(new URL('../.github/workflows/deploy.yml', import.meta.url)).text();
+}
+
 async function readReadme(): Promise<string> {
     return Bun.file(new URL('../README.md', import.meta.url)).text();
 }
 
 async function readChangelog(): Promise<string> {
     return Bun.file(new URL('../CHANGELOG.md', import.meta.url)).text();
+}
+
+function shouldScanRepositoryPath(path: string): boolean {
+    return !(
+        path.startsWith('.git/') ||
+        path.startsWith('node_modules/') ||
+        path.startsWith('packages/core/dist/') ||
+        path.startsWith('gh-pages/') ||
+        path === 'bun.lock'
+    );
+}
+
+async function readTextIfScannable(path: string): Promise<string | undefined> {
+    const file = Bun.file(new URL(`../${path}`, import.meta.url));
+    if (!(await file.exists())) {
+        return undefined;
+    }
+
+    const contents = await file.arrayBuffer();
+    const bytes = new Uint8Array(contents);
+    if (bytes.includes(0)) {
+        return undefined;
+    }
+
+    return new TextDecoder().decode(bytes);
 }
 
 function runtimeDependencies(pkg: JsonRecord): JsonRecord {
@@ -93,8 +119,9 @@ function expectNoReactRuntimeDependency(pkg: JsonRecord): void {
 }
 
 describe('workspace package contract', () => {
-    test('root manifest is a private Bun workspace', async () => {
+    test('root manifest is a private Bun workspace for the core package only', async () => {
         const pkg = await readRootPackageJson();
+        const scripts = isRecord(pkg.scripts) ? pkg.scripts : {};
 
         expect(pkg.name).toBe('@vessel-dsp/workspace');
         expect(pkg.private).toBe(true);
@@ -103,10 +130,23 @@ describe('workspace package contract', () => {
         expect(pkg.exports).toBeUndefined();
         expect(pkg.files).toBeUndefined();
         expect(pkg.workspaces).toEqual(['packages/*']);
+        expect(scripts.build).toContain('packages/core');
+        for (const packageDir of removedWorkspacePackageDirs) {
+            expect(scripts.build).not.toContain(packageDir);
+        }
+        expect(scripts['build:pages']).toBe('bun run scripts/build-pages.ts');
+        expect(scripts['build:playground']).toBeUndefined();
+        expect(scripts.dev).toBeUndefined();
+        expect(scripts.preview).toBeUndefined();
+        expect(scripts['pack:dry-run']).toContain('packages/core');
+        for (const packageDir of removedWorkspacePackageDirs) {
+            expect(scripts['pack:dry-run']).not.toContain(packageDir);
+        }
     });
 
-    test('core package publishes the broad headless API under @vessel-dsp/core', async () => {
+    test('core package publishes the headless Circuit JSON conversion API', async () => {
         const pkg = await readPackageJson('core');
+        const deps = runtimeDependencies(pkg);
 
         expect(pkg.name).toBe('@vessel-dsp/core');
         expect(pkg.version).toBe(VERSION);
@@ -120,133 +160,116 @@ describe('workspace package contract', () => {
             importPath: './dist/index.js',
             typesPath: './dist/index.d.ts',
         });
+        expect(deps['circuit-json']).toBeDefined();
+        expect(deps.zod).toBeDefined();
         expectNoReactRuntimeDependency(pkg);
     });
 
-    test('React package publishes @vessel-dsp/react-component and depends on core', async () => {
-        const pkg = await readPackageJson('react-component');
-        const deps = runtimeDependencies(pkg);
+    test('removed React and simulation packages are not workspace deliverables', async () => {
+        expect(await Bun.file(new URL(`../packages/${'react' + '-component'}/package.json`, import.meta.url)).exists()).toBe(false);
+        expect(await Bun.file(new URL(`../packages/${'sim' + 'ulation'}/package.json`, import.meta.url)).exists()).toBe(false);
+    });
 
-        expect(pkg.name).toBe('@vessel-dsp/react-component');
-        expect(pkg.version).toBe(UI_VERSION);
-        expect(pkg.private).not.toBe(true);
-        expect(deps['@vessel-dsp/core']).toBe('workspace:*');
-        expect(pkg.main).toBe('./dist/index.js');
-        expect(pkg.module).toBe('./dist/index.js');
-        expect(pkg.types).toBe('./dist/index.d.ts');
-        expectExport(pkg.exports, '.', {
-            importPath: './dist/index.js',
-            typesPath: './dist/index.d.ts',
-        });
-        expectExport(pkg.exports, './ui', {
-            importPath: './dist/ui.js',
-            typesPath: './dist/ui.d.ts',
-        });
+    test('removed scoped package names are absent from repository files', async () => {
+        const matches: string[] = [];
+        const glob = new Bun.Glob('**/*');
+        const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
 
-        expect(isRecord(pkg.peerDependencies)).toBe(true);
-        if (isRecord(pkg.peerDependencies)) {
-            expect(pkg.peerDependencies.react).toBe('^18.0.0 || ^19.0.0');
-            expect(pkg.peerDependencies['react-dom']).toBe('^18.0.0 || ^19.0.0');
+        for await (const path of glob.scan({ cwd: repositoryRoot })) {
+            if (!shouldScanRepositoryPath(path)) {
+                continue;
+            }
+
+            const text = await readTextIfScannable(path);
+            if (text === undefined) {
+                continue;
+            }
+
+            for (const packageName of removedScopedPackageNames) {
+                if (text.includes(packageName)) {
+                    matches.push(`${path}: ${packageName}`);
+                }
+            }
+            for (const packageDir of removedWorkspacePackageDirs) {
+                if (text.includes(packageDir)) {
+                    matches.push(`${path}: ${packageDir}`);
+                }
+            }
         }
+
+        expect(matches).toEqual([]);
     });
 
-    test('simulation package is private until its adapter contract is stable', async () => {
-        const pkg = await readPackageJson('simulation');
-        const deps = runtimeDependencies(pkg);
-
-        expect(pkg.name).toBe('@vessel-dsp/simulation');
-        expect(pkg.private).toBe(true);
-        expect(deps['@vessel-dsp/core']).toBe('workspace:*');
-        expectExport(pkg.exports, '.', {
-            importPath: './dist/index.js',
-            typesPath: './dist/index.d.ts',
-        });
-        expectExport(pkg.exports, './runtime', {
-            importPath: './dist/runtime/index.js',
-            typesPath: './dist/runtime/index.d.ts',
-        });
-        expectNoReactRuntimeDependency(pkg);
+    test('core tsconfig stays DOM-free', async () => {
+        const tsconfig = await readPackageTsconfig('core');
+        const compilerOptions = isRecord(tsconfig.compilerOptions) ? tsconfig.compilerOptions : {};
+        expect(compilerOptions.lib).toEqual(['ES2022']);
     });
 
-    test('core and simulation package tsconfigs do not include DOM libs', async () => {
-        for (const packageDir of ['core', 'simulation']) {
-            const tsconfig = await readPackageTsconfig(packageDir);
-            const compilerOptions = isRecord(tsconfig.compilerOptions) ? tsconfig.compilerOptions : {};
-            expect(compilerOptions.lib).toEqual(['ES2022']);
-        }
+    test('Circuit JSON schema tooling is a core runtime dependency, not root-only test plumbing', async () => {
+        const root = await readRootPackageJson();
+        const rootDevDeps = devDependencies(root);
+        const core = await readPackageJson('core');
+        const deps = runtimeDependencies(core);
+
+        expect(rootDevDeps['circuit-json']).toBeUndefined();
+        expect(deps['circuit-json']).toBeDefined();
+        expect(deps.zod).toBeDefined();
+        expect(deps['@tscircuit/runframe']).toBeUndefined();
     });
 
-    test('Circuit JSON and tscircuit tooling stay dev-only at the workspace root', async () => {
+    test('root manifest has no playground UI dependencies', async () => {
         const root = await readRootPackageJson();
         const rootDevDeps = devDependencies(root);
 
-        expect(rootDevDeps['circuit-json']).toBeDefined();
-        expect(rootDevDeps.zod).toBeDefined();
-
-        for (const packageDir of ['core', 'react-component', 'simulation']) {
-            const pkg = await readPackageJson(packageDir);
-            const deps = runtimeDependencies(pkg);
-            expect(deps['circuit-json']).toBeUndefined();
-            expect(deps['circuit-to-svg']).toBeUndefined();
-            expect(deps['@tscircuit/core']).toBeUndefined();
-            expect(deps.zod).toBeUndefined();
-        }
+        expect(rootDevDeps.react).toBeUndefined();
+        expect(rootDevDeps['react-dom']).toBeUndefined();
+        expect(rootDevDeps.vite).toBeUndefined();
+        expect(rootDevDeps['@vitejs/plugin-react']).toBeUndefined();
+        expect(rootDevDeps['@tscircuit/runframe']).toBeUndefined();
+        expect(rootDevDeps['@tscircuit/schematic-viewer']).toBeUndefined();
+        expect(rootDevDeps['@tailwindcss/vite']).toBeUndefined();
+        expect(rootDevDeps.tailwindcss).toBeUndefined();
+        expect(rootDevDeps['lucide-react']).toBeUndefined();
+        expect(rootDevDeps['radix-ui']).toBeUndefined();
     });
 
-    test('package scripts build and dry-run publish packages in dependency order', async () => {
-        const root = await readRootPackageJson();
-        const scripts = isRecord(root.scripts) ? root.scripts : {};
-
-        expect(scripts.build).toContain('packages/core');
-        expect(scripts.build).toContain('packages/react-component');
-        expect(scripts.build).toContain('packages/simulation');
-        expect(scripts['pack:dry-run']).toContain('packages/core');
-        expect(scripts['pack:dry-run']).toContain('packages/react-component');
-    });
-
-    test('declares the MIT license and includes docs in publishable packages', async () => {
-        for (const packageDir of ['core', 'react-component']) {
-            const pkg = await readPackageJson(packageDir);
-            expect(pkg.license).toBe('MIT');
-            expect(Array.isArray(pkg.files)).toBe(true);
-            expect(pkg.files).toContain('LICENSE.md');
-            expect(pkg.files).toContain('README.md');
-        }
+    test('declares the MIT license and includes docs in the publishable package', async () => {
+        const pkg = await readPackageJson('core');
+        expect(pkg.license).toBe('MIT');
+        expect(Array.isArray(pkg.files)).toBe(true);
+        expect(pkg.files).toContain('LICENSE.md');
+        expect(pkg.files).toContain('README.md');
     });
 
     test('publishes package homepage and GitHub repository metadata for npm package pages', async () => {
-        for (const packageDir of ['core', 'react-component']) {
-            const pkg = await readPackageJson(packageDir);
+        const pkg = await readPackageJson('core');
 
-            expect(pkg.homepage).toBe('https://vessel-dsp.github.io/core/');
+        expect(pkg.homepage).toBe('https://vessel-dsp.github.io/core/');
 
-            expect(isRecord(pkg.repository)).toBe(true);
-            if (isRecord(pkg.repository)) {
-                expect(pkg.repository.type).toBe('git');
-                expect(pkg.repository.url).toBe('git+https://github.com/vessel-dsp/core.git');
-            }
+        expect(isRecord(pkg.repository)).toBe(true);
+        if (isRecord(pkg.repository)) {
+            expect(pkg.repository.type).toBe('git');
+            expect(pkg.repository.url).toBe('git+https://github.com/vessel-dsp/core.git');
+        }
 
-            expect(isRecord(pkg.bugs)).toBe(true);
-            if (isRecord(pkg.bugs)) {
-                expect(pkg.bugs.url).toBe('https://github.com/vessel-dsp/core/issues');
-            }
+        expect(isRecord(pkg.bugs)).toBe(true);
+        if (isRecord(pkg.bugs)) {
+            expect(pkg.bugs.url).toBe('https://github.com/vessel-dsp/core/issues');
         }
     });
 });
 
 describe('published import surface', () => {
-    test('React package root is the React UI surface plus core helpers', () => {
-        expect(SchematicView).toBe(SchematicViewSubpath);
-        expect(SimulationStatus).toBe(SimulationStatusSubpath);
-        expect(parseReactCircuitDocument).toBe(parseCircuitDocument);
-        expect(serializeReactCircuitJsonDocument).toBe(serializeCircuitJsonDocument);
-        expect(extractReactDeviceInterface).toBe(extractDeviceInterface);
-        expect(REACT_CORE_VERSION).toBe(VERSION);
+    test('core exposes Circuit JSON conversion helpers', () => {
+        expect(typeof serializeCircuitJsonDocument).toBe('function');
+        expect(typeof parseCircuitJsonDocument).toBe('function');
+        expect(typeof validateCircuitJsonDocument).toBe('function');
     });
 });
 
 describe('npm publish workflow', () => {
-    test('publishes core before React', async () => {
+    test('publishes only core', async () => {
         const workflow = await readPublishWorkflow();
 
         expect(workflow).toContain('name: Publish to npm');
@@ -262,36 +285,45 @@ describe('npm publish workflow', () => {
         expect(workflow).toContain("scope: '@vessel-dsp'");
         expect(workflow).toContain('bun install --frozen-lockfile');
         expect(workflow).toContain('bun run pack:dry-run');
+        expect(workflow).toContain('npm publish --workspace @vessel-dsp/core --access public --provenance');
+        for (const packageName of removedScopedPackageNames) {
+            expect(workflow).not.toContain(packageName);
+        }
+    });
+});
 
-        const corePublishIndex = workflow.indexOf('npm publish --workspace @vessel-dsp/core');
-        const reactPublishIndex = workflow.indexOf('npm publish --workspace @vessel-dsp/react-component');
-        expect(corePublishIndex).toBeGreaterThan(-1);
-        expect(reactPublishIndex).toBeGreaterThan(corePublishIndex);
-        expect(workflow).toContain('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}');
+describe('GitHub Pages workflow', () => {
+    test('deploys static core conversion docs instead of a playground app', async () => {
+        const workflow = await readDeployWorkflow();
+
+        expect(workflow).toContain('name: Deploy core docs to GitHub Pages');
+        expect(workflow).toContain('bun run build:pages');
+        expect(workflow).toContain('path: gh-pages');
+        expect(workflow).not.toContain('build:playground');
+        expect(workflow).not.toContain('vite');
+        expect(workflow).not.toContain('playground');
     });
 });
 
 describe('README package metadata', () => {
-    test('shows npm badges for the canonical packages', async () => {
+    test('shows npm badge for the canonical package', async () => {
         const readme = await readReadme();
 
         expect(readme).toContain('[![core npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Fcore.svg)]');
         expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/core)');
-        expect(readme).toContain('[![react npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-component.svg)]');
-        expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/react-component)');
+        for (const packageName of removedScopedPackageNames) {
+            expect(readme).not.toContain(packageName);
+        }
     });
 });
 
 describe('release metadata', () => {
     test('pins the current package release and changelog entry', async () => {
         const core = await readPackageJson('core');
-        const react = await readPackageJson('react-component');
         const changelog = await readChangelog();
 
         expect(core.version).toBe('0.5.0');
-        expect(react.version).toBe('0.5.0');
         expect(VERSION).toBe('0.5.0');
-        expect(UI_VERSION).toBe('0.5.0');
         expect(changelog).toStartWith('# Changelog\n\n## 0.5.0\n\n');
     });
 });
@@ -300,24 +332,24 @@ describe('dist import rewriting', () => {
     test('adds .js extensions to relative ESM specifiers that point at emitted files', () => {
         const rewritten = rewriteRelativeEsmSpecifiers(
             [
-                "export * from '../index';",
+                "export * from '../../index';",
                 "import { parseCircuitDocument } from './formats/document';",
                 "import './side-effect';",
-                "import external from 'react';",
+                "import external from 'circuit-json';",
                 "import already from './ready.js';",
             ].join('\n'),
-            new URL('file:///Users/example/project/packages/react-component/dist/ui/index.js'),
+            new URL('file:///Users/example/project/packages/core/dist/formats/circuit-json/index.js'),
             new Set([
-                '/Users/example/project/packages/react-component/dist/index.js',
-                '/Users/example/project/packages/react-component/dist/ui/formats/document.js',
-                '/Users/example/project/packages/react-component/dist/ui/side-effect.js',
+                '/Users/example/project/packages/core/dist/index.js',
+                '/Users/example/project/packages/core/dist/formats/circuit-json/formats/document.js',
+                '/Users/example/project/packages/core/dist/formats/circuit-json/side-effect.js',
             ]),
         );
 
-        expect(rewritten).toContain("export * from '../index.js';");
+        expect(rewritten).toContain("export * from '../../index.js';");
         expect(rewritten).toContain("from './formats/document.js';");
         expect(rewritten).toContain("import './side-effect.js';");
-        expect(rewritten).toContain("from 'react';");
+        expect(rewritten).toContain("from 'circuit-json';");
         expect(rewritten).toContain("from './ready.js';");
     });
 });

@@ -1,11 +1,11 @@
 schema: circuit-interchange/v2
 metadata:
-  name: RC Low-Pass Filter
-  description: Hand-written minimal RC circuit in .vdsp format.
+  name: Voltage Divider
+  description: Simple resistive voltage divider in .vdsp interchange format.
   partNumber: ""
 source:
   format: interchange
-  filename: simple-rc-vdsp.vdsp
+  filename: voltage-divider.vdsp
 components:
   - id: R1
     kind: resistor
@@ -19,79 +19,79 @@ components:
       - name: a
         node: 1
         position:
-          x: -10
-          y: 0
+          x: 0
+          y: -10
       - name: b
         node: 2
         position:
-          x: 10
-          y: 0
+          x: 0
+          y: 10
     properties:
       Resistance:
-        raw: "1 kΩ"
-        value: 1000
-        unit: Ω
-  - id: C1
-    kind: capacitor
-    name: C1
+        raw: "10k"
+        value: 10000
+        unit: ""
+  - id: R2
+    kind: resistor
+    name: R2
     origin:
-      x: 20
-      y: 10
+      x: 0
+      y: 30
     rotation: 0
     flipped: false
     terminals:
       - name: a
         node: 2
         position:
-          x: 20
-          y: 0
+          x: 0
+          y: 20
       - name: b
         node: 0
         position:
-          x: 20
-          y: 20
+          x: 0
+          y: 40
     properties:
-      Capacitance:
-        raw: "100 nF"
-        value: 100e-9
-        unit: F
+      Resistance:
+        raw: "10k"
+        value: 10000
+        unit: ""
   - id: GND1
     kind: ground
     name: GND1
     origin:
-      x: 20
-      y: 30
+      x: 0
+      y: 50
     rotation: 0
     flipped: false
     terminals:
       - name: t
         node: 0
         position:
-          x: 20
-          y: 30
+          x: 0
+          y: 50
     properties: {}
 nodes:
   - id: 0
     name: GND
     isGround: true
     members:
-      - componentId: C1
+      - componentId: R2
         terminalName: b
       - componentId: GND1
         terminalName: t
   - id: 1
-    name: ""
+    name: VIN
     isGround: false
     members:
       - componentId: R1
         terminalName: a
   - id: 2
-    name: ""
+    name: VOUT
     isGround: false
     members:
       - componentId: R1
         terminalName: b
-      - componentId: C1
+      - componentId: R2
         terminalName: a
 wires: []
 directives: []

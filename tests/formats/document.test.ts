@@ -7,7 +7,9 @@ import {
     vdspFilenameFromName,
     parseCircuitDocumentFile,
     parseVdspCircuitDocument,
+    serializeCircuitDocumentFile,
     serializeVdspCircuitDocument,
+    convertCircuitDocumentFile,
     validateVdspCircuitDocumentSchema,
     vdspFileExtension,
 } from '../../packages/core/src/formats/document';
@@ -66,8 +68,11 @@ describe('vdsp file format', () => {
         expect(detectCircuitDocumentFileFormat('circuit.yml')).toBe('yaml');
         expect(detectCircuitDocumentFileFormat('circuit.schx')).toBe('schx');
         expect(detectCircuitDocumentFileFormat('circuit.asc')).toBe('ltspice-asc');
+        expect(detectCircuitDocumentFileFormat('circuit.circuit.json')).toBe('circuit-json');
         expect(detectCircuitDocumentFileFormat('circuit.cir')).toBe('spice');
         expect(detectCircuitDocumentFileFormat('circuit.net')).toBe('spice');
+        expect(detectCircuitDocumentFileFormat('typo.vsdp')).toBeNull();
+        expect(detectCircuitDocumentFileFormat('typo.asr')).toBeNull();
         expect(detectCircuitDocumentFileFormat('README.md')).toBeNull();
     });
 
@@ -89,6 +94,43 @@ rawAttributes: {}`;
         const doc = parseCircuitDocumentFile(yaml, { filename: 'test.vdsp' });
         expect(doc.metadata.name).toBe('Test Circuit');
         expect(doc.components).toHaveLength(0);
+    });
+
+    test('serializes and parses Circuit JSON document files', () => {
+        const json = serializeCircuitDocumentFile(EMPTY_DOCUMENT, {
+            format: 'circuit-json',
+            filename: 'empty.circuit.json',
+        });
+        const parsed = parseCircuitDocumentFile(json, { filename: 'empty.circuit.json' });
+
+        expect(JSON.parse(json)).toEqual([]);
+        expect(parsed.source?.format).toBe('circuit-json');
+        expect(parsed.components).toEqual([]);
+    });
+
+    test('converts between file formats through CircuitDocument', () => {
+        const yaml = serializeVdspCircuitDocument({
+            ...EMPTY_DOCUMENT,
+            metadata: { name: 'Convertible', description: '', partNumber: '' },
+        });
+
+        const circuitJson = convertCircuitDocumentFile(yaml, {
+            inputFilename: 'convertible.vdsp',
+            outputFormat: 'circuit-json',
+            outputFilename: 'convertible.circuit.json',
+        });
+        const backToVdsp = convertCircuitDocumentFile(circuitJson, {
+            inputFilename: 'convertible.circuit.json',
+            outputFormat: 'vdsp',
+            outputFilename: 'convertible-roundtrip.vdsp',
+        });
+
+        expect(JSON.parse(circuitJson)).toContainEqual({
+            type: 'source_project_metadata',
+            name: 'Convertible',
+            software_used_string: '@vessel-dsp/core',
+        });
+        expect(parseCircuitDocumentFile(backToVdsp, { filename: 'convertible-roundtrip.vdsp' }).metadata.name).toBe('Convertible');
     });
 
     test('parseVdspCircuitDocument parses .vdsp source directly', () => {

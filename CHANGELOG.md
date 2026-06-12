@@ -2,9 +2,9 @@
 
 ## 0.5.0
 
-- Split the repository into `@vessel-dsp/core`, `@vessel-dsp/react-component`, and workspace-private `@vessel-dsp/simulation`.
-- Add simulation readiness diagnostics, deterministic `SimulationProgram` compilation from `CircuitDocument`, and runtime/WASM adapter contracts.
-- Add React `SimulationStatus` and a playground Simulation tab for readiness, support levels, compile counts, and missing-runtime state.
+- Pivot the repository to the single publishable `@vessel-dsp/core` package for headless `.vdsp`, `.asc`, `.schx`, and Circuit JSON conversion.
+- Remove the reusable React component package, workspace-private simulation package, and repo-owned playground; GitHub Pages now publishes static core conversion API docs only.
+- Add Circuit JSON import, validation, file conversion helpers, and LTspice `.asc` serialization.
 - Add top-level `.vdsp` `controlGroups`, `controlContexts`, and `deviceInterface` metadata for stable semantic device controls.
 - Preserve semantic controls, group/context registries, applicability predicates, bindings, and panel `interfaceControlId` joins through strict `circuit-interchange/v2` parse/serialize flows.
 - Add `extractDeviceInterface()` so hosts can merge declared `.vdsp` controls with inferred panel, runtime descriptor, and external interface controls without mutating authored metadata.

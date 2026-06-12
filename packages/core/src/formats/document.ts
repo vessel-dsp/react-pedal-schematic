@@ -1,13 +1,17 @@
 import type { CircuitDocument, DocumentSource } from '../model/types';
 import { parseLtspiceAsc } from './ltspice/parser';
+import { serializeLtspiceAsc } from './ltspice/serializer';
 import { parseSchx } from './schx/parser';
+import { serializeSchx } from './schx/serializer';
 import { parseSpiceNetlist } from './spice/parser';
+import { serializeSpiceNetlist } from './spice/serializer';
 import { parseInterchangeYaml } from './interchange/parser';
 import { serializeInterchangeYaml } from './interchange/serializer';
+import { parseCircuitJsonDocument, serializeCircuitJsonDocument } from './circuit-json/serializer';
 
 export type CircuitFormat = 'schx' | 'spice' | 'ltspice-asc';
 
-export type CircuitDocumentFileFormat = CircuitFormat | 'vdsp' | 'yaml';
+export type CircuitDocumentFileFormat = CircuitFormat | 'vdsp' | 'yaml' | 'circuit-json';
 
 export type ParseCircuitDocumentOptions = Readonly<{
     filename?: string;
@@ -21,6 +25,17 @@ export type ParseCircuitDocumentFileOptions = Readonly<{
 export type SerializeVdspCircuitDocumentOptions = Readonly<{
     filename?: string;
     source?: DocumentSource;
+}>;
+
+export type SerializeCircuitDocumentFileOptions = Readonly<{
+    format: CircuitDocumentFileFormat;
+    filename?: string;
+}>;
+
+export type ConvertCircuitDocumentFileOptions = Readonly<{
+    inputFilename: string;
+    outputFormat: CircuitDocumentFileFormat;
+    outputFilename?: string;
 }>;
 
 export type VdspSchemaValidationIssue = Readonly<{
@@ -109,6 +124,9 @@ export function detectCircuitDocumentFileFormat(filename: string): CircuitDocume
     if (lower.endsWith('.yaml') || lower.endsWith('.yml')) {
         return 'yaml';
     }
+    if (lower.endsWith('.circuit.json')) {
+        return 'circuit-json';
+    }
     return detectCircuitFormat(filename);
 }
 
@@ -158,9 +176,47 @@ export function parseCircuitDocumentFile(
     if (format === 'vdsp' || format === 'yaml') {
         return parseInterchangeYaml(source);
     }
+    if (format === 'circuit-json') {
+        const parsed: unknown = JSON.parse(source);
+        return parseCircuitJsonDocument(parsed, options.filename === undefined ? {} : { filename: options.filename });
+    }
     return parseCircuitDocument(source, {
         filename: options.filename,
         format,
+    });
+}
+
+export function serializeCircuitDocumentFile(
+    document: CircuitDocument,
+    options: SerializeCircuitDocumentFileOptions,
+): string {
+    switch (options.format) {
+        case 'vdsp':
+        case 'yaml':
+            return serializeVdspCircuitDocument(
+                document,
+                options.filename === undefined ? {} : { filename: options.filename },
+            );
+        case 'schx':
+            return serializeSchx(document);
+        case 'ltspice-asc':
+            return serializeLtspiceAsc(document);
+        case 'spice':
+            return serializeSpiceNetlist(document);
+        case 'circuit-json':
+            return `${JSON.stringify(serializeCircuitJsonDocument(document).elements, null, 2)}\n`;
+    }
+}
+
+export function convertCircuitDocumentFile(
+    source: string,
+    options: ConvertCircuitDocumentFileOptions,
+): string {
+    return serializeCircuitDocumentFile(parseCircuitDocumentFile(source, {
+        filename: options.inputFilename,
+    }), {
+        format: options.outputFormat,
+        ...(options.outputFilename === undefined ? {} : { filename: options.outputFilename }),
     });
 }
 

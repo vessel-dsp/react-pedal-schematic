@@ -1,85 +1,58 @@
-# Vessel DSP Circuit Workspace
+# Vessel DSP Core
 
 [![core npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Fcore.svg)](https://www.npmjs.com/package/@vessel-dsp/core)
-[![react npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-component.svg)](https://www.npmjs.com/package/@vessel-dsp/react-component)
 
-Headless circuit/device tooling, simulation-readiness checks, and React editing
-components for guitar pedals and nearby audio electronics.
+Headless TypeScript tooling for converting audio-circuit documents between
+project `.vdsp`, LTspice `.asc`, LiveSPICE `.schx`, and tscircuit Circuit JSON.
 
-The project is pedal-first, but the model and fixtures also cover nearby
-audio-circuit schematics such as amp stages, tone filters, and utility circuits.
+The library is React-free and does not include a custom editor or realtime
+simulator. GitHub Pages publishes a static API reference for the conversion
+functions only; downstream apps should use tscircuit tooling to render or edit
+the emitted Circuit JSON.
 
-![@vessel-dsp/react-component playground showing the symbol library, schematic canvas, and inspector](./docs/images/playground-schematic-editor.png)
-
-## Packages
+## Package
 
 | Package | Status | Use it for |
 | --- | --- | --- |
-| `@vessel-dsp/core` | Public npm package | React-free parsing, validation, editing commands, `.vdsp`, netlist, preview-layout helpers, panel/device metadata, and export adapters. |
-| `@vessel-dsp/react-component` | Public npm package | React schematic/editor components, plus core helper re-exports for app integrations. |
-| `@vessel-dsp/simulation` | Workspace-private package | Simulation readiness, deterministic simulation IR compilation, and runtime/WASM adapter contracts. |
+| `@vessel-dsp/core` | Public npm package | Parsing, validation, normalized `CircuitDocument` data, `.vdsp` / `.asc` / `.schx` serialization, and Circuit JSON import/export. |
 
 ## Install
 
 ```bash
-npm install @vessel-dsp/core @vessel-dsp/react-component
+npm install @vessel-dsp/core
 ```
 
-Headless consumers use `@vessel-dsp/core`:
+## Convert Through Circuit JSON
 
 ```ts
-import { parseCircuitDocument, validateDocument } from '@vessel-dsp/core';
+import {
+    parseCircuitDocumentFile,
+    serializeCircuitJsonDocument,
+    convertCircuitDocumentFile,
+} from '@vessel-dsp/core';
 
-const document = parseCircuitDocument(sourceText, {
+const document = parseCircuitDocumentFile(sourceText, {
     filename: 'pedal.asc',
 });
 
-const issues = validateDocument(document);
-```
+const circuitJson = serializeCircuitJsonDocument(document).elements;
 
-React apps use `@vessel-dsp/react-component`:
-
-```tsx
-import { parseCircuitDocument } from '@vessel-dsp/react-component';
-import { SchematicView } from '@vessel-dsp/react-component/ui';
-
-const document = parseCircuitDocument(sourceText, {
-    filename: 'pedal.schx',
+const vdsp = convertCircuitDocumentFile(JSON.stringify(circuitJson), {
+    inputFilename: 'pedal.circuit.json',
+    outputFormat: 'vdsp',
+    outputFilename: 'pedal.vdsp',
 });
-
-export function CircuitPreview() {
-    return <SchematicView document={document} />;
-}
 ```
 
-Simulation readiness is currently exposed from the workspace-private
-`@vessel-dsp/simulation` package and surfaced in the playground:
-
-```ts
-import { analyzeSimulationReadiness } from '@vessel-dsp/simulation';
-
-const readiness = analyzeSimulationReadiness(document);
-```
-
-## Supported Inputs
+## Supported V1 Conversion Inputs
 
 - Project-native `.vdsp` Source documents (`circuit-interchange/v2` YAML)
-- LiveSPICE `.schx`
 - LTspice `.asc`
-- SPICE-style `.cir` / `.net`
+- LiveSPICE `.schx`
+- tscircuit `.circuit.json`
 
-Use `parseCircuitDocumentFile()` when accepting project-native `.vdsp` Source
-files as well as source schematics.
-
-```ts
-import { parseCircuitDocumentFile, serializeVdspCircuitDocument } from '@vessel-dsp/core';
-
-const document = parseCircuitDocumentFile(sourceText, {
-    filename: 'pedal.vdsp',
-});
-
-const vdspSource = serializeVdspCircuitDocument(document);
-```
+SPICE `.cir` / `.net` parsing remains available as legacy connectivity support,
+but it is not part of the new v1 bidirectional Circuit JSON contract.
 
 ## Development
 
@@ -89,13 +62,9 @@ bun test
 bun run typecheck
 bun run build
 bun run pack:dry-run
-bun run build:playground
-bun run dev
+bun run build:pages
 ```
 
 ## License
 
 MIT License. See [LICENSE.md](./LICENSE.md).
-
-More integration notes and a full example live in [DOCUMENT.md](./DOCUMENT.md)
-and [examples/schematic-flow-toggle.tsx](./examples/schematic-flow-toggle.tsx).

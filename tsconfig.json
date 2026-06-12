@@ -2,50 +2,24 @@
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
         "lib": [
-            "ES2022",
-            "DOM",
-            "DOM.Iterable"
+            "ES2022"
         ],
-        "jsx": "react-jsx",
         "baseUrl": ".",
         "paths": {
-            "@/*": [
-                "playground/src/*"
-            ],
             "@vessel-dsp/core": [
                 "packages/core/src/index.ts"
             ],
             "@vessel-dsp/core/*": [
                 "packages/core/src/*"
-            ],
-            "@vessel-dsp/react-component": [
-                "packages/react-component/src/index.tsx"
-            ],
-            "@vessel-dsp/react-component/ui": [
-                "packages/react-component/src/ui.tsx"
-            ],
-            "@vessel-dsp/react-component/*": [
-                "packages/react-component/src/*"
-            ],
-            "@vessel-dsp/simulation": [
-                "packages/simulation/src/index.ts"
-            ],
-            "@vessel-dsp/simulation/runtime": [
-                "packages/simulation/src/runtime/index.ts"
-            ],
-            "@vessel-dsp/simulation/*": [
-                "packages/simulation/src/*"
             ]
         }
     },
     "include": [
         "packages/**/*",
         "tests/**/*",
-        "playground/**/*",
         "examples/**/*",
         "scripts/fix-dist-imports.ts",
         "scripts/generate-symbol-content.ts",
-        "scripts/generate-canvas-bg.ts",
-        "vite.config.ts"
+        "scripts/build-pages.ts"
     ]
 }

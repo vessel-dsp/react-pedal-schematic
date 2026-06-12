@@ -84,7 +84,9 @@ export type {
     CircuitDocumentFileFormat,
     ParseCircuitDocumentOptions,
     ParseCircuitDocumentFileOptions,
+    SerializeCircuitDocumentFileOptions,
     SerializeVdspCircuitDocumentOptions,
+    ConvertCircuitDocumentFileOptions,
     VdspSchemaValidationIssue,
     VdspSchemaValidationResult,
 } from './formats/document';
@@ -98,21 +100,35 @@ export {
     parseVdspCircuitDocument,
     validateVdspCircuitDocumentSchema,
     parseCircuitDocumentFile,
+    serializeCircuitDocumentFile,
+    convertCircuitDocumentFile,
     serializeVdspCircuitDocument,
 } from './formats/document';
 export { parseLtspiceAsc } from './formats/ltspice/parser';
+export type { SerializeLtspiceAscOptions } from './formats/ltspice/serializer';
+export { serializeLtspiceAsc } from './formats/ltspice/serializer';
 
 export type {
+    AnyCircuitElement,
+    AnyCircuitElementInput,
+    CircuitJson,
     CircuitJsonElement,
     CircuitJsonExport,
     CircuitJsonExportOptions,
     CircuitJsonExportTarget,
+    CircuitJsonSchemaValidationIssue,
+    CircuitJsonSchemaValidationResult,
+    ParseCircuitJsonDocumentOptions,
     CircuitJsonSourceComponent,
     CircuitJsonSourceNet,
     CircuitJsonSourcePort,
     CircuitJsonSourceTrace,
 } from './formats/circuit-json/serializer';
-export { serializeCircuitJsonDocument } from './formats/circuit-json/serializer';
+export {
+    parseCircuitJsonDocument,
+    serializeCircuitJsonDocument,
+    validateCircuitJsonDocument,
+} from './formats/circuit-json/serializer';
 
 export type { CreateComponentArgs, DocumentCommand, EditorCommand, EditorState } from './editor';
 export {

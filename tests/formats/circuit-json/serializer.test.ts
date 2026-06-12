@@ -104,7 +104,7 @@ describe('serializeCircuitJsonDocument', () => {
                 source_component_id: 'source_component:C1',
                 name: 'C1',
                 display_name: 'C1',
-                capacitance: 100 * 1e-9,
+                capacitance: 1e-7,
                 display_capacitance: '100nF',
                 display_value: '100nF',
             },

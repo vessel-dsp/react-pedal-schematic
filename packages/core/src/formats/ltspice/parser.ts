@@ -288,8 +288,8 @@ function buildSymbolComponent(
         id,
         kind: def?.kind ?? 'unsupported',
         name: baseName,
-        origin: terminals.length > 0 ? centroid(terminals.map((terminal) => terminal.position)) : symbol.placement,
-        rotation: 0,
+        origin: symbol.placement,
+        rotation: rotationFromLtspiceOrientation(symbol.orientation),
         flipped: symbol.orientation.toUpperCase().startsWith('M'),
         terminals,
         properties: buildProperties(symbol.attrs, def, symbol.sourceName),
@@ -413,19 +413,20 @@ function uniqueId(baseName: string, usedIds: Map<string, number>): string {
     return count === 0 ? base : `${base}-${count + 1}`;
 }
 
-function centroid(points: readonly Point[]): Point {
-    if (points.length === 0) {
-        return { x: 0, y: 0 };
-    }
-    let sx = 0;
-    let sy = 0;
-    for (const point of points) {
-        sx += point.x;
-        sy += point.y;
-    }
-    return { x: sx / points.length, y: sy / points.length };
-}
-
 function decodeText(text: string): string {
     return text.replaceAll('\\n', '\n');
+}
+
+function rotationFromLtspiceOrientation(orientation: string): Component['rotation'] {
+    const match = orientation.toUpperCase().match(/[MR](0|90|180|270)$/);
+    if (match?.[1] === '90') {
+        return 1;
+    }
+    if (match?.[1] === '180') {
+        return 2;
+    }
+    if (match?.[1] === '270') {
+        return 3;
+    }
+    return 0;
 }

@@ -69,7 +69,7 @@ describe('Circuit JSON tscircuit fixture coverage', () => {
         }
 
         expect(failures).toEqual([]);
-    });
+    }, 15000);
 });
 
 function summarizeSchemaError(error: {

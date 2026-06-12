@@ -58,9 +58,8 @@ describe('LTspice guitar-pedal fixtures (cushychicken corpus)', () => {
 
     test('µF capacitor values decode and parse as 1e-4 F (= 100 µF)', async () => {
         // proco-rat-distortion.asc was transcoded from cushychicken's Windows-1252
-        // source (lone 0xB5 µ byte) to UTF-8 so Vite's playground ?raw imports work
-        // — see the synthetic-bytes test in parser.test.ts for the Windows-1252
-        // fallback path itself.
+        // source (lone 0xB5 micro byte) to UTF-8. The synthetic-bytes test in
+        // parser.test.ts covers the Windows-1252 fallback path itself.
         const doc = parseLtspiceAsc(await loadPedalBytes('proco-rat-distortion.asc'));
         const c4 = doc.components.find((c) => c.id === 'C4');
         expect(c4?.kind).toBe('capacitor');
