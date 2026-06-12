@@ -150,7 +150,7 @@ describe('toNetlistView', () => {
         expect(d.nodes[1]).toBe(0);
     });
 
-    test('LED emits diode-compatible SPICE row with model preserved', () => {
+    test('LED emits diode-style SPICE row with model preserved', () => {
         const doc = withParts([
             makeComponent('LED1', 'led', [
                 ['cathode', 0, 0],

@@ -2,7 +2,7 @@
 
 ## 0.5.0
 
-- Split the repository into `@vessel-dsp/core`, `@vessel-dsp/react-component`, and workspace-private `@vessel-dsp/simulation`; the old `@vessel-dsp/react-pedal-schematic` package is replaced, not wrapped for compatibility.
+- Split the repository into `@vessel-dsp/core`, `@vessel-dsp/react-component`, and workspace-private `@vessel-dsp/simulation`.
 - Add simulation readiness diagnostics, deterministic `SimulationProgram` compilation from `CircuitDocument`, and runtime/WASM adapter contracts.
 - Add React `SimulationStatus` and a playground Simulation tab for readiness, support levels, compile counts, and missing-runtime state.
 - Add top-level `.vdsp` `controlGroups`, `controlContexts`, and `deviceInterface` metadata for stable semantic device controls.
@@ -13,7 +13,7 @@
 
 ## 0.4.0
 
-- Break `.vdsp` / interchange compatibility to strict `circuit-interchange/v2`; v1 documents are rejected without migration or fallback parsing.
+- Move `.vdsp` / interchange documents to strict `circuit-interchange/v2`; v1 documents are rejected without migration or fallback parsing.
 - Add recursive structured component property values so Source YAML can preserve runtime descriptor objects, arrays, numbers, booleans, nulls, and parsed quantities.
 - Extract explicit LiveSPICE microblock descriptor metadata for tone stack, active EQ, delay, reverb, compressor, and octave descriptors without depending on legacy `Profile` strings.
 

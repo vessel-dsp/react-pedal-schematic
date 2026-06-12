@@ -25,8 +25,6 @@ Headless tools can install only the core package:
 npm install @vessel-dsp/core
 ```
 
-The old `@vessel-dsp/react-pedal-schematic` package is replaced, not wrapped for compatibility.
-
 ```ts
 // Headless code
 import { parseCircuitDocumentFile } from '@vessel-dsp/core';

@@ -6,8 +6,6 @@
 Headless circuit/device tooling, simulation-readiness checks, and React editing
 components for guitar pedals and nearby audio electronics.
 
-`@vessel-dsp/react-pedal-schematic` is replaced by `@vessel-dsp/react-component` and `@vessel-dsp/core`.
-
 The project is pedal-first, but the model and fixtures also cover nearby
 audio-circuit schematics such as amp stages, tone filters, and utility circuits.
 
@@ -62,22 +60,6 @@ import { analyzeSimulationReadiness } from '@vessel-dsp/simulation';
 
 const readiness = analyzeSimulationReadiness(document);
 ```
-
-## Migration From 0.4.x
-
-Replace imports from the old package with the new package split:
-
-```ts
-// Before
-import { parseCircuitDocument } from '@vessel-dsp/react-pedal-schematic/core';
-import { SchematicView } from '@vessel-dsp/react-pedal-schematic';
-
-// After
-import { parseCircuitDocument } from '@vessel-dsp/core';
-import { SchematicView } from '@vessel-dsp/react-component';
-```
-
-There is no compatibility package for `@vessel-dsp/react-pedal-schematic`.
 
 ## Supported Inputs
 

@@ -38,7 +38,7 @@ Keep the first version small:
 - Do model schematic, panel/enclosure, wiring-layout, PCB-layout, and conversion metadata when it is useful to audio hardware workflows.
 - Keep realtime simulation explicit and capability-gated through `@vessel-dsp/simulation`.
 - Do not implement a full SPICE solver in V1.
-- Do not promise exact LiveSPICE, LTspice, KiCad, or tscircuit compatibility unless tested against fixtures.
+- Do not promise exact LiveSPICE, LTspice, KiCad, or tscircuit support unless tested against fixtures.
 - Do not use a generic graph editor as the canonical document model.
 - Do not make tscircuit the source of truth. Use it as a preview/export target where it fits.
 
@@ -214,11 +214,11 @@ The strict YAML serializer/parser lives under `src/formats/interchange/`; the pr
 
 ### Fixture Corpus Strategy
 
-Fixture coverage is the acceptance target for parser compatibility, source-format export where supported, and Source `.vdsp` coverage. Collect fixtures by format and by purpose:
+Fixture coverage is the acceptance target for parser behavior, source-format export where supported, and Source `.vdsp` coverage. Collect fixtures by format and by purpose:
 
 - **Minimal fixtures**: small hand-written circuits that isolate one parser feature or edge case.
 - **Real pedal fixtures**: complete guitar-pedal schematics that exercise common audio components and naming conventions.
-- **Stress fixtures**: larger amp, tone-stack, filter, and utility circuits that reveal compatibility gaps without shifting product scope away from pedals.
+- **Stress fixtures**: larger amp, tone-stack, filter, and utility circuits that reveal support gaps without shifting product scope away from pedals.
 - **Round-trip baselines**: expected parse → serialize → parse invariants for source formats that support export.
 - **Source `.vdsp` baselines**: source → `CircuitDocument` → `.vdsp` checks, plus focused `.vdsp` → `CircuitDocument` parser checks. Coverage should focus on explicit node ids, component kind, terminal names, values, models, directives, diagnostics, and string-valued scalar properties.
 
@@ -577,7 +577,7 @@ Goal: publish clean, typed, consumer-friendly packages that other web apps can e
 
 Tasks:
 
-- [x] Lock the public surface as `@vessel-dsp/core` (headless parsers/model/editor/preview helpers) and `@vessel-dsp/react-component` / `@vessel-dsp/react-component/ui` (React UI plus core helper re-exports for React apps). No backwards-compatible `@vessel-dsp/react-pedal-schematic` package is shipped.
+- [x] Lock the public surface as `@vessel-dsp/core` (headless parsers/model/editor/preview helpers) and `@vessel-dsp/react-component` / `@vessel-dsp/react-component/ui` (React UI plus core helper re-exports for React apps).
 - [x] Verify the headless entrypoint has no React dependency through `tests/smoke.test.ts`.
 - [x] Produce ESM + type declaration build output suitable for npm publishing via per-package `tsconfig.build.json` files.
 - [x] Declare `react` / `react-dom` as peer dependencies for the React UI surface.

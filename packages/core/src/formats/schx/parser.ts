@@ -148,7 +148,7 @@ function parseSymbolElement(
     if (runtimeDescriptor) {
         warnings.push({
             code: 'runtime-descriptor-imported',
-            message: `${baseName} is an imported runtime descriptor from .schx compatibility data, not a source-visible builder primitive.`,
+            message: `${baseName} is an imported runtime descriptor from .schx source data, not a source-visible builder primitive.`,
             componentId: id,
         });
     }

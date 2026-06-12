@@ -43,7 +43,7 @@ async function collectFixtures(dir: URL = FIXTURES_DIR): Promise<readonly Fixtur
     return fixtures.sort((a, b) => a.filename.localeCompare(b.filename));
 }
 
-describe('Circuit JSON tscircuit fixture compatibility', () => {
+describe('Circuit JSON tscircuit fixture coverage', () => {
     test('converts every bundled fixture into elements accepted by the official circuit-json schema', async () => {
         const fixtures = await collectFixtures();
         expect(fixtures).toHaveLength(49);

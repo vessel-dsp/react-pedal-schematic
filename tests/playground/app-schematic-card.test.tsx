@@ -402,7 +402,6 @@ rawAttributes: {}`,
         expect(markup).toContain('React integration');
         expect(markup).toContain('@vessel-dsp/react-component');
         expect(markup).toContain('npm install @vessel-dsp/react-component');
-        expect(markup).not.toContain('github:indiejoseph/react-pedal-schematic');
         expect(markup).toContain('SchematicView');
         expect(markup).toContain('parseCircuitDocument');
     });

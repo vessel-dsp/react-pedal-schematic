@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 
-const repoBase = '/react-pedal-schematic/';
+const repoBase = '/core/';
 
 export default defineConfig(({ command }) => ({
     root: 'playground',

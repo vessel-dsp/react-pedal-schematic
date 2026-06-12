@@ -28,8 +28,6 @@ import { analyzeSimulationReadiness, compileSimulationProgram } from '@vessel-ds
 
 The `@vessel-dsp/core` package is React-free. Use it when you only need parsing, validation, conversion, layout metadata, or editor state.
 
-The old `@vessel-dsp/react-pedal-schematic` package is replaced, not wrapped. Use `@vessel-dsp/core` for former `/core` imports and `@vessel-dsp/react-component` for React imports.
-
 ## Version Constants
 
 | Export | Type | Notes |
@@ -858,7 +856,7 @@ Styling hooks:
 
 ## Simulation
 
-`@vessel-dsp/simulation` is a workspace-private package for the current release. It depends on `@vessel-dsp/core`, compiles from `CircuitDocument`, and reports explicit support diagnostics instead of claiming arbitrary SPICE compatibility.
+`@vessel-dsp/simulation` is a workspace-private package for the current release. It depends on `@vessel-dsp/core`, compiles from `CircuitDocument`, and reports explicit support diagnostics instead of claiming arbitrary SPICE coverage.
 
 ```ts
 import {

@@ -10,13 +10,13 @@
         "livespice",
         "circuit"
     ],
-    "homepage": "https://vessel-dsp.github.io/react-pedal-schematic/",
+    "homepage": "https://vessel-dsp.github.io/core/",
     "bugs": {
-        "url": "https://github.com/vessel-dsp/react-pedal-schematic/issues"
+        "url": "https://github.com/vessel-dsp/core/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/vessel-dsp/react-pedal-schematic.git"
+        "url": "git+https://github.com/vessel-dsp/core.git"
     },
     "license": "MIT",
     "sideEffects": false,

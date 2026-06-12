@@ -93,13 +93,12 @@ function expectNoReactRuntimeDependency(pkg: JsonRecord): void {
 }
 
 describe('workspace package contract', () => {
-    test('root manifest is a private Bun workspace and does not publish the old package name', async () => {
+    test('root manifest is a private Bun workspace', async () => {
         const pkg = await readRootPackageJson();
 
         expect(pkg.name).toBe('@vessel-dsp/workspace');
         expect(pkg.private).toBe(true);
         expect(pkg.packageManager).toBe('bun@1.2.2');
-        expect(pkg.name).not.toBe('@vessel-dsp/react-pedal-schematic');
         expect(pkg.publishConfig).toBeUndefined();
         expect(pkg.exports).toBeUndefined();
         expect(pkg.files).toBeUndefined();
@@ -169,19 +168,6 @@ describe('workspace package contract', () => {
         expectNoReactRuntimeDependency(pkg);
     });
 
-    test('no workspace package keeps the old react-pedal-schematic package name', async () => {
-        const root = await readRootPackageJson();
-        expect(root.workspaces).toEqual(['packages/*']);
-
-        const packages = await Promise.all([
-            readPackageJson('core'),
-            readPackageJson('react-component'),
-            readPackageJson('simulation'),
-        ]);
-
-        expect(packages.map((pkg) => pkg.name)).not.toContain('@vessel-dsp/react-pedal-schematic');
-    });
-
     test('core and simulation package tsconfigs do not include DOM libs', async () => {
         for (const packageDir of ['core', 'simulation']) {
             const tsconfig = await readPackageTsconfig(packageDir);
@@ -216,7 +202,6 @@ describe('workspace package contract', () => {
         expect(scripts.build).toContain('packages/simulation');
         expect(scripts['pack:dry-run']).toContain('packages/core');
         expect(scripts['pack:dry-run']).toContain('packages/react-component');
-        expect(scripts['pack:dry-run']).not.toContain('react-pedal-schematic');
     });
 
     test('declares the MIT license and includes docs in publishable packages', async () => {
@@ -233,17 +218,17 @@ describe('workspace package contract', () => {
         for (const packageDir of ['core', 'react-component']) {
             const pkg = await readPackageJson(packageDir);
 
-            expect(pkg.homepage).toBe('https://vessel-dsp.github.io/react-pedal-schematic/');
+            expect(pkg.homepage).toBe('https://vessel-dsp.github.io/core/');
 
             expect(isRecord(pkg.repository)).toBe(true);
             if (isRecord(pkg.repository)) {
                 expect(pkg.repository.type).toBe('git');
-                expect(pkg.repository.url).toBe('git+https://github.com/vessel-dsp/react-pedal-schematic.git');
+                expect(pkg.repository.url).toBe('git+https://github.com/vessel-dsp/core.git');
             }
 
             expect(isRecord(pkg.bugs)).toBe(true);
             if (isRecord(pkg.bugs)) {
-                expect(pkg.bugs.url).toBe('https://github.com/vessel-dsp/react-pedal-schematic/issues');
+                expect(pkg.bugs.url).toBe('https://github.com/vessel-dsp/core/issues');
             }
         }
     });
@@ -261,7 +246,7 @@ describe('published import surface', () => {
 });
 
 describe('npm publish workflow', () => {
-    test('publishes core before React and does not publish the replaced package name', async () => {
+    test('publishes core before React', async () => {
         const workflow = await readPublishWorkflow();
 
         expect(workflow).toContain('name: Publish to npm');
@@ -282,20 +267,18 @@ describe('npm publish workflow', () => {
         const reactPublishIndex = workflow.indexOf('npm publish --workspace @vessel-dsp/react-component');
         expect(corePublishIndex).toBeGreaterThan(-1);
         expect(reactPublishIndex).toBeGreaterThan(corePublishIndex);
-        expect(workflow).not.toContain('npm publish --workspace @vessel-dsp/react-pedal-schematic');
         expect(workflow).toContain('NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}');
     });
 });
 
 describe('README package metadata', () => {
-    test('shows npm badges for the canonical packages and marks the old package as replaced', async () => {
+    test('shows npm badges for the canonical packages', async () => {
         const readme = await readReadme();
 
         expect(readme).toContain('[![core npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Fcore.svg)]');
         expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/core)');
         expect(readme).toContain('[![react npm version](https://img.shields.io/npm/v/%40vessel-dsp%2Freact-component.svg)]');
         expect(readme).toContain('(https://www.npmjs.com/package/@vessel-dsp/react-component)');
-        expect(readme).toContain('`@vessel-dsp/react-pedal-schematic` is replaced by `@vessel-dsp/react-component` and `@vessel-dsp/core`.');
     });
 });
 
