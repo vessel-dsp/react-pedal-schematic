@@ -1,16 +1,23 @@
 import { propertyQuantityValue, propertyStringValue } from './properties';
 import { extractPanel } from '../panel/extract';
 import type {
+    BoardNet,
+    BoardRealization,
+    BoardRoute,
+    BuildBomRef,
     CircuitDocument,
     Component,
     ComponentKind,
     DeviceInterfaceBinding,
     DeviceInterfaceControl,
+    OffBoardSignalRef,
+    OffBoardWiringEndpoint,
     PanelControlKind,
     PanelElementPlacement,
     PanelFace,
     ParsedQuantity,
     PropertyValue,
+    VdspBuildDataObject,
 } from './types';
 
 export type ValidationSeverity = 'error' | 'warning';
@@ -39,6 +46,15 @@ export type ValidationCode =
     | 'panel-control-unresolved'
     | 'panel-kind-mismatch'
     | 'panel-cell-collision'
+    | 'build-board-unresolved'
+    | 'build-harness-unresolved'
+    | 'bom-ref-unresolved'
+    | 'offboard-endpoint-unresolved'
+    | 'offboard-signal-unresolved'
+    | 'board-source-hash-invalid'
+    | 'board-terminal-unresolved'
+    | 'board-route-feature-invalid'
+    | 'board-net-unrouted'
     | 'duplicate-id'
     | 'degenerate-wire';
 
@@ -301,6 +317,10 @@ export function validateDocument(doc: CircuitDocument): readonly ValidationIssue
         issues.push(issue);
     }
 
+    for (const issue of validateV3BuildMetadata(doc, seen)) {
+        issues.push(issue);
+    }
+
     return issues;
 }
 
@@ -520,6 +540,10 @@ function isRecognizedJackInterface(value: string): boolean {
             'audio-port',
             'control',
             'control-port',
+            'power',
+            'power-port',
+            'dc-power',
+            'dc-power-input',
             'tap-tempo-input',
         ].includes(normalized);
 }
@@ -864,7 +888,7 @@ function validatePanel(
                 continue;
             }
 
-            if (resolved !== undefined && resolved.kind !== element.kind) {
+            if (resolved !== undefined && !panelKindsCompatible(element.kind, resolved.kind)) {
                 issues.push({
                     code: 'panel-kind-mismatch',
                     severity: 'warning',
@@ -880,6 +904,13 @@ function validatePanel(
     }
 
     return issues;
+}
+
+function panelKindsCompatible(declared: PanelControlKind, resolved: PanelControlKind): boolean {
+    if (declared === resolved) {
+        return true;
+    }
+    return resolved === 'switch' && (declared === 'selector' || declared === 'footswitch');
 }
 
 function resolvePanelElements(doc: CircuitDocument): readonly ResolvedPanelElement[] {
@@ -972,6 +1003,553 @@ function validatePanelCellCollisions(face: PanelFace): readonly ValidationIssue[
     }
 
     return issues;
+}
+
+function validateV3BuildMetadata(
+    doc: CircuitDocument,
+    componentIds: ReadonlySet<string>,
+): readonly ValidationIssue[] {
+    if (!hasV3BuildMetadata(doc)) {
+        return [];
+    }
+
+    const issues: ValidationIssue[] = [];
+    const boards = doc.boards ?? [];
+    const boardsById = new Map(boards.map((board) => [board.id, board]));
+    const componentsById = new Map(doc.components.map((component) => [component.id, component]));
+    const panelElementIds = collectPanelElementIds(doc);
+    const controlIds = new Set(doc.deviceInterface?.controls.map((control) => control.id) ?? []);
+    const boardNetsByBoardId = new Map(boards.map((board) => [
+        board.id,
+        new Set(board.netlist?.nets.map((net) => net.id) ?? []),
+    ]));
+    const boardTerminalsByBoardId = new Map(boards.map((board) => [
+        board.id,
+        new Set(board.edgeTerminals.map((terminal) => terminal.id)),
+    ]));
+
+    const selectedBoardId = doc.build?.selectedBoardId;
+    if (selectedBoardId !== undefined && !boardsById.has(selectedBoardId)) {
+        issues.push(unresolvedIssue(
+            'build-board-unresolved',
+            'error',
+            `Build selectedBoardId references missing board "${selectedBoardId}"`,
+            selectedBoardId,
+            'selectedBoardId',
+        ));
+    }
+
+    for (const boardId of doc.build?.alternateBoardIds ?? []) {
+        if (!boardsById.has(boardId)) {
+            issues.push(unresolvedIssue(
+                'build-board-unresolved',
+                'warning',
+                `Build alternateBoardIds references missing board "${boardId}"`,
+                boardId,
+                'alternateBoardIds',
+            ));
+        }
+    }
+
+    const preferredBoardId = dataString(doc.mechanical?.internalBoard, 'preferredBoardId');
+    if (preferredBoardId !== undefined && !boardsById.has(preferredBoardId)) {
+        issues.push(unresolvedIssue(
+            'build-board-unresolved',
+            'warning',
+            `Mechanical internalBoard.preferredBoardId references missing board "${preferredBoardId}"`,
+            preferredBoardId,
+            'mechanical.internalBoard.preferredBoardId',
+        ));
+    }
+
+    const harnessesById = new Map(doc.offBoardWiring?.harnesses.map((harness) => [harness.id, harness]) ?? []);
+    for (const harnessId of doc.build?.selectedOffBoardWiringHarnessIds ?? []) {
+        if (!harnessesById.has(harnessId)) {
+            issues.push(unresolvedIssue(
+                'build-harness-unresolved',
+                'error',
+                `Build selectedOffBoardWiringHarnessIds references missing harness "${harnessId}"`,
+                harnessId,
+                'selectedOffBoardWiringHarnessIds',
+            ));
+        }
+    }
+
+    for (const item of doc.bom?.items ?? []) {
+        for (const ref of item.refs) {
+            const issue = validateBomRef(ref, componentIds, controlIds, panelElementIds, boardsById, item.id);
+            if (issue !== undefined) {
+                issues.push(issue);
+            }
+        }
+    }
+
+    for (const board of boards) {
+        issues.push(...validateBoardRealization(board, componentsById, boardNetsByBoardId));
+    }
+
+    if (doc.offBoardWiring !== undefined) {
+        issues.push(...validateOffBoardWiring(
+            doc,
+            componentsById,
+            panelElementIds,
+            boardTerminalsByBoardId,
+            boardNetsByBoardId,
+        ));
+    }
+
+    if (doc.build?.completeness === 'complete-selected-build' && selectedBoardId !== undefined) {
+        const selectedBoard = boardsById.get(selectedBoardId);
+        if (selectedBoard !== undefined) {
+            issues.push(...validateCompleteSelectedBoardRoutes(selectedBoard));
+        }
+    }
+
+    return issues;
+}
+
+function hasV3BuildMetadata(doc: CircuitDocument): boolean {
+    return doc.mechanical !== undefined ||
+        doc.build !== undefined ||
+        doc.bom !== undefined ||
+        doc.partProfiles !== undefined ||
+        doc.footprints !== undefined ||
+        doc.offBoardWiring !== undefined ||
+        doc.boards !== undefined ||
+        doc.panel?.faces.some((face) =>
+            face.geometry !== undefined ||
+            face.elements.some((element) => element.id !== undefined || element.physical !== undefined)
+        ) === true;
+}
+
+function validateBomRef(
+    ref: BuildBomRef,
+    componentIds: ReadonlySet<string>,
+    controlIds: ReadonlySet<string>,
+    panelElementIds: ReadonlySet<string>,
+    boardsById: ReadonlyMap<string, BoardRealization>,
+    itemId: string,
+): ValidationIssue | undefined {
+    if (ref.kind === 'component' && (ref.componentId === undefined || !componentIds.has(ref.componentId))) {
+        return unresolvedIssue(
+            'bom-ref-unresolved',
+            'warning',
+            `BOM item "${itemId}" references missing component "${ref.componentId ?? ''}"`,
+            itemId,
+            'refs.componentId',
+        );
+    }
+    if (
+        ref.kind === 'device-interface-control' &&
+        (ref.controlId === undefined || !controlIds.has(ref.controlId))
+    ) {
+        return unresolvedIssue(
+            'bom-ref-unresolved',
+            'warning',
+            `BOM item "${itemId}" references missing device interface control "${ref.controlId ?? ''}"`,
+            itemId,
+            'refs.controlId',
+        );
+    }
+    if (ref.kind === 'panel-element' && (ref.panelElementId === undefined || !panelElementIds.has(ref.panelElementId))) {
+        return unresolvedIssue(
+            'bom-ref-unresolved',
+            'warning',
+            `BOM item "${itemId}" references missing panel element "${ref.panelElementId ?? ''}"`,
+            itemId,
+            'refs.panelElementId',
+        );
+    }
+    if (ref.kind === 'board' && (ref.boardId === undefined || !boardsById.has(ref.boardId))) {
+        return unresolvedIssue(
+            'bom-ref-unresolved',
+            'warning',
+            `BOM item "${itemId}" references missing board "${ref.boardId ?? ''}"`,
+            itemId,
+            'refs.boardId',
+        );
+    }
+    return undefined;
+}
+
+function validateBoardRealization(
+    board: BoardRealization,
+    componentsById: ReadonlyMap<string, Component>,
+    boardNetsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+
+    if (board.sourceCircuit !== undefined && !isDigestShapedSourceHash(board.sourceCircuit.hash)) {
+        issues.push({
+            code: 'board-source-hash-invalid',
+            severity: 'error',
+            message: `Board "${board.id}" sourceCircuit.hash must be sha256:<64 hex chars>`,
+            componentId: board.id,
+            property: 'sourceCircuit.hash',
+        });
+    }
+
+    for (const terminal of board.edgeTerminals) {
+        if (terminal.terminalRef !== undefined && !componentTerminalExists(componentsById, terminal.terminalRef)) {
+            issues.push(unresolvedIssue(
+                'board-terminal-unresolved',
+                'warning',
+                `Board "${board.id}" edge terminal "${terminal.id}" references missing component terminal`,
+                board.id,
+                terminal.id,
+            ));
+        }
+    }
+
+    for (const placement of board.footprintPlacements) {
+        if (!componentsById.has(placement.componentId)) {
+            issues.push(unresolvedIssue(
+                'board-terminal-unresolved',
+                'warning',
+                `Board "${board.id}" places missing component "${placement.componentId}"`,
+                board.id,
+                placement.componentId,
+            ));
+            continue;
+        }
+        for (const pad of placement.pads) {
+            if (
+                pad.terminalName !== undefined &&
+                !componentHasTerminal(componentsById, placement.componentId, pad.terminalName)
+            ) {
+                issues.push(unresolvedIssue(
+                    'board-terminal-unresolved',
+                    'warning',
+                    `Board "${board.id}" pad "${pad.padId}" references missing terminal "${pad.terminalName}"`,
+                    board.id,
+                    pad.padId,
+                ));
+            }
+        }
+    }
+
+    for (const net of board.netlist?.nets ?? []) {
+        for (const member of net.members) {
+            if (!componentTerminalExists(componentsById, member)) {
+                issues.push(unresolvedIssue(
+                    'board-terminal-unresolved',
+                    'warning',
+                    `Board "${board.id}" net "${net.id}" references missing component terminal`,
+                    board.id,
+                    net.id,
+                ));
+            }
+        }
+    }
+
+    for (const route of board.routes) {
+        if (route.zones !== undefined || route.drills !== undefined) {
+            issues.push({
+                code: 'board-route-feature-invalid',
+                severity: 'error',
+                message: `Board "${board.id}" route "${route.id}" contains board-level zones or drills`,
+                componentId: board.id,
+                property: route.id,
+            });
+        }
+        if (isBoardNetlistRef(route.netRef) && !boardNetRefExists(route.netRef, board.id, boardNetsByBoardId)) {
+            issues.push(unresolvedIssue(
+                'offboard-signal-unresolved',
+                'warning',
+                `Board "${board.id}" route "${route.id}" references missing board net "${route.netRef.netId}"`,
+                board.id,
+                route.id,
+            ));
+        }
+    }
+
+    return issues;
+}
+
+function validateOffBoardWiring(
+    doc: CircuitDocument,
+    componentsById: ReadonlyMap<string, Component>,
+    panelElementIds: ReadonlySet<string>,
+    boardTerminalsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+    boardNetsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const endpointIds = new Set<string>();
+
+    for (const harness of doc.offBoardWiring?.harnesses ?? []) {
+        const localEndpointIds = new Set<string>();
+        for (const endpoint of harness.endpoints) {
+            endpointIds.add(endpoint.id);
+            localEndpointIds.add(endpoint.id);
+            const issue = validateOffBoardEndpoint(endpoint, componentsById, panelElementIds, boardTerminalsByBoardId);
+            if (issue !== undefined) {
+                issues.push(issue);
+            }
+        }
+
+        for (const connection of harness.connections) {
+            if (!localEndpointIds.has(connection.fromEndpointId)) {
+                issues.push(unresolvedIssue(
+                    'offboard-endpoint-unresolved',
+                    'error',
+                    `Harness "${harness.id}" connection "${connection.id}" references missing endpoint "${connection.fromEndpointId}"`,
+                    harness.id,
+                    connection.id,
+                ));
+            }
+            if (!localEndpointIds.has(connection.toEndpointId)) {
+                issues.push(unresolvedIssue(
+                    'offboard-endpoint-unresolved',
+                    'error',
+                    `Harness "${harness.id}" connection "${connection.id}" references missing endpoint "${connection.toEndpointId}"`,
+                    harness.id,
+                    connection.id,
+                ));
+            }
+            if (connection.signalRef !== undefined) {
+                const issue = validateOffBoardSignalRef(connection.signalRef, componentsById, boardNetsByBoardId, harness.id);
+                if (issue !== undefined) {
+                    issues.push(issue);
+                }
+            }
+        }
+    }
+
+    for (const harnessId of doc.build?.selectedOffBoardWiringHarnessIds ?? []) {
+        const harness = doc.offBoardWiring?.harnesses.find((candidate) => candidate.id === harnessId);
+        if (harness === undefined) {
+            continue;
+        }
+        for (const connection of harness.connections) {
+            if (!endpointIds.has(connection.fromEndpointId) || !endpointIds.has(connection.toEndpointId)) {
+                issues.push(unresolvedIssue(
+                    'offboard-endpoint-unresolved',
+                    'error',
+                    `Selected harness "${harnessId}" contains an unresolved connection endpoint`,
+                    harnessId,
+                    connection.id,
+                ));
+            }
+        }
+    }
+
+    return issues;
+}
+
+function validateOffBoardEndpoint(
+    endpoint: OffBoardWiringEndpoint,
+    componentsById: ReadonlyMap<string, Component>,
+    panelElementIds: ReadonlySet<string>,
+    boardTerminalsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+): ValidationIssue | undefined {
+    if (endpoint.kind === 'board-terminal') {
+        const terminalIds = endpoint.boardId === undefined ? undefined : boardTerminalsByBoardId.get(endpoint.boardId);
+        if (terminalIds === undefined || endpoint.terminalId === undefined || !terminalIds.has(endpoint.terminalId)) {
+            return unresolvedIssue(
+                'offboard-endpoint-unresolved',
+                'error',
+                `Off-board endpoint "${endpoint.id}" references missing board terminal`,
+                endpoint.id,
+                'terminalId',
+            );
+        }
+        return undefined;
+    }
+
+    if (
+        endpoint.kind === 'panel-component-terminal' ||
+        endpoint.kind === 'power-terminal' ||
+        endpoint.kind === 'footswitch-terminal'
+    ) {
+        if (
+            endpoint.componentId === undefined ||
+            endpoint.terminalName === undefined ||
+            !componentHasTerminal(componentsById, endpoint.componentId, endpoint.terminalName)
+        ) {
+            return unresolvedIssue(
+                'offboard-endpoint-unresolved',
+                'error',
+                `Off-board endpoint "${endpoint.id}" references missing component terminal`,
+                endpoint.id,
+                'componentId',
+            );
+        }
+        if (
+            endpoint.panelElementId !== undefined &&
+            endpoint.kind !== 'power-terminal' &&
+            !panelElementIds.has(endpoint.panelElementId)
+        ) {
+            return unresolvedIssue(
+                'offboard-endpoint-unresolved',
+                'warning',
+                `Off-board endpoint "${endpoint.id}" references missing panel element "${endpoint.panelElementId}"`,
+                endpoint.id,
+                'panelElementId',
+            );
+        }
+    }
+
+    return undefined;
+}
+
+function validateOffBoardSignalRef(
+    signalRef: OffBoardSignalRef,
+    componentsById: ReadonlyMap<string, Component>,
+    boardNetsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+    harnessId: string,
+): ValidationIssue | undefined {
+    if (isBoardNetlistRef(signalRef)) {
+        if (!boardNetRefExists(signalRef, signalRef.boardId, boardNetsByBoardId)) {
+            return unresolvedIssue(
+                'offboard-signal-unresolved',
+                'error',
+                `Harness "${harnessId}" references missing board net "${signalRef.netId}"`,
+                harnessId,
+                'signalRef',
+            );
+        }
+        return undefined;
+    }
+
+    const member = dataObject(signalRef, 'member');
+    const componentId = dataString(member, 'componentId');
+    const terminalName = dataString(member, 'terminalName');
+    if (dataString(signalRef, 'source') === 'canonical-circuit' && componentId !== undefined && terminalName !== undefined) {
+        if (!componentHasTerminal(componentsById, componentId, terminalName)) {
+            return unresolvedIssue(
+                'offboard-signal-unresolved',
+                'error',
+                `Harness "${harnessId}" references missing canonical component terminal`,
+                harnessId,
+                'signalRef',
+            );
+        }
+    }
+
+    return undefined;
+}
+
+function validateCompleteSelectedBoardRoutes(board: BoardRealization): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const routedNetIds = new Set(
+        board.routes
+            .filter((route) => isRouteForBoardNet(route, board.id))
+            .map((route) => dataString(route.netRef, 'netId'))
+            .filter((netId): netId is string => netId !== undefined),
+    );
+
+    for (const net of board.netlist?.nets ?? []) {
+        if (isSingleTerminalEdgeNet(net)) {
+            continue;
+        }
+        if (!routedNetIds.has(net.id)) {
+            issues.push({
+                code: 'board-net-unrouted',
+                severity: 'error',
+                message: `Selected board "${board.id}" net "${net.id}" has multiple members but no route`,
+                componentId: board.id,
+                property: net.id,
+            });
+        }
+    }
+
+    return issues;
+}
+
+function isSingleTerminalEdgeNet(net: BoardNet): boolean {
+    return net.members.length <= 1;
+}
+
+function isRouteForBoardNet(route: BoardRoute, boardId: string): boolean {
+    if (!isBoardNetlistRef(route.netRef)) {
+        return false;
+    }
+    return route.netRef.boardId === undefined || route.netRef.boardId === boardId;
+}
+
+function isBoardNetlistRef(value: VdspBuildDataObject | undefined): value is VdspBuildDataObject & {
+    source: 'board-netlist';
+    boardId?: string;
+    netId: string;
+} {
+    return dataString(value, 'source') === 'board-netlist' && dataString(value, 'netId') !== undefined;
+}
+
+function boardNetRefExists(
+    ref: VdspBuildDataObject & { netId: string; boardId?: string },
+    fallbackBoardId: string | undefined,
+    boardNetsByBoardId: ReadonlyMap<string, ReadonlySet<string>>,
+): boolean {
+    const boardId = ref.boardId ?? fallbackBoardId;
+    if (boardId === undefined) {
+        return Array.from(boardNetsByBoardId.values()).some((netIds) => netIds.has(ref.netId));
+    }
+    return boardNetsByBoardId.get(boardId)?.has(ref.netId) === true;
+}
+
+function collectPanelElementIds(doc: CircuitDocument): ReadonlySet<string> {
+    const ids = new Set<string>();
+    for (const face of doc.panel?.faces ?? []) {
+        for (const element of face.elements) {
+            if (element.id !== undefined) {
+                ids.add(element.id);
+            }
+            ids.add(element.bind.componentId);
+            if (element.bind.controlId !== undefined) {
+                ids.add(element.bind.controlId);
+            }
+        }
+    }
+    return ids;
+}
+
+function componentTerminalExists(
+    componentsById: ReadonlyMap<string, Component>,
+    ref: Readonly<{ componentId: string; terminalName: string }>,
+): boolean {
+    return componentHasTerminal(componentsById, ref.componentId, ref.terminalName);
+}
+
+function componentHasTerminal(
+    componentsById: ReadonlyMap<string, Component>,
+    componentId: string,
+    terminalName: string,
+): boolean {
+    return componentsById.get(componentId)?.terminals.some((terminal) => terminal.name === terminalName) === true;
+}
+
+function isDigestShapedSourceHash(hash: string): boolean {
+    return /^sha256:[0-9a-f]{64}$/i.test(hash);
+}
+
+function dataString(object: VdspBuildDataObject | undefined, key: string): string | undefined {
+    const value = object?.[key];
+    return typeof value === 'string' ? value : undefined;
+}
+
+function dataObject(object: VdspBuildDataObject | undefined, key: string): VdspBuildDataObject | undefined {
+    const value = object?.[key];
+    return isBuildDataObject(value) ? value : undefined;
+}
+
+function isBuildDataObject(value: unknown): value is VdspBuildDataObject {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unresolvedIssue(
+    code: ValidationCode,
+    severity: ValidationSeverity,
+    message: string,
+    componentId: string,
+    property: string,
+): ValidationIssue {
+    return {
+        code,
+        severity,
+        message,
+        componentId,
+        property,
+    };
 }
 
 function missingPropertyIssue(component: Component, rule: PropertyRule): ValidationIssue {

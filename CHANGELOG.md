@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Add `circuit-interchange/v3` parsing and serialization for physical build metadata, including build scope, mechanical envelopes, BOM rows, part profiles, footprint catalogs, off-board wiring, physical panel placement, and board realizations.
+- Add typed board realization support for stripboard, perfboard, breadboard-pattern protoboard, and fabricated PCB data with selected-build validation.
+- Add explicit lossy-conversion handling for v3-only data, including `convertCircuitDocumentFileWithReport()` and `drop-with-diagnostics`.
+- Export v3 model types and update package/API documentation for the v3 build-data contract.
+
 ## 0.5.0
 
 - Pivot the repository to the single publishable `@vessel-dsp/core` package for headless `.vdsp`, `.asc`, `.schx`, and Circuit JSON conversion.

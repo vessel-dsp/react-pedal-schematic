@@ -26,6 +26,7 @@ npm install @vessel-dsp/core
 
 ```ts
 import {
+    convertCircuitDocumentFileWithReport,
     parseCircuitDocumentFile,
     serializeCircuitJsonDocument,
     convertCircuitDocumentFile,
@@ -42,14 +43,30 @@ const vdsp = convertCircuitDocumentFile(JSON.stringify(circuitJson), {
     outputFormat: 'vdsp',
     outputFilename: 'pedal.vdsp',
 });
+
+const lossyCircuitJson = convertCircuitDocumentFileWithReport(vdsp, {
+    inputFilename: 'pedal.vdsp',
+    outputFormat: 'circuit-json',
+    outputFilename: 'pedal.circuit.json',
+    lossPolicy: 'drop-with-diagnostics',
+});
 ```
 
-## Supported V1 Conversion Inputs
+## Supported Conversion Inputs
 
-- Project-native `.vdsp` Source documents (`circuit-interchange/v2` YAML)
+- Project-native `.vdsp` Source documents (`circuit-interchange/v2` and
+  `circuit-interchange/v3` YAML)
 - LTspice `.asc`
 - LiveSPICE `.schx`
 - tscircuit `.circuit.json`
+
+`.vdsp` v3 adds reviewed physical build metadata: build scope, mechanical
+enclosure data, BOM rows, embedded part profiles and board footprints,
+off-board wiring, panel drill placement, and board realizations for stripboard,
+perfboard, breadboard-pattern protoboard, and fabricated PCB. Conversion from
+v3 `.vdsp` to formats that cannot preserve those fields errors by default; use
+`convertCircuitDocumentFileWithReport()` with `lossPolicy:
+'drop-with-diagnostics'` only when that loss is intentional.
 
 SPICE `.cir` / `.net` parsing remains available as legacy connectivity support,
 but it is not part of the new v1 bidirectional Circuit JSON contract.

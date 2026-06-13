@@ -17,7 +17,8 @@ const document = parseCircuitDocumentFile(sourceText, {
     filename: 'boost.schx',
 });
 
-const circuitJson = serializeCircuitJsonDocument(document);
+const circuitJsonExport = serializeCircuitJsonDocument(document);
+const circuitJsonElements = circuitJsonExport.elements;
 
 const asc = serializeCircuitDocumentFile(document, {
     format: 'ltspice-asc',
@@ -25,26 +26,55 @@ const asc = serializeCircuitDocumentFile(document, {
 });
 ```
 
+`serializeCircuitJsonDocument()` returns an export object. Pass
+`circuitJsonExport.elements` to tools that expect the raw Circuit JSON element
+array, or keep the full export object when you need any sidecar metadata returned
+by the serializer.
+
 ## Convert Files
 
+Continuing from the exported Circuit JSON array above:
+
 ```ts
-import { convertCircuitDocumentFile } from '@vessel-dsp/core';
+import {
+    convertCircuitDocumentFile,
+    convertCircuitDocumentFileWithReport,
+} from '@vessel-dsp/core';
+
+const circuitJsonText = JSON.stringify(circuitJsonElements);
 
 const vdsp = convertCircuitDocumentFile(circuitJsonText, {
     inputFilename: 'boost.circuit.json',
     outputFormat: 'vdsp',
     outputFilename: 'boost.vdsp',
 });
+
+const lossyReport = convertCircuitDocumentFileWithReport(vdsp, {
+    inputFilename: 'boost.vdsp',
+    outputFormat: 'circuit-json',
+    outputFilename: 'boost.circuit.json',
+    lossPolicy: 'drop-with-diagnostics',
+});
 ```
 
 ## Format Contract
 
-V1 bidirectional Circuit JSON conversion covers:
+V1 bidirectional source parsing covers:
 
-- `.vdsp` strict `circuit-interchange/v2` YAML
+- `.vdsp` strict `circuit-interchange/v2` and `circuit-interchange/v3` YAML
 - LTspice `.asc`
 - LiveSPICE `.schx`
-- tscircuit `.circuit.json`
+
+`.vdsp` v3 carries reviewed physical build data: build scope, mechanical
+metadata, BOM rows, embedded part profiles and footprints, off-board wiring,
+panel drill placement, and board realizations for stripboard, perfboard,
+breadboard-pattern protoboard, and fabricated PCB. Conversion to formats that
+cannot preserve those fields errors by default; use the report API above only
+when lossy export is intentional.
+
+Circuit JSON remains the intermediary export/import format. Use `.circuit.json`
+files for the raw Circuit JSON element array when converting through tscircuit's
+interchange path.
 
 SPICE `.cir` / `.net` support remains available for legacy connectivity parsing
 and netlist export, but it is not part of the new v1 bidirectional Circuit JSON

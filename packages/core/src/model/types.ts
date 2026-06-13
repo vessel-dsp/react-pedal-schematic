@@ -236,7 +236,7 @@ export type PanelGridLayout = Readonly<{
     columnOrder?: PanelColumnOrder;
 }>;
 
-export type PanelControlKind = 'knob' | 'slider' | 'switch' | 'led' | 'jack';
+export type PanelControlKind = 'knob' | 'slider' | 'switch' | 'selector' | 'footswitch' | 'led' | 'jack';
 
 export type PanelGridPosition = Readonly<{
     row: number;
@@ -253,11 +253,13 @@ export type PanelElementBinding = Readonly<{
 }>;
 
 export type PanelElementPlacement = Readonly<{
+    id?: string;
     bind: PanelElementBinding;
     kind: PanelControlKind;
     grid: PanelGridPosition;
     label?: string;
     interfaceControlId?: string;
+    physical?: PanelElementPhysicalPlacement;
 }>;
 
 /** @deprecated Use PanelElementPlacement. */
@@ -267,11 +269,303 @@ export type PanelFace = Readonly<{
     id: string;
     label?: string;
     layout: PanelGridLayout;
+    geometry?: PanelFaceGeometry;
     elements: readonly PanelElementPlacement[];
 }>;
 
 export type PanelPlacementMetadata = Readonly<{
     faces: readonly PanelFace[];
+}>;
+
+export type VdspBuildDataScalar = string | number | boolean | null;
+
+export type VdspBuildDataValue = VdspBuildDataScalar | readonly VdspBuildDataValue[] | VdspBuildDataObject;
+
+export type VdspBuildDataObject = Readonly<{
+    readonly [key: string]: VdspBuildDataValue | undefined;
+}>;
+
+export type MillimeterRect = Readonly<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}>;
+
+export type PanelFaceGeometry = VdspBuildDataObject & Readonly<{
+    units?: string;
+    surface?: string;
+    usableRectMm?: MillimeterRect;
+}>;
+
+export type PanelElementPhysicalPlacement = VdspBuildDataObject & Readonly<{
+    units?: string;
+    centerMm?: Point;
+    drillDiameterMm?: number;
+    partProfileId?: string;
+    locked?: boolean;
+}>;
+
+export type BuildIntent = 'diy-build-artifact' | 'schema-review-sample';
+
+export type BuildCompleteness = 'complete-selected-build' | 'partial-offboard-wiring';
+
+export type BuildScope = VdspBuildDataObject & Readonly<{
+    schema: 'build-scope/v1';
+    intent?: BuildIntent;
+    completeness?: BuildCompleteness;
+    selectedBoardId?: string;
+    selectedOffBoardWiringHarnessIds?: readonly string[];
+    alternateBoardIds?: readonly string[];
+    bomScope?: string;
+}>;
+
+export type MechanicalBuildMetadata = VdspBuildDataObject & Readonly<{
+    schema?: string;
+    units?: string;
+    coordinateSystem?: VdspBuildDataObject;
+    enclosure?: VdspBuildDataObject & Readonly<{
+        profileId?: string;
+        label?: string;
+        outerSizeMm?: VdspBuildDataObject;
+        wallThicknessMm?: number;
+    }>;
+    internalBoard?: VdspBuildDataObject & Readonly<{
+        preferredBoardId?: string;
+        usableRectMm?: MillimeterRect;
+        keepoutRectsMm?: readonly VdspBuildDataObject[];
+    }>;
+}>;
+
+export type BuildBomRefKind =
+    | 'component'
+    | 'device-interface-control'
+    | 'panel-element'
+    | 'board'
+    | 'freeform-build-item';
+
+export type BuildBomRef = VdspBuildDataObject & Readonly<{
+    kind: BuildBomRefKind;
+    componentId?: string;
+    controlId?: string;
+    panelElementId?: string;
+    boardId?: string;
+    label?: string;
+}>;
+
+export type BuildBomItem = VdspBuildDataObject & Readonly<{
+    id: string;
+    refs: readonly BuildBomRef[];
+    quantity: number;
+    value?: string;
+    partProfileId?: string;
+    category?: string;
+    sku?: string;
+}>;
+
+export type BuildBom = VdspBuildDataObject & Readonly<{
+    schema: 'build-bom/v1';
+    items: readonly BuildBomItem[];
+}>;
+
+export type BuildPartProfile = VdspBuildDataObject & Readonly<{
+    id: string;
+    kind?: string;
+}>;
+
+export type BuildPartProfileCatalog = VdspBuildDataObject & Readonly<{
+    schema: 'part-profile-catalog/v1';
+    resolution?: string;
+    units?: string;
+    profiles: readonly BuildPartProfile[];
+}>;
+
+export type BoardFootprint = VdspBuildDataObject & Readonly<{
+    id: string;
+    boardApplicability?: BoardApplicability;
+}>;
+
+export type BoardFootprintCatalog = VdspBuildDataObject & Readonly<{
+    schema: 'board-footprint-catalog/v1';
+    resolution?: string;
+    units?: string;
+    footprints: readonly BoardFootprint[];
+}>;
+
+export type OffBoardWiringCoverage = 'selected-build-complete' | 'representative-selected-build-endpoints';
+
+export type OffBoardWiringHarnessStatus = 'complete' | 'partial' | 'candidate';
+
+export type OffBoardWiringEndpointKind =
+    | 'panel-component-terminal'
+    | 'board-terminal'
+    | 'power-terminal'
+    | 'footswitch-terminal'
+    | 'free-wire-label';
+
+export type OffBoardWiringEndpoint = VdspBuildDataObject & Readonly<{
+    id: string;
+    kind: OffBoardWiringEndpointKind;
+    componentId?: string;
+    terminalName?: string;
+    panelElementId?: string;
+    boardId?: string;
+    terminalId?: string;
+    label?: string;
+}>;
+
+export type BoardNetRef = VdspBuildDataObject & Readonly<{
+    source: 'board-netlist';
+    boardId?: string;
+    netId: string;
+}>;
+
+export type CanonicalCircuitNetRef = VdspBuildDataObject & Readonly<{
+    source: 'canonical-circuit';
+    member?: ComponentTerminalRef;
+}>;
+
+export type OffBoardSignalRef = BoardNetRef | CanonicalCircuitNetRef | VdspBuildDataObject;
+
+export type OffBoardWireAttributes = VdspBuildDataObject & Readonly<{
+    color?: string;
+    gaugeAwg?: number;
+    reviewedLengthMm?: number;
+    groupId?: string;
+}>;
+
+export type OffBoardWiringConnection = VdspBuildDataObject & Readonly<{
+    id: string;
+    fromEndpointId: string;
+    toEndpointId: string;
+    signalRef?: OffBoardSignalRef;
+    wire?: OffBoardWireAttributes;
+}>;
+
+export type OffBoardWiringHarness = VdspBuildDataObject & Readonly<{
+    id: string;
+    status?: OffBoardWiringHarnessStatus;
+    notes?: string;
+    endpoints: readonly OffBoardWiringEndpoint[];
+    connections: readonly OffBoardWiringConnection[];
+}>;
+
+export type OffBoardWiringPlan = VdspBuildDataObject & Readonly<{
+    schema: 'offboard-wiring/v1';
+    source?: string;
+    coverage?: OffBoardWiringCoverage;
+    harnesses: readonly OffBoardWiringHarness[];
+}>;
+
+export type BoardFamily = 'prototype-board' | 'fabricated-board';
+
+export type BoardKind = 'stripboard' | 'perfboard' | 'breadboard-pattern' | 'pcb';
+
+export type BoardSubtype =
+    | 'veroboard'
+    | 'isolated-pad'
+    | 'solderable-half-breadboard'
+    | 'single-sided-through-hole'
+    | 'two-layer-through-hole';
+
+export type BoardApplicability = VdspBuildDataObject & Readonly<{
+    family: BoardFamily;
+    kind: BoardKind;
+    subtype?: BoardSubtype;
+}>;
+
+export type ComponentTerminalRef = VdspBuildDataObject & Readonly<{
+    componentId: string;
+    terminalName: string;
+}>;
+
+export type BoardSourceCircuitHash = VdspBuildDataObject & Readonly<{
+    schema: 'canonical-circuit-facts-hash/v1';
+    hashAlgorithm: 'sha256';
+    hash: string;
+}>;
+
+export type BoardHole = VdspBuildDataObject & Readonly<{
+    row: number;
+    column: number;
+}>;
+
+export type BoardEdgeTerminal = VdspBuildDataObject & Readonly<{
+    id: string;
+    role?: string;
+    terminalRef?: ComponentTerminalRef;
+    hole?: BoardHole;
+}>;
+
+export type BoardPlacedPad = VdspBuildDataObject & Readonly<{
+    padId: string;
+    terminalName?: string;
+    hole?: BoardHole;
+    positionMm?: Point;
+}>;
+
+export type BoardFootprintPlacement = VdspBuildDataObject & Readonly<{
+    componentId: string;
+    footprintId: string;
+    atGrid?: BoardHole;
+    atMm?: Point;
+    rotationDeg?: number;
+    pads: readonly BoardPlacedPad[];
+}>;
+
+export type BoardNetMember = VdspBuildDataObject & Readonly<{
+    componentId: string;
+    terminalName: string;
+    padId?: string;
+    terminalId?: string;
+}>;
+
+export type BoardNet = VdspBuildDataObject & Readonly<{
+    id: string;
+    name?: string;
+    members: readonly BoardNetMember[];
+}>;
+
+export type BoardNetlist = VdspBuildDataObject & Readonly<{
+    source?: string;
+    nets: readonly BoardNet[];
+}>;
+
+export type BoardRoute = VdspBuildDataObject & Readonly<{
+    id: string;
+    netRef?: BoardNetRef | CanonicalCircuitNetRef | VdspBuildDataObject;
+    locked?: boolean;
+    conductors?: readonly VdspBuildDataObject[];
+    copper?: readonly VdspBuildDataObject[];
+    vias?: readonly VdspBuildDataObject[];
+    zones?: readonly VdspBuildDataObject[];
+    drills?: readonly VdspBuildDataObject[];
+}>;
+
+export type BoardReview = VdspBuildDataObject & Readonly<{
+    status?: 'buildable' | 'candidate' | 'stale' | string;
+    reviewedBy?: string;
+    reviewedAt?: string;
+    notes?: string;
+}>;
+
+export type BoardRealization = VdspBuildDataObject & Readonly<{
+    id: string;
+    schema: 'circuit-board/v1';
+    family: BoardFamily;
+    kind: BoardKind;
+    subtype?: BoardSubtype;
+    source?: string;
+    units?: string;
+    locked?: boolean;
+    sourceCircuit?: BoardSourceCircuitHash;
+    edgeTerminals: readonly BoardEdgeTerminal[];
+    footprintPlacements: readonly BoardFootprintPlacement[];
+    netlist?: BoardNetlist;
+    routes: readonly BoardRoute[];
+    zones?: readonly VdspBuildDataObject[];
+    drills?: readonly VdspBuildDataObject[];
+    review?: BoardReview;
 }>;
 
 export type Warning = Readonly<{
@@ -287,6 +581,13 @@ export type CircuitDocument = Readonly<{
     device?: CircuitDocumentDevice;
     controlGroups?: readonly ControlGroup[];
     controlContexts?: readonly ControlContext[];
+    mechanical?: MechanicalBuildMetadata;
+    build?: BuildScope;
+    bom?: BuildBom;
+    partProfiles?: BuildPartProfileCatalog;
+    footprints?: BoardFootprintCatalog;
+    offBoardWiring?: OffBoardWiringPlan;
+    boards?: readonly BoardRealization[];
     deviceInterface?: DeviceInterface;
     panel?: PanelPlacementMetadata;
     controlInterfaces?: readonly ControlInterface[];

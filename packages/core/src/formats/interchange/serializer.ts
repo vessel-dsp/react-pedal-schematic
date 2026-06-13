@@ -15,14 +15,19 @@ import type {
     ControlOutput,
     DocumentSource,
     PanelElementBinding,
+    PanelElementPhysicalPlacement,
     PanelElementPlacement,
     PanelFace,
+    PanelFaceGeometry,
     PanelGridLayout,
     PanelGridPosition,
     PanelPlacementMetadata,
     Point,
     PropertyValue,
     Terminal,
+    VdspBuildDataObject,
+    VdspBuildDataScalar,
+    VdspBuildDataValue,
     Warning,
     Wire,
 } from '../../model/types';
@@ -44,8 +49,9 @@ export function serializeInterchangeYaml(
     options: SerializeInterchangeYamlOptions = {},
 ): string {
     const connectivity = resolveConnectivity(doc);
+    const schema = hasV3OnlyFields(doc) ? 'circuit-interchange/v3' : 'circuit-interchange/v2';
     const root: MutableYamlObject = {
-        schema: 'circuit-interchange/v2',
+        schema,
         metadata: {
             name: doc.metadata.name,
             description: doc.metadata.description,
@@ -62,6 +68,21 @@ export function serializeInterchangeYaml(
     if (doc.controlContexts !== undefined) {
         root.controlContexts = doc.controlContexts.map(controlContextBlock);
     }
+    if (doc.mechanical !== undefined) {
+        root.mechanical = buildDataObjectBlock(doc.mechanical);
+    }
+    if (doc.build !== undefined) {
+        root.build = buildDataObjectBlock(doc.build);
+    }
+    if (doc.bom !== undefined) {
+        root.bom = buildDataObjectBlock(doc.bom);
+    }
+    if (doc.partProfiles !== undefined) {
+        root.partProfiles = buildDataObjectBlock(doc.partProfiles);
+    }
+    if (doc.footprints !== undefined) {
+        root.footprints = buildDataObjectBlock(doc.footprints);
+    }
     if (doc.deviceInterface !== undefined) {
         root.deviceInterface = deviceInterfaceBlock(doc.deviceInterface);
     }
@@ -74,6 +95,9 @@ export function serializeInterchangeYaml(
     if (doc.controlOutputs !== undefined) {
         root.controlOutputs = doc.controlOutputs.map(controlOutputBlock);
     }
+    if (doc.offBoardWiring !== undefined) {
+        root.offBoardWiring = buildDataObjectBlock(doc.offBoardWiring);
+    }
     Object.assign(root, {
         components: doc.components.map((component) => componentBlock(component, connectivity)),
         nodes: nodeBlocks(connectivity),
@@ -82,8 +106,34 @@ export function serializeInterchangeYaml(
         diagnostics: doc.warnings.map(warningBlock),
         rawAttributes: doc.rawAttributes,
     });
+    if (doc.boards !== undefined) {
+        root.boards = doc.boards.map(buildDataObjectBlock);
+    }
 
     return `${emitYaml(root, 0)}\n`;
+}
+
+function hasV3OnlyFields(doc: CircuitDocument): boolean {
+    return doc.mechanical !== undefined
+        || doc.build !== undefined
+        || doc.bom !== undefined
+        || doc.partProfiles !== undefined
+        || doc.footprints !== undefined
+        || doc.offBoardWiring !== undefined
+        || doc.boards !== undefined
+        || hasV3PanelFields(doc.panel);
+}
+
+function hasV3PanelFields(panel: PanelPlacementMetadata | undefined): boolean {
+    return panel?.faces.some((face) =>
+        face.geometry !== undefined
+        || face.elements.some((element) =>
+            element.id !== undefined
+            || element.physical !== undefined
+            || element.kind === 'selector'
+            || element.kind === 'footswitch'
+        )
+    ) ?? false;
 }
 
 function deviceBlock(device: CircuitDocumentDevice): MutableYamlObject {
@@ -313,6 +363,9 @@ function panelFaceBlock(face: PanelFace): MutableYamlObject {
         out.label = face.label;
     }
     out.layout = panelLayoutBlock(face.layout);
+    if (face.geometry !== undefined) {
+        out.geometry = panelFaceGeometryBlock(face.geometry);
+    }
     out.elements = face.elements.map(panelElementBlock);
     return out;
 }
@@ -339,13 +392,27 @@ function panelElementBlock(element: PanelElementPlacement): MutableYamlObject {
         kind: element.kind,
         grid: panelGridPositionBlock(element.grid),
     };
+    if (element.id !== undefined) {
+        out.id = element.id;
+    }
     if (element.label !== undefined) {
         out.label = element.label;
     }
     if (element.interfaceControlId !== undefined) {
         out.interfaceControlId = element.interfaceControlId;
     }
+    if (element.physical !== undefined) {
+        out.physical = panelElementPhysicalBlock(element.physical);
+    }
     return out;
+}
+
+function panelFaceGeometryBlock(geometry: PanelFaceGeometry): MutableYamlObject {
+    return buildDataObjectBlock(geometry);
+}
+
+function panelElementPhysicalBlock(physical: PanelElementPhysicalPlacement): MutableYamlObject {
+    return buildDataObjectBlock(physical);
 }
 
 function panelElementBindingBlock(binding: PanelElementBinding): MutableYamlObject {
@@ -476,6 +543,26 @@ function pointBlock(point: Point): MutableYamlObject {
     };
 }
 
+function buildDataObjectBlock(value: VdspBuildDataObject): MutableYamlObject {
+    const out: MutableYamlObject = {};
+    for (const [key, child] of Object.entries(value)) {
+        if (child !== undefined) {
+            out[key] = buildDataValueBlock(child);
+        }
+    }
+    return out;
+}
+
+function buildDataValueBlock(value: VdspBuildDataValue): YamlValue {
+    if (isBuildDataScalar(value)) {
+        return value;
+    }
+    if (isBuildDataArray(value)) {
+        return value.map(buildDataValueBlock);
+    }
+    return buildDataObjectBlock(value);
+}
+
 function emitYaml(value: YamlValue, indent: number): string {
     if (isScalar(value)) {
         return `${spaces(indent)}${formatScalar(value)}`;
@@ -553,6 +640,14 @@ function isScalar(value: YamlValue): value is YamlScalar {
 }
 
 function isYamlArray(value: YamlValue): value is readonly YamlValue[] {
+    return Array.isArray(value);
+}
+
+function isBuildDataScalar(value: VdspBuildDataValue): value is VdspBuildDataScalar {
+    return value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+}
+
+function isBuildDataArray(value: VdspBuildDataValue): value is readonly VdspBuildDataValue[] {
     return Array.isArray(value);
 }
 

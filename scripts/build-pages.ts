@@ -28,7 +28,12 @@ export const CONVERSION_DOC_FUNCTIONS: readonly ConversionDocFunction[] = [
     {
         name: 'convertCircuitDocumentFile',
         signature: 'convertCircuitDocumentFile(source, { inputFilename, outputFormat, outputFilename? }): string',
-        description: 'One-call conversion from an input file string to the selected output format through CircuitDocument.',
+        description: 'One-call conversion from an input file string to the selected output format through CircuitDocument; errors if v3-only build data would be dropped.',
+    },
+    {
+        name: 'convertCircuitDocumentFileWithReport',
+        signature: 'convertCircuitDocumentFileWithReport(source, { inputFilename, outputFormat, outputFilename?, lossPolicy? }): { output, diagnostics, droppedFields }',
+        description: 'Converts with explicit loss policy support, including drop-with-diagnostics for v3 mechanical, BOM, wiring, and board realization fields.',
     },
     {
         name: 'serializeCircuitJsonDocument',
@@ -53,7 +58,7 @@ export const CONVERSION_DOC_FUNCTIONS: readonly ConversionDocFunction[] = [
     {
         name: 'parseVdspCircuitDocument',
         signature: 'parseVdspCircuitDocument(source: string): CircuitDocument',
-        description: 'Parses strict circuit-interchange/v2 YAML Source documents.',
+        description: 'Parses strict circuit-interchange/v2 and circuit-interchange/v3 YAML Source documents.',
     },
     {
         name: 'serializeVdspCircuitDocument',
@@ -185,6 +190,7 @@ export function renderPagesHtml(): string {
             <p>Headless TypeScript functions for converting audio-circuit files through CircuitDocument and official Circuit JSON.</p>
             <div class="badge-row" aria-label="Supported formats">
                 <span class="badge">.vdsp</span>
+                <span class="badge">circuit-interchange/v3</span>
                 <span class="badge">.asc</span>
                 <span class="badge">.schx</span>
                 <span class="badge">.circuit.json</span>
@@ -200,6 +206,12 @@ export function renderPagesHtml(): string {
             <h2>Core Flow</h2>
             <code>source file -&gt; CircuitDocument -&gt; Circuit JSON or target source format</code>
             <p class="note">SPICE .cir and .net helpers remain available as legacy connectivity support, but the v1 bidirectional Circuit JSON contract is .vdsp, .asc, .schx, and .circuit.json.</p>
+        </section>
+
+        <section>
+            <h2>VDSP V3 Build Data</h2>
+            <p>.vdsp supports circuit-interchange/v3 for reviewed physical build metadata: build scope, mechanical envelopes, BOM rows, embedded part and footprint catalogs, off-board wiring, panel drill placement, and board realizations for stripboard, perfboard, breadboard-pattern protoboard, and fabricated PCB.</p>
+            <p class="note">Converting v3 documents to formats that cannot preserve these fields errors by default. Use convertCircuitDocumentFileWithReport with lossPolicy: "drop-with-diagnostics" only when lossy export is intentional.</p>
         </section>
 
         <section>

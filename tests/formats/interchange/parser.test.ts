@@ -38,7 +38,117 @@ const runtimeDescriptorSource = `<?xml version="1.0" encoding="utf-8"?>
   <Element Type="Circuit.Wire, Circuit" A="200,160" B="400,120" />
 </Schematic>`;
 
+const V3_MECHANICAL_BOARD_URL = new URL(
+    '../../fixtures/interchange/vdsp-v3-mechanical-board-realization.vdsp',
+    import.meta.url,
+);
+
 describe('parseInterchangeYaml', () => {
+    test('parses circuit-interchange/v3 mechanical build metadata without dropping physical fields', async () => {
+        const yaml = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const parsed = parseInterchangeYaml(yaml);
+
+        expect(parsed.build).toMatchObject({
+            schema: 'build-scope/v1',
+            intent: 'diy-build-artifact',
+            completeness: 'complete-selected-build',
+            selectedBoardId: 'main-vero',
+            selectedOffBoardWiringHarnessIds: ['panel-to-board'],
+            alternateBoardIds: ['perfboard-alt', 'breadboard-pattern-proto', 'fabricated-pcb'],
+            bomScope: 'selected-board-plus-shared-build-items',
+        });
+        expect(parsed.mechanical?.enclosure).toMatchObject({
+            profileId: 'enclosure-1590b',
+            label: 'Hammond 1590B',
+        });
+        expect(parsed.bom?.items.some((item) => item.id === 'bom-dc-jack' && item.sku === 'JACK-DC-2.1MM')).toBe(true);
+        expect(parsed.partProfiles?.profiles.some((profile) => profile.id === 'dc-jack-2.1mm-panel')).toBe(true);
+        expect(parsed.footprints?.footprints.some((footprint) => footprint.id === 'axial-resistor-7.5mm-through-hole')).toBe(true);
+        expect(parsed.offBoardWiring?.coverage).toBe('selected-build-complete');
+        expect(parsed.offBoardWiring?.harnesses[0]?.status).toBe('complete');
+        expect(parsed.panel?.faces[0]?.geometry).toMatchObject({
+            units: 'mm',
+            surface: 'top',
+        });
+        expect(parsed.panel?.faces[0]?.elements[2]).toMatchObject({
+            id: 'panel-tone-mode',
+            kind: 'selector',
+            physical: {
+                units: 'mm',
+                drillDiameterMm: 6.5,
+                partProfileId: 'toggle-spdt-mini',
+                locked: true,
+            },
+        });
+        expect(parsed.panel?.faces[0]?.elements[4]?.kind).toBe('footswitch');
+        expect(parsed.boards?.map((board) => [board.id, board.family, board.kind, board.subtype])).toEqual([
+            ['main-vero', 'prototype-board', 'stripboard', 'veroboard'],
+            ['perfboard-alt', 'prototype-board', 'perfboard', 'isolated-pad'],
+            ['breadboard-pattern-proto', 'prototype-board', 'breadboard-pattern', 'solderable-half-breadboard'],
+            ['fabricated-pcb', 'fabricated-board', 'pcb', 'single-sided-through-hole'],
+        ]);
+        expect(parsed.boards?.[0]?.sourceCircuit?.hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(parsed.boards?.[3]?.routes[0]?.locked).toBe(false);
+        expect(parsed.boards?.[3]?.zones?.[0]?.id).toBe('ground-fill-bottom');
+        expect(parsed.boards?.[3]?.drills?.[0]?.id).toBe('mounting-hole-1');
+    });
+
+    test('rejects v3 build metadata with unknown strict enum values', () => {
+        const yaml = `schema: circuit-interchange/v3
+metadata:
+  name: Bad v3 enum
+  description: ""
+  partNumber: ""
+source: {}
+build:
+  schema: build-scope/v1
+  intent: product-build
+  completeness: complete-selected-build
+components: []
+wires: []
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('build.intent');
+    });
+
+    test('rejects reviewed board source hashes that are not digest-shaped', () => {
+        const yaml = `schema: circuit-interchange/v3
+metadata:
+  name: Bad v3 hash
+  description: ""
+  partNumber: ""
+source: {}
+components: []
+wires: []
+boards:
+  - id: main-vero
+    schema: circuit-board/v1
+    family: prototype-board
+    kind: stripboard
+    subtype: veroboard
+    source: user-customized
+    units: mm
+    locked: true
+    sourceCircuit:
+      schema: canonical-circuit-facts-hash/v1
+      hashAlgorithm: sha256
+      hash: sha256:reviewed-canonical-circuit-facts
+    prototypeGrid:
+      pitchMm: 2.54
+      rows: 1
+      columns: 1
+      copperPattern:
+        kind: row-strips
+        stripAxis: horizontal
+directives: []
+diagnostics: []
+rawAttributes: {}`;
+
+        expect(() => parseInterchangeYaml(yaml)).toThrow('boards[0].sourceCircuit.hash');
+    });
+
     test('round-trips device interface groups, contexts, semantic controls, and panel joins', () => {
         const doc: CircuitDocument = {
             ...EMPTY_DOCUMENT,

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { EMPTY_DOCUMENT, parseCircuitDocument, serializeInterchangeYaml, type CircuitDocument } from '../../../packages/core/src';
+import {
+    EMPTY_DOCUMENT,
+    parseCircuitDocument,
+    parseInterchangeYaml,
+    serializeInterchangeYaml,
+    type CircuitDocument,
+} from '../../../packages/core/src';
 
 const source = `<?xml version="1.0" encoding="utf-8"?>
 <Schematic Name="Test filter">
@@ -11,6 +17,11 @@ const source = `<?xml version="1.0" encoding="utf-8"?>
   </Element>
   <Element Type="Circuit.Wire, Circuit" A="0,20" B="0,80" />
 </Schematic>`;
+
+const V3_MECHANICAL_BOARD_URL = new URL(
+    '../../fixtures/interchange/vdsp-v3-mechanical-board-realization.vdsp',
+    import.meta.url,
+);
 
 describe('serializeInterchangeYaml', () => {
     test('emits a versioned LLM-friendly YAML interchange view with explicit nodes', () => {
@@ -34,6 +45,33 @@ describe('serializeInterchangeYaml', () => {
         expect(yaml).toContain('role: ground');
         expect(yaml).toContain('members:');
         expect(yaml).toContain('componentId: GND');
+    });
+
+    test('emits circuit-interchange/v3 when physical build metadata is present and preserves v3 blocks', async () => {
+        const sourceYaml = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const doc = parseInterchangeYaml(sourceYaml);
+        const yaml = serializeInterchangeYaml(doc);
+        const parsedAgain = parseInterchangeYaml(yaml);
+
+        expect(yaml).toContain('schema: circuit-interchange/v3');
+        expect(yaml).toContain('build:');
+        expect(yaml).toContain('mechanical:');
+        expect(yaml).toContain('bom:');
+        expect(yaml).toContain('partProfiles:');
+        expect(yaml).toContain('footprints:');
+        expect(yaml).toContain('offBoardWiring:');
+        expect(yaml).toContain('boards:');
+        expect(yaml).toContain('kind: selector');
+        expect(yaml).toContain('kind: footswitch');
+        expect(yaml).toContain('physical:');
+        expect(parsedAgain.build).toEqual(doc.build);
+        expect(parsedAgain.mechanical).toEqual(doc.mechanical);
+        expect(parsedAgain.bom).toEqual(doc.bom);
+        expect(parsedAgain.partProfiles).toEqual(doc.partProfiles);
+        expect(parsedAgain.footprints).toEqual(doc.footprints);
+        expect(parsedAgain.offBoardWiring).toEqual(doc.offBoardWiring);
+        expect(parsedAgain.boards).toEqual(doc.boards);
+        expect(parsedAgain.panel).toEqual(doc.panel);
     });
 
     test('serializes external control interface metadata with binding details', () => {

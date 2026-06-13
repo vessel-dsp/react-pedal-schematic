@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
     VERSION,
+    convertCircuitDocumentFileWithReport,
     parseCircuitJsonDocument,
     serializeCircuitJsonDocument,
     validateCircuitJsonDocument,
@@ -163,6 +164,7 @@ describe('workspace package contract', () => {
         expect(deps['circuit-json']).toBeDefined();
         expect(deps.zod).toBeDefined();
         expectNoReactRuntimeDependency(pkg);
+        expect(typeof convertCircuitDocumentFileWithReport).toBe('function');
     });
 
     test('removed React and simulation packages are not workspace deliverables', async () => {
@@ -322,9 +324,9 @@ describe('release metadata', () => {
         const core = await readPackageJson('core');
         const changelog = await readChangelog();
 
-        expect(core.version).toBe('0.5.0');
-        expect(VERSION).toBe('0.5.0');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.5.0\n\n');
+        expect(core.version).toBe('0.6.0');
+        expect(VERSION).toBe('0.6.0');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.6.0\n\n');
     });
 });
 

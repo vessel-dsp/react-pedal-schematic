@@ -3,8 +3,32 @@ import type {
     CircuitDocument,
     CircuitDocumentDevice,
     CircuitDocumentDeviceKind,
+    BoardApplicability,
+    BoardEdgeTerminal,
+    BoardFamily,
+    BoardFootprint,
+    BoardFootprintCatalog,
+    BoardFootprintPlacement,
+    BoardKind,
+    BoardNet,
+    BoardNetMember,
+    BoardNetlist,
+    BoardPlacedPad,
+    BoardRealization,
+    BoardRoute,
+    BoardSourceCircuitHash,
+    BoardSubtype,
+    BuildBom,
+    BuildBomItem,
+    BuildBomRef,
+    BuildCompleteness,
+    BuildIntent,
+    BuildPartProfile,
+    BuildPartProfileCatalog,
+    BuildScope,
     Component,
     ComponentKind,
+    ComponentTerminalRef,
     ControlApplicabilityPredicate,
     ControlContext,
     ControlGroup,
@@ -22,16 +46,27 @@ import type {
     PanelColumnOrder,
     PanelControlKind,
     PanelElementBinding,
+    PanelElementPhysicalPlacement,
+    PanelFaceGeometry,
     PanelGridLayout,
     PanelGridIndexing,
     PanelGridPosition,
     PanelPlacementMetadata,
     PanelRowOrder,
+    MechanicalBuildMetadata,
+    OffBoardWiringConnection,
+    OffBoardWiringCoverage,
+    OffBoardWiringEndpoint,
+    OffBoardWiringHarness,
+    OffBoardWiringHarnessStatus,
+    OffBoardWiringPlan,
     ParsedQuantity,
     Point,
     PropertyValue,
     Rotation,
     Terminal,
+    VdspBuildDataObject,
+    VdspBuildDataValue,
     Warning,
     Wire,
 } from '../../model/types';
@@ -55,23 +90,44 @@ type ParsedPair = Readonly<{
     rest: string;
 }>;
 
-const INTERCHANGE_SCHEMA = 'circuit-interchange/v2';
+const INTERCHANGE_SCHEMA_V2 = 'circuit-interchange/v2';
+const INTERCHANGE_SCHEMA_V3 = 'circuit-interchange/v3';
+const V3_ONLY_TOP_LEVEL_FIELDS = [
+    'mechanical',
+    'build',
+    'bom',
+    'partProfiles',
+    'footprints',
+    'offBoardWiring',
+    'boards',
+] as const;
 
 export function parseInterchangeYaml(source: string): CircuitDocument {
     const value = parseYamlSubset(source);
     const root = expectObject(value, 'root');
     const schema = expectString(root.schema, 'schema');
-    if (schema !== INTERCHANGE_SCHEMA) {
+    if (schema !== INTERCHANGE_SCHEMA_V2 && schema !== INTERCHANGE_SCHEMA_V3) {
         throw new Error(`unsupported interchange schema: ${schema}`);
     }
+    const isV3 = schema === INTERCHANGE_SCHEMA_V3;
+    if (!isV3) {
+        rejectV3OnlyTopLevelFields(root);
+    }
 
-    const panel = parsePanel(root.panel);
+    const panel = parsePanel(root.panel, isV3);
     const controlInterfaces = parseControlInterfaces(root.controlInterfaces);
     const device = parseDevice(root.device);
     const controlOutputs = parseControlOutputs(root.controlOutputs);
     const controlGroups = parseControlGroups(root.controlGroups);
     const controlContexts = parseControlContexts(root.controlContexts);
     const deviceInterface = parseDeviceInterface(root.deviceInterface);
+    const mechanical = isV3 ? parseMechanical(root.mechanical) : undefined;
+    const build = isV3 ? parseBuild(root.build) : undefined;
+    const bom = isV3 ? parseBom(root.bom) : undefined;
+    const partProfiles = isV3 ? parsePartProfiles(root.partProfiles) : undefined;
+    const footprints = isV3 ? parseFootprints(root.footprints) : undefined;
+    const offBoardWiring = isV3 ? parseOffBoardWiring(root.offBoardWiring) : undefined;
+    const boards = isV3 ? parseBoards(root.boards) : undefined;
 
     return {
         metadata: parseMetadata(root.metadata),
@@ -79,6 +135,13 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
         ...(device === undefined ? {} : { device }),
         ...(controlGroups === undefined ? {} : { controlGroups }),
         ...(controlContexts === undefined ? {} : { controlContexts }),
+        ...(mechanical === undefined ? {} : { mechanical }),
+        ...(build === undefined ? {} : { build }),
+        ...(bom === undefined ? {} : { bom }),
+        ...(partProfiles === undefined ? {} : { partProfiles }),
+        ...(footprints === undefined ? {} : { footprints }),
+        ...(offBoardWiring === undefined ? {} : { offBoardWiring }),
+        ...(boards === undefined ? {} : { boards }),
         ...(deviceInterface === undefined ? {} : { deviceInterface }),
         ...(panel === undefined ? {} : { panel }),
         ...(controlInterfaces === undefined ? {} : { controlInterfaces }),
@@ -89,6 +152,525 @@ export function parseInterchangeYaml(source: string): CircuitDocument {
         warnings: parseWarnings(root.diagnostics),
         rawAttributes: parseStringRecord(root.rawAttributes, 'rawAttributes'),
     };
+}
+
+function rejectV3OnlyTopLevelFields(root: YamlObject): void {
+    for (const field of V3_ONLY_TOP_LEVEL_FIELDS) {
+        if (root[field] !== undefined) {
+            throw new Error(`${field}: requires schema ${INTERCHANGE_SCHEMA_V3}`);
+        }
+    }
+}
+
+function parseMechanical(value: YamlValue | undefined): MechanicalBuildMetadata | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const mechanical = expectObject(value, 'mechanical');
+    return {
+        ...parseBuildDataObject(mechanical, 'mechanical'),
+        ...(mechanical.schema === undefined ? {} : { schema: expectString(mechanical.schema, 'mechanical.schema') }),
+        ...(mechanical.units === undefined ? {} : { units: expectString(mechanical.units, 'mechanical.units') }),
+    };
+}
+
+function parseBuild(value: YamlValue | undefined): BuildScope | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const build = expectObject(value, 'build');
+    return {
+        ...parseBuildDataObject(build, 'build'),
+        schema: parseLiteralString(build.schema, 'build.schema', 'build-scope/v1'),
+        ...(build.intent === undefined ? {} : { intent: parseBuildIntent(build.intent, 'build.intent') }),
+        ...(build.completeness === undefined
+            ? {}
+            : { completeness: parseBuildCompleteness(build.completeness, 'build.completeness') }),
+        ...(build.selectedBoardId === undefined
+            ? {}
+            : { selectedBoardId: expectString(build.selectedBoardId, 'build.selectedBoardId') }),
+        ...(build.selectedOffBoardWiringHarnessIds === undefined
+            ? {}
+            : {
+                selectedOffBoardWiringHarnessIds: parseOptionalStringArray(
+                    build.selectedOffBoardWiringHarnessIds,
+                    'build.selectedOffBoardWiringHarnessIds',
+                ) ?? [],
+            }),
+        ...(build.alternateBoardIds === undefined
+            ? {}
+            : { alternateBoardIds: parseOptionalStringArray(build.alternateBoardIds, 'build.alternateBoardIds') ?? [] }),
+        ...(build.bomScope === undefined ? {} : { bomScope: expectString(build.bomScope, 'build.bomScope') }),
+    };
+}
+
+function parseBuildIntent(value: YamlValue | undefined, path: string): BuildIntent {
+    const intent = expectString(value, path);
+    if (intent === 'diy-build-artifact' || intent === 'schema-review-sample') {
+        return intent;
+    }
+    throw new Error(`${path}: expected diy-build-artifact or schema-review-sample`);
+}
+
+function parseBuildCompleteness(value: YamlValue | undefined, path: string): BuildCompleteness {
+    const completeness = expectString(value, path);
+    if (completeness === 'complete-selected-build' || completeness === 'partial-offboard-wiring') {
+        return completeness;
+    }
+    throw new Error(`${path}: expected complete-selected-build or partial-offboard-wiring`);
+}
+
+function parseBom(value: YamlValue | undefined): BuildBom | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const bom = expectObject(value, 'bom');
+    return {
+        ...parseBuildDataObject(bom, 'bom'),
+        schema: parseLiteralString(bom.schema, 'bom.schema', 'build-bom/v1'),
+        items: optionalArray(bom.items, 'bom.items').map(parseBomItem),
+    };
+}
+
+function parseBomItem(value: YamlValue, index: number): BuildBomItem {
+    const path = `bom.items[${index}]`;
+    const item = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(item, path),
+        id: expectString(item.id, `${path}.id`),
+        refs: optionalArray(item.refs, `${path}.refs`).map((ref, refIndex) =>
+            parseBomRef(ref, `${path}.refs[${refIndex}]`)
+        ),
+        quantity: expectNumber(item.quantity, `${path}.quantity`),
+        ...(item.value === undefined ? {} : { value: expectString(item.value, `${path}.value`) }),
+        ...(item.partProfileId === undefined
+            ? {}
+            : { partProfileId: expectString(item.partProfileId, `${path}.partProfileId`) }),
+        ...(item.category === undefined ? {} : { category: expectString(item.category, `${path}.category`) }),
+        ...(item.sku === undefined ? {} : { sku: expectString(item.sku, `${path}.sku`) }),
+    };
+}
+
+function parseBomRef(value: YamlValue, path: string): BuildBomRef {
+    const ref = expectObject(value, path);
+    const kind = expectString(ref.kind, `${path}.kind`);
+    switch (kind) {
+        case 'component':
+        case 'device-interface-control':
+        case 'panel-element':
+        case 'board':
+        case 'freeform-build-item':
+            return {
+                ...parseBuildDataObject(ref, path),
+                kind,
+                ...(ref.componentId === undefined ? {} : { componentId: expectString(ref.componentId, `${path}.componentId`) }),
+                ...(ref.controlId === undefined ? {} : { controlId: expectString(ref.controlId, `${path}.controlId`) }),
+                ...(ref.panelElementId === undefined
+                    ? {}
+                    : { panelElementId: expectString(ref.panelElementId, `${path}.panelElementId`) }),
+                ...(ref.boardId === undefined ? {} : { boardId: expectString(ref.boardId, `${path}.boardId`) }),
+                ...(ref.label === undefined ? {} : { label: expectString(ref.label, `${path}.label`) }),
+            };
+        default:
+            throw new Error(`${path}.kind: expected component, device-interface-control, panel-element, board, or freeform-build-item`);
+    }
+}
+
+function parsePartProfiles(value: YamlValue | undefined): BuildPartProfileCatalog | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const catalog = expectObject(value, 'partProfiles');
+    return {
+        ...parseBuildDataObject(catalog, 'partProfiles'),
+        schema: parseLiteralString(catalog.schema, 'partProfiles.schema', 'part-profile-catalog/v1'),
+        ...(catalog.resolution === undefined
+            ? {}
+            : { resolution: expectString(catalog.resolution, 'partProfiles.resolution') }),
+        ...(catalog.units === undefined ? {} : { units: expectString(catalog.units, 'partProfiles.units') }),
+        profiles: optionalArray(catalog.profiles, 'partProfiles.profiles').map((profile, index) =>
+            parsePartProfile(profile, index)
+        ),
+    };
+}
+
+function parsePartProfile(value: YamlValue, index: number): BuildPartProfile {
+    const path = `partProfiles.profiles[${index}]`;
+    const profile = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(profile, path),
+        id: expectString(profile.id, `${path}.id`),
+        ...(profile.kind === undefined ? {} : { kind: expectString(profile.kind, `${path}.kind`) }),
+    };
+}
+
+function parseFootprints(value: YamlValue | undefined): BoardFootprintCatalog | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const catalog = expectObject(value, 'footprints');
+    return {
+        ...parseBuildDataObject(catalog, 'footprints'),
+        schema: parseLiteralString(catalog.schema, 'footprints.schema', 'board-footprint-catalog/v1'),
+        ...(catalog.resolution === undefined ? {} : { resolution: expectString(catalog.resolution, 'footprints.resolution') }),
+        ...(catalog.units === undefined ? {} : { units: expectString(catalog.units, 'footprints.units') }),
+        footprints: optionalArray(catalog.footprints, 'footprints.footprints').map((footprint, index) =>
+            parseFootprint(footprint, index)
+        ),
+    };
+}
+
+function parseFootprint(value: YamlValue, index: number): BoardFootprint {
+    const path = `footprints.footprints[${index}]`;
+    const footprint = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(footprint, path),
+        id: expectString(footprint.id, `${path}.id`),
+        ...(footprint.boardApplicability === undefined
+            ? {}
+            : { boardApplicability: parseBoardApplicability(footprint.boardApplicability, `${path}.boardApplicability`) }),
+    };
+}
+
+function parseBoardApplicability(value: YamlValue, path: string): BoardApplicability {
+    const applicability = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(applicability, path),
+        family: parseBoardFamily(applicability.family, `${path}.family`),
+        kind: parseBoardKind(applicability.kind, `${path}.kind`),
+        ...(applicability.subtype === undefined
+            ? {}
+            : { subtype: parseBoardSubtype(applicability.subtype, `${path}.subtype`) }),
+    };
+}
+
+function parseOffBoardWiring(value: YamlValue | undefined): OffBoardWiringPlan | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const plan = expectObject(value, 'offBoardWiring');
+    return {
+        ...parseBuildDataObject(plan, 'offBoardWiring'),
+        schema: parseLiteralString(plan.schema, 'offBoardWiring.schema', 'offboard-wiring/v1'),
+        ...(plan.source === undefined ? {} : { source: expectString(plan.source, 'offBoardWiring.source') }),
+        ...(plan.coverage === undefined
+            ? {}
+            : { coverage: parseOffBoardWiringCoverage(plan.coverage, 'offBoardWiring.coverage') }),
+        harnesses: optionalArray(plan.harnesses, 'offBoardWiring.harnesses').map(parseOffBoardWiringHarness),
+    };
+}
+
+function parseOffBoardWiringCoverage(value: YamlValue | undefined, path: string): OffBoardWiringCoverage {
+    const coverage = expectString(value, path);
+    if (coverage === 'selected-build-complete' || coverage === 'representative-selected-build-endpoints') {
+        return coverage;
+    }
+    throw new Error(`${path}: expected selected-build-complete or representative-selected-build-endpoints`);
+}
+
+function parseOffBoardWiringHarness(value: YamlValue, index: number): OffBoardWiringHarness {
+    const path = `offBoardWiring.harnesses[${index}]`;
+    const harness = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(harness, path),
+        id: expectString(harness.id, `${path}.id`),
+        ...(harness.status === undefined
+            ? {}
+            : { status: parseOffBoardWiringHarnessStatus(harness.status, `${path}.status`) }),
+        ...(harness.notes === undefined ? {} : { notes: expectString(harness.notes, `${path}.notes`) }),
+        endpoints: optionalArray(harness.endpoints, `${path}.endpoints`).map((endpoint, endpointIndex) =>
+            parseOffBoardWiringEndpoint(endpoint, `${path}.endpoints[${endpointIndex}]`)
+        ),
+        connections: optionalArray(harness.connections, `${path}.connections`).map((connection, connectionIndex) =>
+            parseOffBoardWiringConnection(connection, `${path}.connections[${connectionIndex}]`)
+        ),
+    };
+}
+
+function parseOffBoardWiringHarnessStatus(value: YamlValue | undefined, path: string): OffBoardWiringHarnessStatus {
+    const status = expectString(value, path);
+    if (status === 'complete' || status === 'partial' || status === 'candidate') {
+        return status;
+    }
+    throw new Error(`${path}: expected complete, partial, or candidate`);
+}
+
+function parseOffBoardWiringEndpoint(value: YamlValue, path: string): OffBoardWiringEndpoint {
+    const endpoint = expectObject(value, path);
+    const kind = expectString(endpoint.kind, `${path}.kind`);
+    switch (kind) {
+        case 'panel-component-terminal':
+        case 'board-terminal':
+        case 'power-terminal':
+        case 'footswitch-terminal':
+        case 'free-wire-label':
+            return {
+                ...parseBuildDataObject(endpoint, path),
+                id: expectString(endpoint.id, `${path}.id`),
+                kind,
+                ...(endpoint.componentId === undefined
+                    ? {}
+                    : { componentId: expectString(endpoint.componentId, `${path}.componentId`) }),
+                ...(endpoint.terminalName === undefined
+                    ? {}
+                    : { terminalName: expectString(endpoint.terminalName, `${path}.terminalName`) }),
+                ...(endpoint.panelElementId === undefined
+                    ? {}
+                    : { panelElementId: expectString(endpoint.panelElementId, `${path}.panelElementId`) }),
+                ...(endpoint.boardId === undefined ? {} : { boardId: expectString(endpoint.boardId, `${path}.boardId`) }),
+                ...(endpoint.terminalId === undefined
+                    ? {}
+                    : { terminalId: expectString(endpoint.terminalId, `${path}.terminalId`) }),
+                ...(endpoint.label === undefined ? {} : { label: expectString(endpoint.label, `${path}.label`) }),
+            };
+        default:
+            throw new Error(`${path}.kind: expected a supported off-board wiring endpoint kind`);
+    }
+}
+
+function parseOffBoardWiringConnection(value: YamlValue, path: string): OffBoardWiringConnection {
+    const connection = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(connection, path),
+        id: expectString(connection.id, `${path}.id`),
+        fromEndpointId: expectString(connection.fromEndpointId, `${path}.fromEndpointId`),
+        toEndpointId: expectString(connection.toEndpointId, `${path}.toEndpointId`),
+        ...(connection.signalRef === undefined
+            ? {}
+            : { signalRef: parseBuildDataObject(connection.signalRef, `${path}.signalRef`) }),
+        ...(connection.wire === undefined ? {} : { wire: parseBuildDataObject(connection.wire, `${path}.wire`) }),
+    };
+}
+
+function parseBoards(value: YamlValue | undefined): readonly BoardRealization[] | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    return optionalArray(value, 'boards').map(parseBoard);
+}
+
+function parseBoard(value: YamlValue, index: number): BoardRealization {
+    const path = `boards[${index}]`;
+    const board = expectObject(value, path);
+    const sourceCircuit = board.sourceCircuit === undefined
+        ? undefined
+        : parseBoardSourceCircuit(board.sourceCircuit, `${path}.sourceCircuit`);
+    return {
+        ...parseBuildDataObject(board, path),
+        id: expectString(board.id, `${path}.id`),
+        schema: parseLiteralString(board.schema, `${path}.schema`, 'circuit-board/v1'),
+        family: parseBoardFamily(board.family, `${path}.family`),
+        kind: parseBoardKind(board.kind, `${path}.kind`),
+        ...(board.subtype === undefined ? {} : { subtype: parseBoardSubtype(board.subtype, `${path}.subtype`) }),
+        ...(board.source === undefined ? {} : { source: expectString(board.source, `${path}.source`) }),
+        ...(board.units === undefined ? {} : { units: expectString(board.units, `${path}.units`) }),
+        ...(board.locked === undefined ? {} : { locked: expectBoolean(board.locked, `${path}.locked`) }),
+        ...(sourceCircuit === undefined ? {} : { sourceCircuit }),
+        edgeTerminals: optionalArray(board.edgeTerminals, `${path}.edgeTerminals`).map((terminal, terminalIndex) =>
+            parseBoardEdgeTerminal(terminal, `${path}.edgeTerminals[${terminalIndex}]`)
+        ),
+        footprintPlacements: optionalArray(board.footprintPlacements, `${path}.footprintPlacements`).map((placement, placementIndex) =>
+            parseBoardFootprintPlacement(placement, `${path}.footprintPlacements[${placementIndex}]`)
+        ),
+        ...(board.netlist === undefined ? {} : { netlist: parseBoardNetlist(board.netlist, `${path}.netlist`) }),
+        routes: optionalArray(board.routes, `${path}.routes`).map((route, routeIndex) =>
+            parseBoardRoute(route, `${path}.routes[${routeIndex}]`)
+        ),
+        ...(board.zones === undefined ? {} : { zones: parseBuildDataObjectArray(board.zones, `${path}.zones`) }),
+        ...(board.drills === undefined ? {} : { drills: parseBuildDataObjectArray(board.drills, `${path}.drills`) }),
+        ...(board.review === undefined ? {} : { review: parseBuildDataObject(board.review, `${path}.review`) }),
+    };
+}
+
+function parseBoardSourceCircuit(value: YamlValue, path: string): BoardSourceCircuitHash {
+    const sourceCircuit = expectObject(value, path);
+    const hash = expectString(sourceCircuit.hash, `${path}.hash`);
+    if (!/^sha256:[0-9a-f]{64}$/.test(hash)) {
+        throw new Error(`${path}.hash: expected sha256:<64 lowercase hex characters>`);
+    }
+    return {
+        ...parseBuildDataObject(sourceCircuit, path),
+        schema: parseLiteralString(sourceCircuit.schema, `${path}.schema`, 'canonical-circuit-facts-hash/v1'),
+        hashAlgorithm: parseLiteralString(sourceCircuit.hashAlgorithm, `${path}.hashAlgorithm`, 'sha256'),
+        hash,
+    };
+}
+
+function parseBoardEdgeTerminal(value: YamlValue, path: string): BoardEdgeTerminal {
+    const terminal = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(terminal, path),
+        id: expectString(terminal.id, `${path}.id`),
+        ...(terminal.role === undefined ? {} : { role: expectString(terminal.role, `${path}.role`) }),
+        ...(terminal.terminalRef === undefined
+            ? {}
+            : { terminalRef: parseComponentTerminalRef(terminal.terminalRef, `${path}.terminalRef`) }),
+        ...(terminal.hole === undefined ? {} : { hole: parseBoardHole(terminal.hole, `${path}.hole`) }),
+    };
+}
+
+function parseBoardFootprintPlacement(value: YamlValue, path: string): BoardFootprintPlacement {
+    const placement = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(placement, path),
+        componentId: expectString(placement.componentId, `${path}.componentId`),
+        footprintId: expectString(placement.footprintId, `${path}.footprintId`),
+        ...(placement.atGrid === undefined ? {} : { atGrid: parseBoardHole(placement.atGrid, `${path}.atGrid`) }),
+        ...(placement.atMm === undefined ? {} : { atMm: parsePoint(placement.atMm, `${path}.atMm`) }),
+        ...(placement.rotationDeg === undefined ? {} : { rotationDeg: expectNumber(placement.rotationDeg, `${path}.rotationDeg`) }),
+        pads: optionalArray(placement.pads, `${path}.pads`).map((pad, padIndex) =>
+            parseBoardPlacedPad(pad, `${path}.pads[${padIndex}]`)
+        ),
+    };
+}
+
+function parseBoardPlacedPad(value: YamlValue, path: string): BoardPlacedPad {
+    const pad = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(pad, path),
+        padId: expectString(pad.padId, `${path}.padId`),
+        ...(pad.terminalName === undefined ? {} : { terminalName: expectString(pad.terminalName, `${path}.terminalName`) }),
+        ...(pad.hole === undefined ? {} : { hole: parseBoardHole(pad.hole, `${path}.hole`) }),
+        ...(pad.positionMm === undefined ? {} : { positionMm: parsePoint(pad.positionMm, `${path}.positionMm`) }),
+    };
+}
+
+function parseBoardNetlist(value: YamlValue, path: string): BoardNetlist {
+    const netlist = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(netlist, path),
+        ...(netlist.source === undefined ? {} : { source: expectString(netlist.source, `${path}.source`) }),
+        nets: optionalArray(netlist.nets, `${path}.nets`).map((net, netIndex) =>
+            parseBoardNet(net, `${path}.nets[${netIndex}]`)
+        ),
+    };
+}
+
+function parseBoardNet(value: YamlValue, path: string): BoardNet {
+    const net = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(net, path),
+        id: expectString(net.id, `${path}.id`),
+        ...(net.name === undefined ? {} : { name: expectString(net.name, `${path}.name`) }),
+        members: optionalArray(net.members, `${path}.members`).map((member, memberIndex) =>
+            parseBoardNetMember(member, `${path}.members[${memberIndex}]`)
+        ),
+    };
+}
+
+function parseBoardNetMember(value: YamlValue, path: string): BoardNetMember {
+    const member = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(member, path),
+        componentId: expectString(member.componentId, `${path}.componentId`),
+        terminalName: expectString(member.terminalName, `${path}.terminalName`),
+        ...(member.padId === undefined ? {} : { padId: expectString(member.padId, `${path}.padId`) }),
+        ...(member.terminalId === undefined ? {} : { terminalId: expectString(member.terminalId, `${path}.terminalId`) }),
+    };
+}
+
+function parseBoardRoute(value: YamlValue, path: string): BoardRoute {
+    const route = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(route, path),
+        id: expectString(route.id, `${path}.id`),
+        ...(route.netRef === undefined ? {} : { netRef: parseBuildDataObject(route.netRef, `${path}.netRef`) }),
+        ...(route.locked === undefined ? {} : { locked: expectBoolean(route.locked, `${path}.locked`) }),
+        ...(route.conductors === undefined
+            ? {}
+            : { conductors: parseBuildDataObjectArray(route.conductors, `${path}.conductors`) }),
+        ...(route.copper === undefined ? {} : { copper: parseBuildDataObjectArray(route.copper, `${path}.copper`) }),
+        ...(route.vias === undefined ? {} : { vias: parseBuildDataObjectArray(route.vias, `${path}.vias`) }),
+        ...(route.zones === undefined ? {} : { zones: parseBuildDataObjectArray(route.zones, `${path}.zones`) }),
+        ...(route.drills === undefined ? {} : { drills: parseBuildDataObjectArray(route.drills, `${path}.drills`) }),
+    };
+}
+
+function parseComponentTerminalRef(value: YamlValue, path: string): ComponentTerminalRef {
+    const ref = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(ref, path),
+        componentId: expectString(ref.componentId, `${path}.componentId`),
+        terminalName: expectString(ref.terminalName, `${path}.terminalName`),
+    };
+}
+
+function parseBoardHole(value: YamlValue, path: string) {
+    const hole = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(hole, path),
+        row: expectPositiveInteger(hole.row, `${path}.row`),
+        column: expectPositiveInteger(hole.column, `${path}.column`),
+    };
+}
+
+function parseBoardFamily(value: YamlValue | undefined, path: string): BoardFamily {
+    const family = expectString(value, path);
+    if (family === 'prototype-board' || family === 'fabricated-board') {
+        return family;
+    }
+    throw new Error(`${path}: expected prototype-board or fabricated-board`);
+}
+
+function parseBoardKind(value: YamlValue | undefined, path: string): BoardKind {
+    const kind = expectString(value, path);
+    switch (kind) {
+        case 'stripboard':
+        case 'perfboard':
+        case 'breadboard-pattern':
+        case 'pcb':
+            return kind;
+        default:
+            throw new Error(`${path}: expected stripboard, perfboard, breadboard-pattern, or pcb`);
+    }
+}
+
+function parseBoardSubtype(value: YamlValue | undefined, path: string): BoardSubtype {
+    const subtype = expectString(value, path);
+    switch (subtype) {
+        case 'veroboard':
+        case 'isolated-pad':
+        case 'solderable-half-breadboard':
+        case 'single-sided-through-hole':
+        case 'two-layer-through-hole':
+            return subtype;
+        default:
+            throw new Error(`${path}: expected a supported board subtype`);
+    }
+}
+
+function parseLiteralString<T extends string>(value: YamlValue | undefined, path: string, expected: T): T {
+    const actual = expectString(value, path);
+    if (actual === expected) {
+        return expected;
+    }
+    throw new Error(`${path}: expected ${expected}`);
+}
+
+function parseBuildDataObjectArray(value: YamlValue | undefined, path: string): readonly VdspBuildDataObject[] {
+    return optionalArray(value, path).map((item, index) => parseBuildDataObject(item, `${path}[${index}]`));
+}
+
+function parseBuildDataObject(value: YamlValue | undefined, path: string): VdspBuildDataObject {
+    const object = expectObject(value, path);
+    const out: Record<string, VdspBuildDataValue | undefined> = {};
+    for (const [key, child] of Object.entries(object)) {
+        out[key] = parseBuildDataValue(child, `${path}.${key}`);
+    }
+    return out;
+}
+
+function parseBuildDataValue(value: YamlValue, path: string): VdspBuildDataValue {
+    if (isScalar(value)) {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item, index) => parseBuildDataValue(item, `${path}[${index}]`));
+    }
+    if (isYamlObject(value)) {
+        return parseBuildDataObject(value, path);
+    }
+    throw new Error(`${path}: expected v3 build data value`);
 }
 
 function parseControlGroups(value: YamlValue | undefined): readonly ControlGroup[] | undefined {
@@ -678,7 +1260,7 @@ function parseSource(value: YamlValue | undefined): DocumentSource {
     return parseStringRecord(value, 'source');
 }
 
-function parsePanel(value: YamlValue | undefined): PanelPlacementMetadata | undefined {
+function parsePanel(value: YamlValue | undefined, allowV3PhysicalFields: boolean): PanelPlacementMetadata | undefined {
     if (value === undefined) {
         return undefined;
     }
@@ -686,7 +1268,9 @@ function parsePanel(value: YamlValue | undefined): PanelPlacementMetadata | unde
 
     if (panel.faces !== undefined) {
         return {
-            faces: optionalArray(panel.faces, 'panel.faces').map((item, index) => parsePanelFace(item, index)),
+            faces: optionalArray(panel.faces, 'panel.faces').map((item, index) =>
+                parsePanelFace(item, index, allowV3PhysicalFields)
+            ),
         };
     }
 
@@ -701,21 +1285,30 @@ function parsePanel(value: YamlValue | undefined): PanelPlacementMetadata | unde
         faces: [{
             id: 'top',
             layout,
-            elements: parsePanelElements(elementsValue, layout, elementsPath),
+            elements: parsePanelElements(elementsValue, layout, elementsPath, allowV3PhysicalFields),
         }],
     };
 }
 
-function parsePanelFace(value: YamlValue, index: number): PanelPlacementMetadata['faces'][number] {
+function parsePanelFace(
+    value: YamlValue,
+    index: number,
+    allowV3PhysicalFields: boolean,
+): PanelPlacementMetadata['faces'][number] {
     const path = `panel.faces[${index}]`;
     const face = expectObject(value, path);
     const label = parseOptionalString(face.label, `${path}.label`);
     const layout = parsePanelLayout(face.layout, `${path}.layout`);
+    if (!allowV3PhysicalFields && face.geometry !== undefined) {
+        throw new Error(`${path}.geometry: requires schema ${INTERCHANGE_SCHEMA_V3}`);
+    }
+    const geometry = allowV3PhysicalFields ? parseOptionalPanelFaceGeometry(face.geometry, `${path}.geometry`) : undefined;
     return {
         id: expectString(face.id, `${path}.id`),
         ...(label === undefined ? {} : { label }),
         layout,
-        elements: parsePanelElements(face.elements, layout, `${path}.elements`),
+        ...(geometry === undefined ? {} : { geometry }),
+        elements: parsePanelElements(face.elements, layout, `${path}.elements`, allowV3PhysicalFields),
     };
 }
 
@@ -737,13 +1330,25 @@ function parsePanelElements(
     value: YamlValue | undefined,
     layout: PanelGridLayout,
     path: string,
+    allowV3PhysicalFields: boolean,
 ): PanelPlacementMetadata['faces'][number]['elements'] {
     return optionalArray(value, path).map((item, index) => {
         const elementPath = `${path}[${index}]`;
         const element = expectObject(item, elementPath);
         const label = parseOptionalString(element.label, `${elementPath}.label`);
         const interfaceControlId = parseOptionalString(element.interfaceControlId, `${elementPath}.interfaceControlId`);
+        if (!allowV3PhysicalFields && element.id !== undefined) {
+            throw new Error(`${elementPath}.id: requires schema ${INTERCHANGE_SCHEMA_V3}`);
+        }
+        if (!allowV3PhysicalFields && element.physical !== undefined) {
+            throw new Error(`${elementPath}.physical: requires schema ${INTERCHANGE_SCHEMA_V3}`);
+        }
+        const id = allowV3PhysicalFields ? parseOptionalString(element.id, `${elementPath}.id`) : undefined;
+        const physical = allowV3PhysicalFields
+            ? parseOptionalPanelElementPhysical(element.physical, `${elementPath}.physical`)
+            : undefined;
         return {
+            ...(id === undefined ? {} : { id }),
             bind: parsePanelElementBinding(element, elementPath),
             kind: parsePanelControlKind(
                 element.kind ?? element.controlKind,
@@ -754,8 +1359,59 @@ function parsePanelElements(
             grid: parsePanelGridPosition(element.grid, `${elementPath}.grid`, layout),
             ...(label === undefined ? {} : { label }),
             ...(interfaceControlId === undefined ? {} : { interfaceControlId }),
+            ...(physical === undefined ? {} : { physical }),
         };
     });
+}
+
+function parseOptionalPanelFaceGeometry(
+    value: YamlValue | undefined,
+    path: string,
+): PanelFaceGeometry | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const geometry = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(geometry, path),
+        ...(geometry.units === undefined ? {} : { units: expectString(geometry.units, `${path}.units`) }),
+        ...(geometry.surface === undefined ? {} : { surface: expectString(geometry.surface, `${path}.surface`) }),
+        ...(geometry.usableRectMm === undefined
+            ? {}
+            : { usableRectMm: parseMillimeterRect(geometry.usableRectMm, `${path}.usableRectMm`) }),
+    };
+}
+
+function parseOptionalPanelElementPhysical(
+    value: YamlValue | undefined,
+    path: string,
+): PanelElementPhysicalPlacement | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    const physical = expectObject(value, path);
+    return {
+        ...parseBuildDataObject(physical, path),
+        ...(physical.units === undefined ? {} : { units: expectString(physical.units, `${path}.units`) }),
+        ...(physical.centerMm === undefined ? {} : { centerMm: parsePoint(physical.centerMm, `${path}.centerMm`) }),
+        ...(physical.drillDiameterMm === undefined
+            ? {}
+            : { drillDiameterMm: expectNumber(physical.drillDiameterMm, `${path}.drillDiameterMm`) }),
+        ...(physical.partProfileId === undefined
+            ? {}
+            : { partProfileId: expectString(physical.partProfileId, `${path}.partProfileId`) }),
+        ...(physical.locked === undefined ? {} : { locked: expectBoolean(physical.locked, `${path}.locked`) }),
+    };
+}
+
+function parseMillimeterRect(value: YamlValue | undefined, path: string) {
+    const rect = expectObject(value, path);
+    return {
+        x: expectNumber(rect.x, `${path}.x`),
+        y: expectNumber(rect.y, `${path}.y`),
+        width: expectNumber(rect.width, `${path}.width`),
+        height: expectNumber(rect.height, `${path}.height`),
+    };
 }
 
 function parsePanelElementBinding(element: YamlObject, path: string): PanelElementBinding {
@@ -857,11 +1513,13 @@ function parsePanelControlKind(value: YamlValue | undefined, path: string): Pane
         case 'knob':
         case 'slider':
         case 'switch':
+        case 'selector':
+        case 'footswitch':
         case 'led':
         case 'jack':
             return kind;
         default:
-            throw new Error(`${path}: expected knob, slider, switch, led, or jack`);
+            throw new Error(`${path}: expected knob, slider, switch, selector, footswitch, led, or jack`);
     }
 }
 

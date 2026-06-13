@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { parseInterchangeYaml } from '../../packages/core/src/formats/interchange/parser';
 import {
     getRulesForKind,
     hasErrors,
@@ -14,6 +15,11 @@ import {
     type PropertyValue,
     type Wire,
 } from '../../packages/core/src/model/types';
+
+const V3_MECHANICAL_BOARD_URL = new URL(
+    '../fixtures/interchange/vdsp-v3-mechanical-board-realization.vdsp',
+    import.meta.url,
+);
 
 function makeComponent(
     id: string,
@@ -48,6 +54,77 @@ function withParts(components: readonly Component[], wires: readonly Wire[] = []
 describe('validateDocument', () => {
     test('empty document has no issues', () => {
         expect(validateDocument(EMPTY_DOCUMENT)).toEqual([]);
+    });
+
+    test('accepts complete v3 selected build output with single-terminal edge nets', async () => {
+        const source = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const doc = parseInterchangeYaml(source);
+
+        const issues = validateDocument(doc);
+
+        expect(issues).toEqual([]);
+    });
+
+    test('reports complete v3 selected build output with an unrouted multi-member board net', async () => {
+        const source = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const doc = parseInterchangeYaml(source);
+        const boards = doc.boards?.map((board) => {
+            if (board.id !== 'main-vero') {
+                return board;
+            }
+            return {
+                ...board,
+                routes: board.routes.filter((route) => route.id !== 'route-ground-strip'),
+            };
+        });
+        if (boards === undefined) {
+            throw new Error('expected v3 fixture boards');
+        }
+
+        const issues = validateDocument({ ...doc, boards });
+
+        expect(issues).toContainEqual(expect.objectContaining({
+            code: 'board-net-unrouted',
+            severity: 'error',
+            componentId: 'main-vero',
+            property: 'GND',
+        }));
+    });
+
+    test('reports fabricated PCB zones nested under a net route', async () => {
+        const source = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const doc = parseInterchangeYaml(source);
+        const boards = doc.boards?.map((board) => {
+            if (board.id !== 'fabricated-pcb') {
+                return board;
+            }
+            const firstRoute = board.routes[0];
+            if (firstRoute === undefined) {
+                throw new Error('expected fabricated PCB route');
+            }
+            if (board.zones === undefined) {
+                throw new Error('expected fabricated PCB zones');
+            }
+            return {
+                ...board,
+                routes: [{
+                    ...firstRoute,
+                    zones: board.zones,
+                }],
+            };
+        });
+        if (boards === undefined) {
+            throw new Error('expected v3 fixture boards');
+        }
+
+        const issues = validateDocument({ ...doc, boards });
+
+        expect(issues).toContainEqual(expect.objectContaining({
+            code: 'board-route-feature-invalid',
+            severity: 'error',
+            componentId: 'fabricated-pcb',
+            property: 'route-n001-pcb',
+        }));
     });
 
     test('valid resistor with R=10k passes', () => {

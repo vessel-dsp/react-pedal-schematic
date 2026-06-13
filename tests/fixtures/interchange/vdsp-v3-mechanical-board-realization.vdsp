@@ -1,0 +1,2586 @@
+schema: circuit-interchange/v3
+
+metadata:
+  name: VDSP V3 Mechanical Board Realization Sample
+  description: Review sample covering mechanical, build scope, BOM, profile, footprint, panel, off-board wiring, and board realization fields.
+  partNumber: SAMPLE-V3-MECHANICAL-BOARD
+
+source:
+  format: interchange
+  filename: vdsp-v3-mechanical-board-realization.sample.vdsp
+
+device:
+  id: sample-drive
+  version: 3
+  kind: audio-pedal
+  family: distortion
+  model: sample-drive-v3
+  audioProcessing: true
+
+controlGroups:
+  - id: top-panel
+    name: Top Panel
+    role: primary-controls
+  - id: io-panel
+    name: Audio And Power
+    role: io-controls
+
+controlContexts:
+  - id: normal-operation
+    name: Normal Operation
+    role: default
+
+mechanical:
+  schema: device-mechanical/v1
+  units: mm
+  coordinateSystem:
+    origin: top-left
+    xAxis: right
+    yAxis: down
+  enclosure:
+    profileId: enclosure-1590b
+    label: Hammond 1590B
+    outerSizeMm:
+      width: 60
+      height: 112
+      depth: 31
+    wallThicknessMm: 1.5
+  internalBoard:
+    preferredBoardId: main-vero
+    usableRectMm:
+      x: 7
+      y: 16
+      width: 46
+      height: 72
+    keepoutRectsMm:
+      - id: footswitch-body
+        x: 18
+        y: 82
+        width: 24
+        height: 22
+
+build:
+  schema: build-scope/v1
+  intent: diy-build-artifact
+  completeness: complete-selected-build
+  selectedBoardId: main-vero
+  selectedOffBoardWiringHarnessIds:
+    - panel-to-board
+  alternateBoardIds:
+    - perfboard-alt
+    - breadboard-pattern-proto
+    - fabricated-pcb
+  bomScope: selected-board-plus-shared-build-items
+
+bom:
+  schema: build-bom/v1
+  items:
+    - id: bom-r1
+      refs:
+        - kind: component
+          componentId: R1
+      quantity: 1
+      value: 10k
+      partProfileId: resistor-axial-7.5mm
+      category: resistor
+      sku: RES-10K-AXIAL
+    - id: bom-c1
+      refs:
+        - kind: component
+          componentId: C1
+      quantity: 1
+      value: 100n
+      partProfileId: capacitor-box-5mm
+      category: capacitor
+      sku: CAP-100N-BOX
+    - id: bom-drive
+      refs:
+        - kind: component
+          componentId: DRIVE
+        - kind: device-interface-control
+          controlId: DRIVE
+        - kind: panel-element
+          panelElementId: panel-drive
+      quantity: 1
+      value: 500k reverse-log
+      partProfileId: pot-alpha-16
+      category: potentiometer
+      sku: POT-16-500KC
+    - id: bom-level
+      refs:
+        - kind: component
+          componentId: LEVEL
+        - kind: device-interface-control
+          controlId: LEVEL
+        - kind: panel-element
+          panelElementId: panel-level
+      quantity: 1
+      value: 10k log
+      partProfileId: pot-alpha-16
+      category: potentiometer
+      sku: POT-16-10KA
+    - id: bom-tone-selector
+      refs:
+        - kind: component
+          componentId: TONE
+        - kind: device-interface-control
+          controlId: TONE_MODE
+        - kind: panel-element
+          panelElementId: panel-tone-mode
+      quantity: 1
+      value: 2-position tone selector
+      partProfileId: toggle-spdt-mini
+      category: switch
+      sku: SWT-SPDT-MINI
+    - id: bom-footswitch
+      refs:
+        - kind: component
+          componentId: SW_BYPASS
+        - kind: device-interface-control
+          controlId: BYPASS
+        - kind: panel-element
+          panelElementId: panel-bypass
+      quantity: 1
+      value: 3PDT latching footswitch
+      partProfileId: footswitch-3pdt
+      category: switch
+      sku: FSW-3PDT
+    - id: bom-status-led
+      refs:
+        - kind: component
+          componentId: LED_STATUS
+        - kind: device-interface-control
+          controlId: STATUS_LED
+        - kind: panel-element
+          panelElementId: panel-status-led
+      quantity: 1
+      value: red 5mm LED
+      partProfileId: led-5mm-panel
+      category: led
+      sku: LED-5MM-RED
+    - id: bom-input-jack
+      refs:
+        - kind: component
+          componentId: J_IN
+        - kind: device-interface-control
+          controlId: INPUT_JACK
+        - kind: panel-element
+          panelElementId: panel-input-jack
+      quantity: 1
+      value: mono TS input jack
+      partProfileId: jack-mono-ts-enclosed
+      category: jack
+      sku: JACK-TS-MONO
+    - id: bom-output-jack
+      refs:
+        - kind: component
+          componentId: J_OUT
+        - kind: device-interface-control
+          controlId: OUTPUT_JACK
+        - kind: panel-element
+          panelElementId: panel-output-jack
+      quantity: 1
+      value: mono TS output jack
+      partProfileId: jack-mono-ts-enclosed
+      category: jack
+      sku: JACK-TS-MONO
+    - id: bom-dc-jack
+      refs:
+        - kind: component
+          componentId: J_DC
+        - kind: device-interface-control
+          controlId: POWER_JACK
+        - kind: panel-element
+          panelElementId: panel-dc-jack
+      quantity: 1
+      value: 2.1mm DC power jack
+      partProfileId: dc-jack-2.1mm-panel
+      category: power-jack
+      sku: JACK-DC-2.1MM
+    - id: bom-main-vero
+      refs:
+        - kind: board
+          boardId: main-vero
+      quantity: 1
+      value: 18 x 24 stripboard
+      category: prototype-board
+      sku: VERO-18X24
+    - id: bom-enclosure
+      refs:
+        - kind: freeform-build-item
+          label: Hammond 1590B enclosure
+      quantity: 1
+      value: Hammond 1590B
+      partProfileId: enclosure-1590b
+      category: enclosure
+      sku: ENC-1590B
+    - id: bom-hookup-wire
+      refs:
+        - kind: freeform-build-item
+          label: 24 AWG stranded hookup wire
+      quantity: 1
+      value: 1 meter mixed colors
+      category: wire
+      sku: WIRE-24AWG-MIX
+
+partProfiles:
+  schema: part-profile-catalog/v1
+  resolution: embedded
+  units: mm
+  profiles:
+    - id: resistor-axial-7.5mm
+      kind: resistor
+      body:
+        lengthMm: 6.5
+        diameterMm: 2.4
+      leads:
+        pitchMm: 7.5
+        drillDiameterMm: 0.9
+      compatibleFootprintIds:
+        - axial-resistor-7.5mm-through-hole
+        - axial-resistor-7.5mm-perfboard
+        - axial-resistor-7.5mm-pcb
+      clearance:
+        bodyKeepoutMm: 1
+    - id: capacitor-box-5mm
+      kind: capacitor
+      body:
+        widthMm: 7.2
+        heightMm: 6
+        depthMm: 3
+      leads:
+        pitchMm: 5
+        drillDiameterMm: 0.8
+      compatibleFootprintIds:
+        - capacitor-box-5mm-through-hole
+        - capacitor-box-5mm-pcb
+      clearance:
+        bodyKeepoutMm: 1
+    - id: pot-alpha-16
+      kind: potentiometer
+      panel:
+        drillDiameterMm: 7
+        keepoutDiameterMm: 17
+        shaftDiameterMm: 6
+      lugs:
+        count: 3
+        pitchMm: 2.54
+      compatibleFootprintIds:
+        - pot-alpha-16-board-lugs
+      clearance:
+        bodyDepthMm: 12
+        bodyKeepoutMm: 1.5
+    - id: toggle-spdt-mini
+      kind: selector
+      panel:
+        drillDiameterMm: 6.5
+        keepoutDiameterMm: 12
+        leverSlotMm:
+          width: 4
+          height: 8
+      lugs:
+        count: 3
+        pitchMm: 2.54
+      compatibleFootprintIds:
+        - switch-spdt-board-lugs
+      clearance:
+        bodyDepthMm: 10
+        bodyKeepoutMm: 1.5
+    - id: footswitch-3pdt
+      kind: footswitch
+      panel:
+        drillDiameterMm: 12
+        keepoutDiameterMm: 22
+      lugs:
+        count: 9
+        layout: 3x3
+      compatibleFootprintIds:
+        - footswitch-3pdt-lugs
+      clearance:
+        bodyDepthMm: 28
+        bodyKeepoutMm: 2
+    - id: led-5mm-panel
+      kind: led
+      panel:
+        drillDiameterMm: 5
+        keepoutDiameterMm: 8
+      leads:
+        count: 2
+        pitchMm: 2.54
+      compatibleFootprintIds:
+        - led-5mm-through-hole
+      clearance:
+        bodyDepthMm: 7
+        bodyKeepoutMm: 1
+    - id: jack-mono-ts-enclosed
+      kind: jack
+      panel:
+        drillDiameterMm: 9.5
+        keepoutDiameterMm: 16
+      lugs:
+        count: 2
+        pitchMm: 5
+      compatibleFootprintIds:
+        - jack-ts-board-edge
+      clearance:
+        bodyDepthMm: 25
+        bodyKeepoutMm: 2
+    - id: dc-jack-2.1mm-panel
+      kind: power-jack
+      panel:
+        drillDiameterMm: 8
+        keepoutDiameterMm: 15
+      lugs:
+        count: 2
+        pitchMm: 5
+      compatibleFootprintIds:
+        - jack-dc-board-edge
+      clearance:
+        bodyDepthMm: 21
+        bodyKeepoutMm: 2
+    - id: enclosure-1590b
+      kind: enclosure
+      enclosure:
+        outerSizeMm:
+          width: 60
+          height: 112
+          depth: 31
+        wallThicknessMm: 1.5
+      clearance:
+        lidLipKeepoutMm: 3
+
+footprints:
+  schema: board-footprint-catalog/v1
+  resolution: embedded
+  units: mm
+  footprints:
+    - id: axial-resistor-7.5mm-through-hole
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: "1"
+          role: lead
+          terminalName: a
+          holeOffset:
+            row: 0
+            column: 0
+        - id: "2"
+          role: lead
+          terminalName: b
+          holeOffset:
+            row: 1
+            column: 3
+      courtyard:
+        widthMm: 9
+        heightMm: 3
+    - id: axial-resistor-7.5mm-perfboard
+      boardApplicability:
+        family: prototype-board
+        kind: perfboard
+        subtype: isolated-pad
+      pads:
+        - id: "1"
+          role: lead
+          terminalName: a
+          holeOffset:
+            row: 0
+            column: 0
+        - id: "2"
+          role: lead
+          terminalName: b
+          holeOffset:
+            row: 0
+            column: 3
+    - id: axial-resistor-7.5mm-pcb
+      boardApplicability:
+        family: fabricated-board
+        kind: pcb
+        subtype: single-sided-through-hole
+      pads:
+        - id: "1"
+          role: lead
+          terminalName: a
+          positionMm:
+            x: 0
+            y: 0
+          drillDiameterMm: 0.9
+          copperDiameterMm: 1.8
+        - id: "2"
+          role: lead
+          terminalName: b
+          positionMm:
+            x: 7.5
+            y: 0
+          drillDiameterMm: 0.9
+          copperDiameterMm: 1.8
+    - id: capacitor-box-5mm-through-hole
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: "1"
+          role: lead
+          terminalName: a
+          holeOffset:
+            row: 0
+            column: 0
+        - id: "2"
+          role: lead
+          terminalName: b
+          holeOffset:
+            row: 1
+            column: 2
+    - id: capacitor-box-5mm-pcb
+      boardApplicability:
+        family: fabricated-board
+        kind: pcb
+        subtype: single-sided-through-hole
+      pads:
+        - id: "1"
+          role: lead
+          terminalName: a
+          positionMm:
+            x: 0
+            y: 0
+          drillDiameterMm: 0.8
+          copperDiameterMm: 1.6
+        - id: "2"
+          role: lead
+          terminalName: b
+          positionMm:
+            x: 5
+            y: 0
+          drillDiameterMm: 0.8
+          copperDiameterMm: 1.6
+    - id: pot-alpha-16-board-lugs
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: lug-1
+          role: lug
+          terminalName: "1"
+          holeOffset:
+            row: 0
+            column: 0
+        - id: lug-2
+          role: lug
+          terminalName: "2"
+          holeOffset:
+            row: 1
+            column: 0
+        - id: lug-3
+          role: lug
+          terminalName: "3"
+          holeOffset:
+            row: 2
+            column: 0
+    - id: switch-spdt-board-lugs
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: common
+          role: lug
+          terminalName: common
+          holeOffset:
+            row: 0
+            column: 0
+        - id: throw-a
+          role: lug
+          terminalName: throw_a
+          holeOffset:
+            row: 1
+            column: 0
+        - id: throw-b
+          role: lug
+          terminalName: throw_b
+          holeOffset:
+            row: 2
+            column: 0
+    - id: footswitch-3pdt-lugs
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: p1-common
+          role: lug
+          terminalName: p1_common
+          holeOffset:
+            row: 0
+            column: 0
+        - id: p1-throw-a
+          role: lug
+          terminalName: p1_throw_a
+          holeOffset:
+            row: 1
+            column: 0
+        - id: p1-throw-b
+          role: lug
+          terminalName: p1_throw_b
+          holeOffset:
+            row: 2
+            column: 0
+        - id: p2-common
+          role: lug
+          terminalName: p2_common
+          holeOffset:
+            row: 3
+            column: 0
+        - id: p2-throw-a
+          role: lug
+          terminalName: p2_throw_a
+          holeOffset:
+            row: 4
+            column: 0
+        - id: p2-throw-b
+          role: lug
+          terminalName: p2_throw_b
+          holeOffset:
+            row: 5
+            column: 0
+        - id: p3-common
+          role: lug
+          terminalName: p3_common
+          holeOffset:
+            row: 6
+            column: 0
+        - id: p3-throw-a
+          role: lug
+          terminalName: p3_throw_a
+          holeOffset:
+            row: 7
+            column: 0
+        - id: p3-throw-b
+          role: lug
+          terminalName: p3_throw_b
+          holeOffset:
+            row: 8
+            column: 0
+    - id: led-5mm-through-hole
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: anode
+          role: lead
+          terminalName: anode
+          holeOffset:
+            row: 0
+            column: 0
+        - id: cathode
+          role: lead
+          terminalName: cathode
+          holeOffset:
+            row: 1
+            column: 0
+    - id: jack-ts-board-edge
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: tip
+          role: lug
+          terminalName: tip
+          holeOffset:
+            row: 0
+            column: 0
+        - id: sleeve
+          role: lug
+          terminalName: sleeve
+          holeOffset:
+            row: 1
+            column: 0
+    - id: jack-dc-board-edge
+      boardApplicability:
+        family: prototype-board
+        kind: stripboard
+        subtype: veroboard
+      pads:
+        - id: positive
+          role: lug
+          terminalName: positive
+          holeOffset:
+            row: 0
+            column: 0
+        - id: sleeve
+          role: lug
+          terminalName: sleeve
+          holeOffset:
+            row: 1
+            column: 0
+
+deviceInterface:
+  controls:
+    - id: DRIVE
+      label: DRIVE
+      kind: knob
+      role: gain
+      groupId: top-panel
+      order: 1
+      binding:
+        componentId: DRIVE
+    - id: LEVEL
+      label: LEVEL
+      kind: knob
+      role: level
+      groupId: top-panel
+      order: 2
+      binding:
+        componentId: LEVEL
+    - id: TONE_MODE
+      label: TONE
+      kind: selector
+      role: tone-mode
+      groupId: top-panel
+      order: 3
+      binding:
+        componentId: TONE
+    - id: BYPASS
+      label: BYPASS
+      kind: footswitch
+      role: bypass
+      groupId: top-panel
+      order: 4
+      binding:
+        componentId: SW_BYPASS
+    - id: STATUS_LED
+      label: ON
+      kind: led
+      role: status
+      groupId: top-panel
+      order: 5
+      binding:
+        componentId: LED_STATUS
+    - id: INPUT_JACK
+      label: INPUT
+      kind: jack
+      role: audio-input
+      groupId: io-panel
+      order: 6
+      binding:
+        componentId: J_IN
+    - id: OUTPUT_JACK
+      label: OUTPUT
+      kind: jack
+      role: audio-output
+      groupId: io-panel
+      order: 7
+      binding:
+        componentId: J_OUT
+    - id: POWER_JACK
+      label: DC 9V
+      kind: jack
+      role: power-input
+      groupId: io-panel
+      order: 8
+      binding:
+        componentId: J_DC
+
+panel:
+  faces:
+    - id: top
+      label: Top
+      layout:
+        kind: stompbox-grid
+        rows: 4
+        columns: 2
+        indexing: one-based
+        rowOrder: top-to-bottom
+        columnOrder: left-to-right
+      geometry:
+        units: mm
+        surface: top
+        usableRectMm:
+          x: 6
+          y: 8
+          width: 48
+          height: 96
+      elements:
+        - id: panel-drive
+          bind:
+            componentId: DRIVE
+          kind: knob
+          label: DRIVE
+          interfaceControlId: DRIVE
+          grid:
+            row: 1
+            column: 1
+          physical:
+            units: mm
+            centerMm:
+              x: 20
+              y: 28
+            drillDiameterMm: 7
+            partProfileId: pot-alpha-16
+            locked: true
+        - id: panel-level
+          bind:
+            componentId: LEVEL
+          kind: knob
+          label: LEVEL
+          interfaceControlId: LEVEL
+          grid:
+            row: 1
+            column: 2
+          physical:
+            units: mm
+            centerMm:
+              x: 40
+              y: 28
+            drillDiameterMm: 7
+            partProfileId: pot-alpha-16
+            locked: true
+        - id: panel-tone-mode
+          bind:
+            componentId: TONE
+          kind: selector
+          label: TONE
+          interfaceControlId: TONE_MODE
+          grid:
+            row: 2
+            column: 1
+          physical:
+            units: mm
+            centerMm:
+              x: 20
+              y: 50
+            drillDiameterMm: 6.5
+            partProfileId: toggle-spdt-mini
+            locked: true
+        - id: panel-status-led
+          bind:
+            componentId: LED_STATUS
+          kind: led
+          label: ON
+          interfaceControlId: STATUS_LED
+          grid:
+            row: 2
+            column: 2
+          physical:
+            units: mm
+            centerMm:
+              x: 40
+              y: 50
+            drillDiameterMm: 5
+            partProfileId: led-5mm-panel
+            locked: true
+        - id: panel-bypass
+          bind:
+            componentId: SW_BYPASS
+          kind: footswitch
+          label: BYPASS
+          interfaceControlId: BYPASS
+          grid:
+            row: 4
+            column: 1
+            columnSpan: 2
+          physical:
+            units: mm
+            centerMm:
+              x: 30
+              y: 88
+            drillDiameterMm: 12
+            partProfileId: footswitch-3pdt
+            locked: true
+    - id: left-side
+      label: Left Side
+      layout:
+        kind: stompbox-grid
+        rows: 1
+        columns: 1
+        indexing: one-based
+      geometry:
+        units: mm
+        surface: left-side
+        usableRectMm:
+          x: 0
+          y: 16
+          width: 31
+          height: 18
+      elements:
+        - id: panel-input-jack
+          bind:
+            componentId: J_IN
+          kind: jack
+          label: INPUT
+          interfaceControlId: INPUT_JACK
+          grid:
+            row: 1
+            column: 1
+          physical:
+            units: mm
+            centerMm:
+              x: 15.5
+              y: 25
+            drillDiameterMm: 9.5
+            partProfileId: jack-mono-ts-enclosed
+            locked: true
+    - id: right-side
+      label: Right Side
+      layout:
+        kind: stompbox-grid
+        rows: 1
+        columns: 1
+        indexing: one-based
+      geometry:
+        units: mm
+        surface: right-side
+        usableRectMm:
+          x: 0
+          y: 16
+          width: 31
+          height: 18
+      elements:
+        - id: panel-output-jack
+          bind:
+            componentId: J_OUT
+          kind: jack
+          label: OUTPUT
+          interfaceControlId: OUTPUT_JACK
+          grid:
+            row: 1
+            column: 1
+          physical:
+            units: mm
+            centerMm:
+              x: 15.5
+              y: 25
+            drillDiameterMm: 9.5
+            partProfileId: jack-mono-ts-enclosed
+            locked: true
+    - id: top-edge
+      label: Top Edge
+      layout:
+        kind: stompbox-grid
+        rows: 1
+        columns: 1
+        indexing: one-based
+      geometry:
+        units: mm
+        surface: top-edge
+        usableRectMm:
+          x: 0
+          y: 16
+          width: 31
+          height: 18
+      elements:
+        - id: panel-dc-jack
+          bind:
+            componentId: J_DC
+          kind: jack
+          label: DC 9V
+          interfaceControlId: POWER_JACK
+          grid:
+            row: 1
+            column: 1
+          physical:
+            units: mm
+            centerMm:
+              x: 15.5
+              y: 25
+            drillDiameterMm: 8
+            partProfileId: dc-jack-2.1mm-panel
+            locked: true
+
+offBoardWiring:
+  schema: offboard-wiring/v1
+  source: reviewed
+  coverage: selected-build-complete
+  harnesses:
+    - id: panel-to-board
+      status: complete
+      notes: Complete selected-build harness; every selected panel terminal has a board endpoint or chassis-ground endpoint.
+      endpoints:
+        - id: drive-lug-1
+          kind: panel-component-terminal
+          componentId: DRIVE
+          terminalName: "1"
+          panelElementId: panel-drive
+        - id: drive-edge-1
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_DRIVE_1
+        - id: drive-lug-2
+          kind: panel-component-terminal
+          componentId: DRIVE
+          terminalName: "2"
+          panelElementId: panel-drive
+        - id: drive-edge-2
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_DRIVE_2
+        - id: drive-lug-3
+          kind: panel-component-terminal
+          componentId: DRIVE
+          terminalName: "3"
+          panelElementId: panel-drive
+        - id: drive-edge-3
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_DRIVE_3
+        - id: level-lug-1
+          kind: panel-component-terminal
+          componentId: LEVEL
+          terminalName: "1"
+          panelElementId: panel-level
+        - id: level-edge-1
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_LEVEL_1
+        - id: level-lug-2
+          kind: panel-component-terminal
+          componentId: LEVEL
+          terminalName: "2"
+          panelElementId: panel-level
+        - id: level-edge-2
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_LEVEL_2
+        - id: level-lug-3
+          kind: panel-component-terminal
+          componentId: LEVEL
+          terminalName: "3"
+          panelElementId: panel-level
+        - id: level-edge-3
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_LEVEL_3
+        - id: tone-common
+          kind: panel-component-terminal
+          componentId: TONE
+          terminalName: common
+          panelElementId: panel-tone-mode
+        - id: tone-edge-common
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_TONE_COMMON
+        - id: tone-throw-a
+          kind: panel-component-terminal
+          componentId: TONE
+          terminalName: throw_a
+          panelElementId: panel-tone-mode
+        - id: tone-edge-throw-a
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_TONE_THROW_A
+        - id: tone-throw-b
+          kind: panel-component-terminal
+          componentId: TONE
+          terminalName: throw_b
+          panelElementId: panel-tone-mode
+        - id: tone-edge-throw-b
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_TONE_THROW_B
+        - id: status-led-anode
+          kind: panel-component-terminal
+          componentId: LED_STATUS
+          terminalName: anode
+          panelElementId: panel-status-led
+        - id: status-led-board
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_LED_ANODE
+        - id: status-led-cathode
+          kind: panel-component-terminal
+          componentId: LED_STATUS
+          terminalName: cathode
+          panelElementId: panel-status-led
+        - id: status-led-cathode-board
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_LED_CATHODE
+        - id: bypass-common
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p1_common
+          panelElementId: panel-bypass
+        - id: bypass-board
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_COMMON
+        - id: bypass-p1-throw-a
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p1_throw_a
+          panelElementId: panel-bypass
+        - id: bypass-edge-p1-throw-a
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P1_THROW_A
+        - id: bypass-p1-throw-b
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p1_throw_b
+          panelElementId: panel-bypass
+        - id: bypass-edge-p1-throw-b
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P1_THROW_B
+        - id: bypass-p2-common
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p2_common
+          panelElementId: panel-bypass
+        - id: bypass-edge-p2-common
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P2_COMMON
+        - id: bypass-p2-throw-a
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p2_throw_a
+          panelElementId: panel-bypass
+        - id: bypass-edge-p2-throw-a
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P2_THROW_A
+        - id: bypass-p2-throw-b
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p2_throw_b
+          panelElementId: panel-bypass
+        - id: bypass-edge-p2-throw-b
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P2_THROW_B
+        - id: bypass-p3-common
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p3_common
+          panelElementId: panel-bypass
+        - id: bypass-edge-p3-common
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P3_COMMON
+        - id: bypass-p3-throw-a
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p3_throw_a
+          panelElementId: panel-bypass
+        - id: bypass-edge-p3-throw-a
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P3_THROW_A
+        - id: bypass-p3-throw-b
+          kind: footswitch-terminal
+          componentId: SW_BYPASS
+          terminalName: p3_throw_b
+          panelElementId: panel-bypass
+        - id: bypass-edge-p3-throw-b
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_BYPASS_P3_THROW_B
+        - id: input-tip
+          kind: panel-component-terminal
+          componentId: J_IN
+          terminalName: tip
+          panelElementId: panel-input-jack
+        - id: input-edge-tip
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_INPUT_TIP
+        - id: input-sleeve
+          kind: panel-component-terminal
+          componentId: J_IN
+          terminalName: sleeve
+          panelElementId: panel-input-jack
+        - id: input-edge-sleeve
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_INPUT_SLEEVE
+        - id: output-tip
+          kind: panel-component-terminal
+          componentId: J_OUT
+          terminalName: tip
+          panelElementId: panel-output-jack
+        - id: output-edge-tip
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_OUTPUT_TIP
+        - id: output-sleeve
+          kind: panel-component-terminal
+          componentId: J_OUT
+          terminalName: sleeve
+          panelElementId: panel-output-jack
+        - id: output-edge-sleeve
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_OUTPUT_SLEEVE
+        - id: dc-plus
+          kind: power-terminal
+          componentId: J_DC
+          terminalName: positive
+          panelElementId: panel-dc-jack
+        - id: board-vplus
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_VPLUS
+        - id: dc-sleeve
+          kind: power-terminal
+          componentId: J_DC
+          terminalName: sleeve
+          panelElementId: panel-dc-jack
+        - id: board-dc-sleeve
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_DC_SLEEVE
+        - id: enclosure-ground-label
+          kind: free-wire-label
+          label: enclosure-ground-lug
+        - id: board-ground
+          kind: board-terminal
+          boardId: main-vero
+          terminalId: EDGE_GND
+      connections:
+        - id: wire-drive-lug-1
+          fromEndpointId: drive-lug-1
+          toEndpointId: drive-edge-1
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: DRIVE_1
+          wire:
+            color: white
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-drive-lug-2
+          fromEndpointId: drive-lug-2
+          toEndpointId: drive-edge-2
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: DRIVE_2
+          wire:
+            color: white
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-drive-lug-3
+          fromEndpointId: drive-lug-3
+          toEndpointId: drive-edge-3
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: DRIVE_3
+          wire:
+            color: white
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-level-lug-1
+          fromEndpointId: level-lug-1
+          toEndpointId: level-edge-1
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: LEVEL_1
+          wire:
+            color: yellow
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-level-lug-2
+          fromEndpointId: level-lug-2
+          toEndpointId: level-edge-2
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: GND
+          wire:
+            color: green
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-level-lug-3
+          fromEndpointId: level-lug-3
+          toEndpointId: level-edge-3
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: OUTPUT
+          wire:
+            color: yellow
+            gaugeAwg: 24
+            reviewedLengthMm: 65
+            groupId: panel-harness
+        - id: wire-tone-common
+          fromEndpointId: tone-common
+          toEndpointId: tone-edge-common
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: TONE_COMMON
+          wire:
+            color: orange
+            gaugeAwg: 24
+            reviewedLengthMm: 58
+            groupId: panel-harness
+        - id: wire-tone-throw-a
+          fromEndpointId: tone-throw-a
+          toEndpointId: tone-edge-throw-a
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: TONE_THROW_A
+          wire:
+            color: orange
+            gaugeAwg: 24
+            reviewedLengthMm: 58
+            groupId: panel-harness
+        - id: wire-tone-throw-b
+          fromEndpointId: tone-throw-b
+          toEndpointId: tone-edge-throw-b
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: TONE_THROW_B
+          wire:
+            color: orange
+            gaugeAwg: 24
+            reviewedLengthMm: 58
+            groupId: panel-harness
+        - id: wire-status-led-anode
+          fromEndpointId: status-led-anode
+          toEndpointId: status-led-board
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: LED_ANODE
+          wire:
+            color: red
+            gaugeAwg: 24
+            reviewedLengthMm: 72
+            groupId: panel-harness
+        - id: wire-status-led-cathode
+          fromEndpointId: status-led-cathode
+          toEndpointId: status-led-cathode-board
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: LED_CATHODE
+          wire:
+            color: black
+            gaugeAwg: 24
+            reviewedLengthMm: 72
+            groupId: panel-harness
+        - id: wire-bypass-common
+          fromEndpointId: bypass-common
+          toEndpointId: bypass-board
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P1_COMMON
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p1-throw-a
+          fromEndpointId: bypass-p1-throw-a
+          toEndpointId: bypass-edge-p1-throw-a
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P1_THROW_A
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p1-throw-b
+          fromEndpointId: bypass-p1-throw-b
+          toEndpointId: bypass-edge-p1-throw-b
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P1_THROW_B
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p2-common
+          fromEndpointId: bypass-p2-common
+          toEndpointId: bypass-edge-p2-common
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P2_COMMON
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p2-throw-a
+          fromEndpointId: bypass-p2-throw-a
+          toEndpointId: bypass-edge-p2-throw-a
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P2_THROW_A
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p2-throw-b
+          fromEndpointId: bypass-p2-throw-b
+          toEndpointId: bypass-edge-p2-throw-b
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P2_THROW_B
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p3-common
+          fromEndpointId: bypass-p3-common
+          toEndpointId: bypass-edge-p3-common
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P3_COMMON
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p3-throw-a
+          fromEndpointId: bypass-p3-throw-a
+          toEndpointId: bypass-edge-p3-throw-a
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P3_THROW_A
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-bypass-p3-throw-b
+          fromEndpointId: bypass-p3-throw-b
+          toEndpointId: bypass-edge-p3-throw-b
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: BYPASS_P3_THROW_B
+          wire:
+            color: blue
+            gaugeAwg: 24
+            reviewedLengthMm: 55
+            groupId: footswitch-harness
+        - id: wire-input-tip
+          fromEndpointId: input-tip
+          toEndpointId: input-edge-tip
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: INPUT
+          wire:
+            color: white
+            gaugeAwg: 24
+            reviewedLengthMm: 70
+            groupId: io-harness
+        - id: wire-input-sleeve
+          fromEndpointId: input-sleeve
+          toEndpointId: input-edge-sleeve
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: GND
+          wire:
+            color: black
+            gaugeAwg: 24
+            reviewedLengthMm: 70
+            groupId: io-harness
+        - id: wire-output-tip
+          fromEndpointId: output-tip
+          toEndpointId: output-edge-tip
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: OUTPUT
+          wire:
+            color: white
+            gaugeAwg: 24
+            reviewedLengthMm: 70
+            groupId: io-harness
+        - id: wire-output-sleeve
+          fromEndpointId: output-sleeve
+          toEndpointId: output-edge-sleeve
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: GND
+          wire:
+            color: black
+            gaugeAwg: 24
+            reviewedLengthMm: 70
+            groupId: io-harness
+        - id: wire-dc-plus
+          fromEndpointId: dc-plus
+          toEndpointId: board-vplus
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: VPLUS
+          wire:
+            color: red
+            gaugeAwg: 24
+            reviewedLengthMm: 60
+            groupId: power-harness
+        - id: wire-dc-sleeve
+          fromEndpointId: dc-sleeve
+          toEndpointId: board-dc-sleeve
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: GND
+          wire:
+            color: black
+            gaugeAwg: 24
+            reviewedLengthMm: 60
+            groupId: power-harness
+        - id: wire-enclosure-ground
+          fromEndpointId: enclosure-ground-label
+          toEndpointId: board-ground
+          signalRef:
+            source: board-netlist
+            boardId: main-vero
+            netId: GND
+          wire:
+            color: green
+            gaugeAwg: 24
+            reviewedLengthMm: 80
+            groupId: chassis-ground
+
+components:
+  - id: R1
+    kind: resistor
+    name: R1
+    origin:
+      x: 0
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: a
+        position:
+          x: 0
+          y: 0
+      - name: b
+        position:
+          x: 20
+          y: 0
+    properties:
+      Resistance:
+        raw: 10k
+        value: 10000
+        unit: Ω
+    sourceTypeName: null
+  - id: C1
+    kind: capacitor
+    name: C1
+    origin:
+      x: 40
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: a
+        position:
+          x: 20
+          y: 0
+      - name: b
+        position:
+          x: 40
+          y: 0
+    properties:
+      Capacitance:
+        raw: 100n
+        value: 0.0000001
+        unit: F
+    sourceTypeName: null
+  - id: DRIVE
+    kind: potentiometer
+    name: DRIVE
+    origin:
+      x: 80
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: "1"
+        position:
+          x: 70
+          y: 10
+      - name: "2"
+        position:
+          x: 80
+          y: 10
+      - name: "3"
+        position:
+          x: 90
+          y: 10
+    properties:
+      Resistance:
+        raw: 500k
+        value: 500000
+        unit: Ω
+      Taper: reverse-log
+    sourceTypeName: null
+  - id: LEVEL
+    kind: potentiometer
+    name: LEVEL
+    origin:
+      x: 120
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: "1"
+        position:
+          x: 110
+          y: 10
+      - name: "2"
+        position:
+          x: 120
+          y: 10
+      - name: "3"
+        position:
+          x: 130
+          y: 10
+    properties:
+      Resistance:
+        raw: 10k
+        value: 10000
+        unit: Ω
+      Taper: log
+    sourceTypeName: null
+  - id: TONE
+    kind: switch
+    name: TONE
+    origin:
+      x: 160
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: common
+        position:
+          x: 160
+          y: 0
+      - name: throw_a
+        position:
+          x: 150
+          y: -10
+      - name: throw_b
+        position:
+          x: 170
+          y: -10
+    properties:
+      Positions: 2
+    sourceTypeName: Circuit.SPDT
+  - id: SW_BYPASS
+    kind: switch
+    name: SW_BYPASS
+    origin:
+      x: 200
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: p1_common
+        position:
+          x: 190
+          y: 0
+      - name: p1_throw_a
+        position:
+          x: 190
+          y: -10
+      - name: p1_throw_b
+        position:
+          x: 190
+          y: 10
+      - name: p2_common
+        position:
+          x: 200
+          y: 0
+      - name: p2_throw_a
+        position:
+          x: 200
+          y: -10
+      - name: p2_throw_b
+        position:
+          x: 200
+          y: 10
+      - name: p3_common
+        position:
+          x: 210
+          y: 0
+      - name: p3_throw_a
+        position:
+          x: 210
+          y: -10
+      - name: p3_throw_b
+        position:
+          x: 210
+          y: 10
+    properties:
+      PartNumber: 3PDT footswitch
+    sourceTypeName: Circuit.3PDT
+  - id: LED_STATUS
+    kind: led
+    name: LED_STATUS
+    origin:
+      x: 240
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: anode
+        position:
+          x: 240
+          y: -10
+      - name: cathode
+        position:
+          x: 240
+          y: 10
+    properties:
+      Color: red
+      Model: LED_RED
+    sourceTypeName: Circuit.LED
+  - id: J_IN
+    kind: jack
+    name: J_IN
+    origin:
+      x: 280
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: tip
+        position:
+          x: 280
+          y: -10
+      - name: sleeve
+        position:
+          x: 280
+          y: 10
+    properties:
+      Interface: audio
+      AudioRole: input
+    sourceTypeName: Circuit.Input
+  - id: J_OUT
+    kind: jack
+    name: J_OUT
+    origin:
+      x: 320
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: tip
+        position:
+          x: 320
+          y: -10
+      - name: sleeve
+        position:
+          x: 320
+          y: 10
+    properties:
+      Interface: audio
+      AudioRole: output
+    sourceTypeName: Circuit.Output
+  - id: J_DC
+    kind: jack
+    name: J_DC
+    origin:
+      x: 360
+      y: 0
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: positive
+        position:
+          x: 360
+          y: -10
+      - name: sleeve
+        position:
+          x: 360
+          y: 10
+    properties:
+      Interface: power
+      Voltage: 9V
+    sourceTypeName: Circuit.PowerJack
+  - id: GND
+    kind: ground
+    name: GND
+    origin:
+      x: 40
+      y: 30
+    rotation: 0
+    flipped: false
+    terminals:
+      - name: ground
+        position:
+          x: 40
+          y: 30
+    properties: {}
+    sourceTypeName: null
+
+wires:
+  - id: W_C1_GND
+    points:
+      - x: 40
+        y: 0
+      - x: 40
+        y: 30
+  - id: W_INPUT_R1
+    points:
+      - x: 280
+        y: -10
+      - x: 0
+        y: 0
+  - id: W_C1_LEVEL
+    points:
+      - x: 40
+        y: 0
+      - x: 120
+        y: 10
+
+boards:
+  - id: main-vero
+    schema: circuit-board/v1
+    family: prototype-board
+    kind: stripboard
+    subtype: veroboard
+    source: user-customized
+    units: mm
+    locked: true
+    sourceCircuit:
+      schema: canonical-circuit-facts-hash/v1
+      hashAlgorithm: sha256
+      hash: sha256:5ca62706f28d6a3f27dac083beea5d4fa345093ed716625296d4885f8da0c765
+    outline:
+      shape: rect
+      originMm:
+        x: 0
+        y: 0
+      sizeMm:
+        width: 45
+        height: 65
+    placement:
+      relativeTo: enclosure
+      originMm:
+        x: 7
+        y: 16
+      rotationDeg: 0
+    prototypeGrid:
+      pitchMm: 2.54
+      rows: 24
+      columns: 18
+      copperPattern:
+        kind: row-strips
+        stripAxis: horizontal
+    edgeTerminals:
+      - id: EDGE_DRIVE_1
+        role: offboard-connection
+        terminalRef:
+          componentId: DRIVE
+          terminalName: "1"
+        hole:
+          row: 1
+          column: 1
+      - id: EDGE_LED_ANODE
+        role: offboard-connection
+        terminalRef:
+          componentId: LED_STATUS
+          terminalName: anode
+        hole:
+          row: 2
+          column: 2
+      - id: EDGE_BYPASS_COMMON
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p1_common
+        hole:
+          row: 3
+          column: 3
+      - id: EDGE_VPLUS
+        role: power-input
+        terminalRef:
+          componentId: J_DC
+          terminalName: positive
+        hole:
+          row: 4
+          column: 17
+      - id: EDGE_GND
+        role: chassis-ground
+        terminalRef:
+          componentId: GND
+          terminalName: ground
+        hole:
+          row: 8
+          column: 17
+      - id: EDGE_LED_CATHODE
+        role: offboard-connection
+        terminalRef:
+          componentId: LED_STATUS
+          terminalName: cathode
+        hole:
+          row: 5
+          column: 17
+      - id: EDGE_INPUT_TIP
+        role: offboard-connection
+        terminalRef:
+          componentId: J_IN
+          terminalName: tip
+        hole:
+          row: 6
+          column: 1
+      - id: EDGE_LEVEL_2
+        role: offboard-connection
+        terminalRef:
+          componentId: LEVEL
+          terminalName: "2"
+        hole:
+          row: 8
+          column: 13
+      - id: EDGE_INPUT_SLEEVE
+        role: offboard-connection
+        terminalRef:
+          componentId: J_IN
+          terminalName: sleeve
+        hole:
+          row: 8
+          column: 14
+      - id: EDGE_OUTPUT_SLEEVE
+        role: offboard-connection
+        terminalRef:
+          componentId: J_OUT
+          terminalName: sleeve
+        hole:
+          row: 8
+          column: 15
+      - id: EDGE_DC_SLEEVE
+        role: power-ground
+        terminalRef:
+          componentId: J_DC
+          terminalName: sleeve
+        hole:
+          row: 8
+          column: 16
+      - id: EDGE_DRIVE_2
+        role: offboard-connection
+        terminalRef:
+          componentId: DRIVE
+          terminalName: "2"
+        hole:
+          row: 9
+          column: 17
+      - id: EDGE_DRIVE_3
+        role: offboard-connection
+        terminalRef:
+          componentId: DRIVE
+          terminalName: "3"
+        hole:
+          row: 10
+          column: 17
+      - id: EDGE_LEVEL_1
+        role: offboard-connection
+        terminalRef:
+          componentId: LEVEL
+          terminalName: "1"
+        hole:
+          row: 11
+          column: 17
+      - id: EDGE_LEVEL_3
+        role: offboard-connection
+        terminalRef:
+          componentId: LEVEL
+          terminalName: "3"
+        hole:
+          row: 12
+          column: 17
+      - id: EDGE_OUTPUT_TIP
+        role: offboard-connection
+        terminalRef:
+          componentId: J_OUT
+          terminalName: tip
+        hole:
+          row: 12
+          column: 16
+      - id: EDGE_TONE_COMMON
+        role: offboard-connection
+        terminalRef:
+          componentId: TONE
+          terminalName: common
+        hole:
+          row: 13
+          column: 17
+      - id: EDGE_TONE_THROW_A
+        role: offboard-connection
+        terminalRef:
+          componentId: TONE
+          terminalName: throw_a
+        hole:
+          row: 14
+          column: 17
+      - id: EDGE_TONE_THROW_B
+        role: offboard-connection
+        terminalRef:
+          componentId: TONE
+          terminalName: throw_b
+        hole:
+          row: 15
+          column: 17
+      - id: EDGE_BYPASS_P1_THROW_A
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p1_throw_a
+        hole:
+          row: 16
+          column: 17
+      - id: EDGE_BYPASS_P1_THROW_B
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p1_throw_b
+        hole:
+          row: 17
+          column: 17
+      - id: EDGE_BYPASS_P2_COMMON
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p2_common
+        hole:
+          row: 18
+          column: 17
+      - id: EDGE_BYPASS_P2_THROW_A
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p2_throw_a
+        hole:
+          row: 19
+          column: 17
+      - id: EDGE_BYPASS_P2_THROW_B
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p2_throw_b
+        hole:
+          row: 20
+          column: 17
+      - id: EDGE_BYPASS_P3_COMMON
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p3_common
+        hole:
+          row: 21
+          column: 17
+      - id: EDGE_BYPASS_P3_THROW_A
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p3_throw_a
+        hole:
+          row: 22
+          column: 17
+      - id: EDGE_BYPASS_P3_THROW_B
+        role: offboard-connection
+        terminalRef:
+          componentId: SW_BYPASS
+          terminalName: p3_throw_b
+        hole:
+          row: 23
+          column: 17
+    footprintPlacements:
+      - componentId: R1
+        footprintId: axial-resistor-7.5mm-through-hole
+        atGrid:
+          row: 6
+          column: 4
+        rotationDeg: 0
+        pads:
+          - padId: R1.1
+            terminalName: a
+            hole:
+              row: 6
+              column: 4
+          - padId: R1.2
+            terminalName: b
+            hole:
+              row: 7
+              column: 7
+      - componentId: C1
+        footprintId: capacitor-box-5mm-through-hole
+        atGrid:
+          row: 7
+          column: 10
+        rotationDeg: 0
+        pads:
+          - padId: C1.1
+            terminalName: a
+            hole:
+              row: 7
+              column: 10
+          - padId: C1.2
+            terminalName: b
+            hole:
+              row: 8
+              column: 12
+    netlist:
+      source: user-overridden
+      nets:
+        - id: INPUT
+          name: INPUT
+          members:
+            - componentId: J_IN
+              terminalName: tip
+              terminalId: EDGE_INPUT_TIP
+            - componentId: R1
+              terminalName: a
+              padId: R1.1
+        - id: N001
+          name: CLIP_INPUT
+          members:
+            - componentId: R1
+              terminalName: b
+              padId: R1.2
+            - componentId: C1
+              terminalName: a
+              padId: C1.1
+        - id: GND
+          name: GND
+          members:
+            - componentId: C1
+              terminalName: b
+              padId: C1.2
+            - componentId: LEVEL
+              terminalName: "2"
+              terminalId: EDGE_LEVEL_2
+            - componentId: J_IN
+              terminalName: sleeve
+              terminalId: EDGE_INPUT_SLEEVE
+            - componentId: J_OUT
+              terminalName: sleeve
+              terminalId: EDGE_OUTPUT_SLEEVE
+            - componentId: J_DC
+              terminalName: sleeve
+              terminalId: EDGE_DC_SLEEVE
+            - componentId: GND
+              terminalName: ground
+              terminalId: EDGE_GND
+        - id: LED_ANODE
+          name: LED_ANODE
+          members:
+            - componentId: LED_STATUS
+              terminalName: anode
+              terminalId: EDGE_LED_ANODE
+        - id: LED_CATHODE
+          name: LED_CATHODE
+          members:
+            - componentId: LED_STATUS
+              terminalName: cathode
+              terminalId: EDGE_LED_CATHODE
+        - id: VPLUS
+          name: VPLUS
+          members:
+            - componentId: J_DC
+              terminalName: positive
+              terminalId: EDGE_VPLUS
+        - id: DRIVE_1
+          name: DRIVE_1
+          members:
+            - componentId: DRIVE
+              terminalName: "1"
+              terminalId: EDGE_DRIVE_1
+        - id: DRIVE_2
+          name: DRIVE_2
+          members:
+            - componentId: DRIVE
+              terminalName: "2"
+              terminalId: EDGE_DRIVE_2
+        - id: DRIVE_3
+          name: DRIVE_3
+          members:
+            - componentId: DRIVE
+              terminalName: "3"
+              terminalId: EDGE_DRIVE_3
+        - id: LEVEL_1
+          name: LEVEL_1
+          members:
+            - componentId: LEVEL
+              terminalName: "1"
+              terminalId: EDGE_LEVEL_1
+        - id: OUTPUT
+          name: OUTPUT
+          members:
+            - componentId: LEVEL
+              terminalName: "3"
+              terminalId: EDGE_LEVEL_3
+            - componentId: J_OUT
+              terminalName: tip
+              terminalId: EDGE_OUTPUT_TIP
+        - id: TONE_COMMON
+          name: TONE_COMMON
+          members:
+            - componentId: TONE
+              terminalName: common
+              terminalId: EDGE_TONE_COMMON
+        - id: TONE_THROW_A
+          name: TONE_THROW_A
+          members:
+            - componentId: TONE
+              terminalName: throw_a
+              terminalId: EDGE_TONE_THROW_A
+        - id: TONE_THROW_B
+          name: TONE_THROW_B
+          members:
+            - componentId: TONE
+              terminalName: throw_b
+              terminalId: EDGE_TONE_THROW_B
+        - id: BYPASS_P1_COMMON
+          name: BYPASS_P1_COMMON
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p1_common
+              terminalId: EDGE_BYPASS_COMMON
+        - id: BYPASS_P1_THROW_A
+          name: BYPASS_P1_THROW_A
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p1_throw_a
+              terminalId: EDGE_BYPASS_P1_THROW_A
+        - id: BYPASS_P1_THROW_B
+          name: BYPASS_P1_THROW_B
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p1_throw_b
+              terminalId: EDGE_BYPASS_P1_THROW_B
+        - id: BYPASS_P2_COMMON
+          name: BYPASS_P2_COMMON
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p2_common
+              terminalId: EDGE_BYPASS_P2_COMMON
+        - id: BYPASS_P2_THROW_A
+          name: BYPASS_P2_THROW_A
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p2_throw_a
+              terminalId: EDGE_BYPASS_P2_THROW_A
+        - id: BYPASS_P2_THROW_B
+          name: BYPASS_P2_THROW_B
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p2_throw_b
+              terminalId: EDGE_BYPASS_P2_THROW_B
+        - id: BYPASS_P3_COMMON
+          name: BYPASS_P3_COMMON
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p3_common
+              terminalId: EDGE_BYPASS_P3_COMMON
+        - id: BYPASS_P3_THROW_A
+          name: BYPASS_P3_THROW_A
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p3_throw_a
+              terminalId: EDGE_BYPASS_P3_THROW_A
+        - id: BYPASS_P3_THROW_B
+          name: BYPASS_P3_THROW_B
+          members:
+            - componentId: SW_BYPASS
+              terminalName: p3_throw_b
+              terminalId: EDGE_BYPASS_P3_THROW_B
+    routes:
+      - id: route-input-strip
+        netRef:
+          source: board-netlist
+          boardId: main-vero
+          netId: INPUT
+        locked: true
+        conductors:
+          - kind: existing-strip
+            from:
+              row: 6
+              column: 1
+            to:
+              row: 6
+              column: 4
+          - kind: cut
+            at:
+              row: 6
+              column: 5
+      - id: route-n001-strip
+        netRef:
+          source: board-netlist
+          boardId: main-vero
+          netId: N001
+        locked: true
+        conductors:
+          - kind: cut
+            at:
+              row: 7
+              column: 6
+          - kind: existing-strip
+            from:
+              row: 7
+              column: 7
+            to:
+              row: 7
+              column: 10
+          - kind: cut
+            at:
+              row: 7
+              column: 11
+      - id: route-ground-strip
+        netRef:
+          source: board-netlist
+          boardId: main-vero
+          netId: GND
+        locked: true
+        conductors:
+          - kind: cut
+            at:
+              row: 8
+              column: 11
+          - kind: existing-strip
+            from:
+              row: 8
+              column: 12
+            to:
+              row: 8
+              column: 17
+          - kind: cut
+            at:
+              row: 8
+              column: 18
+      - id: route-output-strip
+        netRef:
+          source: board-netlist
+          boardId: main-vero
+          netId: OUTPUT
+        locked: true
+        conductors:
+          - kind: cut
+            at:
+              row: 12
+              column: 15
+          - kind: existing-strip
+            from:
+              row: 12
+              column: 16
+            to:
+              row: 12
+              column: 17
+          - kind: cut
+            at:
+              row: 12
+              column: 18
+    designRules:
+      minHolePitchMm: 2.54
+      nonVerticalJumpersAllowed: false
+    review:
+      status: buildable
+      reviewedBy: user
+      reviewedAt: 2026-06-13T09:00:00Z
+      notes: Primary reviewed Vero layout with locked route primitives.
+
+  - id: perfboard-alt
+    schema: circuit-board/v1
+    family: prototype-board
+    kind: perfboard
+    subtype: isolated-pad
+    source: generated-candidate
+    units: mm
+    locked: false
+    sourceCircuit:
+      schema: canonical-circuit-facts-hash/v1
+      hashAlgorithm: sha256
+      hash: sha256:5ca62706f28d6a3f27dac083beea5d4fa345093ed716625296d4885f8da0c765
+    outline:
+      shape: rect
+      originMm:
+        x: 0
+        y: 0
+      sizeMm:
+        width: 45
+        height: 65
+    prototypeGrid:
+      pitchMm: 2.54
+      rows: 24
+      columns: 18
+      copperPattern:
+        kind: isolated-pads
+    footprintPlacements:
+      - componentId: R1
+        footprintId: axial-resistor-7.5mm-perfboard
+        atGrid:
+          row: 6
+          column: 4
+        rotationDeg: 0
+        pads:
+          - padId: R1.1
+            terminalName: a
+            hole:
+              row: 6
+              column: 4
+          - padId: R1.2
+            terminalName: b
+            hole:
+              row: 6
+              column: 7
+    routes:
+      - id: route-r1b-perf
+        netRef:
+          source: canonical-circuit
+          member:
+            componentId: R1
+            terminalName: b
+        locked: false
+        conductors:
+          - kind: solder-bridge
+            from:
+              row: 6
+              column: 7
+            to:
+              row: 6
+              column: 8
+          - kind: bare-conductor
+            from:
+              row: 6
+              column: 8
+            to:
+              row: 8
+              column: 8
+          - kind: insulated-jumper
+            from:
+              row: 8
+              column: 8
+            to:
+              row: 8
+              column: 12
+    designRules:
+      minHolePitchMm: 2.54
+      solderBridgeMaxSpanHoles: 1
+    review:
+      status: candidate
+      reviewedBy: generator
+      notes: Alternative perfboard realization; netlist omitted because routes use canonical terminal refs.
+
+  - id: breadboard-pattern-proto
+    schema: circuit-board/v1
+    family: prototype-board
+    kind: breadboard-pattern
+    subtype: solderable-half-breadboard
+    source: generated-candidate
+    units: mm
+    locked: false
+    sourceCircuit:
+      schema: canonical-circuit-facts-hash/v1
+      hashAlgorithm: sha256
+      hash: sha256:5ca62706f28d6a3f27dac083beea5d4fa345093ed716625296d4885f8da0c765
+    outline:
+      shape: rect
+      originMm:
+        x: 0
+        y: 0
+      sizeMm:
+        width: 46
+        height: 72
+    prototypeGrid:
+      pitchMm: 2.54
+      rows: 30
+      columns: 18
+      copperPattern:
+        kind: breadboard-segments
+        preConnectedGroups:
+          - id: bus-plus-left
+            role: power-bus
+            holes:
+              - row: 1
+                column: 1
+              - row: 1
+                column: 2
+              - row: 1
+                column: 3
+          - id: terminal-row-6-a
+            role: terminal-strip
+            holes:
+              - row: 6
+                column: 1
+              - row: 6
+                column: 2
+              - row: 6
+                column: 3
+              - row: 6
+                column: 4
+              - row: 6
+                column: 5
+    routes:
+      - id: route-r1b-breadboard
+        netRef:
+          source: canonical-circuit
+          member:
+            componentId: R1
+            terminalName: b
+        locked: false
+        conductors:
+          - kind: pre-connected-group
+            groupId: terminal-row-6-a
+          - kind: insulated-jumper
+            from:
+              row: 6
+              column: 5
+            to:
+              row: 10
+              column: 5
+    designRules:
+      minHolePitchMm: 2.54
+      useDeclaredPreconnectedGroupsOnly: true
+    review:
+      status: candidate
+      reviewedBy: generator
+      notes: Solderable breadboard-pattern realization using declared pre-connected groups.
+
+  - id: fabricated-pcb
+    schema: circuit-board/v1
+    family: fabricated-board
+    kind: pcb
+    subtype: single-sided-through-hole
+    source: generated-candidate
+    units: mm
+    locked: false
+    sourceCircuit:
+      schema: canonical-circuit-facts-hash/v1
+      hashAlgorithm: sha256
+      hash: sha256:5ca62706f28d6a3f27dac083beea5d4fa345093ed716625296d4885f8da0c765
+    outline:
+      shape: rect
+      originMm:
+        x: 0
+        y: 0
+      sizeMm:
+        width: 45
+        height: 65
+    placement:
+      relativeTo: enclosure
+      originMm:
+        x: 7
+        y: 16
+      rotationDeg: 0
+    stackup:
+      copperLayers:
+        - bottom
+      substrate: FR4
+      thicknessMm: 1.6
+    footprintPlacements:
+      - componentId: R1
+        footprintId: axial-resistor-7.5mm-pcb
+        atMm:
+          x: 14
+          y: 20
+        rotationDeg: 0
+        pads:
+          - padId: R1.1
+            terminalName: a
+            positionMm:
+              x: 14
+              y: 20
+          - padId: R1.2
+            terminalName: b
+            positionMm:
+              x: 21.5
+              y: 20
+      - componentId: C1
+        footprintId: capacitor-box-5mm-pcb
+        atMm:
+          x: 28
+          y: 20
+        rotationDeg: 0
+        pads:
+          - padId: C1.1
+            terminalName: a
+            positionMm:
+              x: 28
+              y: 20
+          - padId: C1.2
+            terminalName: b
+            positionMm:
+              x: 33
+              y: 20
+    routes:
+      - id: route-n001-pcb
+        netRef:
+          source: canonical-circuit
+          member:
+            componentId: R1
+            terminalName: b
+        locked: false
+        copper:
+          - layer: bottom
+            widthMm: 0.4
+            pointsMm:
+              - x: 21.5
+                y: 20
+              - x: 28
+                y: 20
+        vias: []
+    zones:
+      - id: ground-fill-bottom
+        netRef:
+          source: canonical-circuit
+          member:
+            componentId: GND
+            terminalName: ground
+        layer: bottom
+        clearanceMm: 0.5
+        polygonMm:
+          - x: 2
+            y: 2
+          - x: 43
+            y: 2
+          - x: 43
+            y: 63
+          - x: 2
+            y: 63
+    drills:
+      - id: mounting-hole-1
+        kind: non-plated
+        diameterMm: 3
+        centerMm:
+          x: 5
+          y: 5
+    designRules:
+      minTraceWidthMm: 0.25
+      minCopperClearanceMm: 0.25
+      minDrillDiameterMm: 0.6
+    review:
+      status: candidate
+      reviewedBy: generator
+      notes: Alternate PCB realization included to exercise PCB route primitives; excluded from selected BOM and wiring scope.
+
+directives: []
+diagnostics: []
+rawAttributes: {}

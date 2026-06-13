@@ -10,12 +10,17 @@ import {
     serializeCircuitDocumentFile,
     serializeVdspCircuitDocument,
     convertCircuitDocumentFile,
+    convertCircuitDocumentFileWithReport,
     validateVdspCircuitDocumentSchema,
     vdspFileExtension,
 } from '../../packages/core/src/formats/document';
 import { EMPTY_DOCUMENT } from '../../packages/core/src/model/types';
 
 const SIMPLE_ASC_URL = new URL('../fixtures/asc/simple-rc.asc', import.meta.url);
+const V3_MECHANICAL_BOARD_URL = new URL(
+    '../fixtures/interchange/vdsp-v3-mechanical-board-realization.vdsp',
+    import.meta.url,
+);
 
 describe('circuit format dispatch', () => {
     test('detects supported file extensions', () => {
@@ -96,6 +101,19 @@ rawAttributes: {}`;
         expect(doc.components).toHaveLength(0);
     });
 
+    test('parseCircuitDocumentFile parses v3 .vdsp physical build metadata', async () => {
+        const yaml = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+        const doc = parseCircuitDocumentFile(yaml, { filename: 'mechanical-build.vdsp' });
+
+        expect(doc.build?.selectedBoardId).toBe('main-vero');
+        expect(doc.boards?.map((board) => board.id)).toEqual([
+            'main-vero',
+            'perfboard-alt',
+            'breadboard-pattern-proto',
+            'fabricated-pcb',
+        ]);
+    });
+
     test('serializes and parses Circuit JSON document files', () => {
         const json = serializeCircuitDocumentFile(EMPTY_DOCUMENT, {
             format: 'circuit-json',
@@ -131,6 +149,42 @@ rawAttributes: {}`;
             software_used_string: '@vessel-dsp/core',
         });
         expect(parseCircuitDocumentFile(backToVdsp, { filename: 'convertible-roundtrip.vdsp' }).metadata.name).toBe('Convertible');
+    });
+
+    test('convertCircuitDocumentFile errors by default when v3-only data would be dropped', async () => {
+        const yaml = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+
+        expect(() => convertCircuitDocumentFile(yaml, {
+            inputFilename: 'mechanical-build.vdsp',
+            outputFormat: 'circuit-json',
+            outputFilename: 'mechanical-build.circuit.json',
+        })).toThrow(/would drop v3-only fields/i);
+    });
+
+    test('convertCircuitDocumentFileWithReport can explicitly drop v3-only data with diagnostics', async () => {
+        const yaml = await Bun.file(V3_MECHANICAL_BOARD_URL).text();
+
+        const report = convertCircuitDocumentFileWithReport(yaml, {
+            inputFilename: 'mechanical-build.vdsp',
+            outputFormat: 'circuit-json',
+            outputFilename: 'mechanical-build.circuit.json',
+            lossPolicy: 'drop-with-diagnostics',
+        });
+
+        expect(Array.isArray(JSON.parse(report.output))).toBe(true);
+        expect(report.droppedFields).toEqual([
+            'mechanical',
+            'build',
+            'bom',
+            'partProfiles',
+            'footprints',
+            'offBoardWiring',
+            'panel.faces[].geometry',
+            'panel.faces[].elements[].id',
+            'panel.faces[].elements[].physical',
+            'boards',
+        ]);
+        expect(report.diagnostics.map((diagnostic) => diagnostic.code)).toContain('v3-data-dropped');
     });
 
     test('parseVdspCircuitDocument parses .vdsp source directly', () => {

@@ -38,6 +38,24 @@ export type ConvertCircuitDocumentFileOptions = Readonly<{
     outputFilename?: string;
 }>;
 
+export type CircuitDocumentConversionLossPolicy = 'error' | 'drop-with-diagnostics';
+
+export type CircuitDocumentConversionDiagnostic = Readonly<{
+    code: 'v3-data-dropped';
+    message: string;
+    field: string;
+}>;
+
+export type ConvertCircuitDocumentFileWithReportOptions = ConvertCircuitDocumentFileOptions & Readonly<{
+    lossPolicy?: CircuitDocumentConversionLossPolicy;
+}>;
+
+export type CircuitDocumentFileConversionReport = Readonly<{
+    output: string;
+    diagnostics: readonly CircuitDocumentConversionDiagnostic[];
+    droppedFields: readonly string[];
+}>;
+
 export type VdspSchemaValidationIssue = Readonly<{
     code: 'vdsp-schema-invalid';
     message: string;
@@ -190,6 +208,8 @@ export function serializeCircuitDocumentFile(
     document: CircuitDocument,
     options: SerializeCircuitDocumentFileOptions,
 ): string {
+    assertNoV3OnlyDataDrop(document, options.format);
+
     switch (options.format) {
         case 'vdsp':
         case 'yaml':
@@ -212,12 +232,45 @@ export function convertCircuitDocumentFile(
     source: string,
     options: ConvertCircuitDocumentFileOptions,
 ): string {
-    return serializeCircuitDocumentFile(parseCircuitDocumentFile(source, {
+    return convertCircuitDocumentFileWithReport(source, options).output;
+}
+
+export function convertCircuitDocumentFileWithReport(
+    source: string,
+    options: ConvertCircuitDocumentFileWithReportOptions,
+): CircuitDocumentFileConversionReport {
+    const document = parseCircuitDocumentFile(source, {
         filename: options.inputFilename,
-    }), {
+    });
+    const droppedFields = v3OnlyDroppedFields(document);
+    const targetOptions: SerializeCircuitDocumentFileOptions = {
         format: options.outputFormat,
         ...(options.outputFilename === undefined ? {} : { filename: options.outputFilename }),
-    });
+    };
+
+    if (isVdspOutputFormat(options.outputFormat) || droppedFields.length === 0) {
+        return {
+            output: serializeCircuitDocumentFile(document, targetOptions),
+            diagnostics: [],
+            droppedFields: [],
+        };
+    }
+
+    if (options.lossPolicy !== 'drop-with-diagnostics') {
+        throw new Error(v3DropMessage(options.outputFormat, droppedFields));
+    }
+
+    const diagnostics = droppedFields.map((field): CircuitDocumentConversionDiagnostic => ({
+        code: 'v3-data-dropped',
+        field,
+        message: `Dropped v3-only field "${field}" while converting to ${options.outputFormat}`,
+    }));
+
+    return {
+        output: serializeCircuitDocumentFile(stripV3OnlyData(document), targetOptions),
+        diagnostics,
+        droppedFields,
+    };
 }
 
 export function serializeVdspCircuitDocument(
@@ -259,6 +312,95 @@ function normalizeVdspFilename(filename: string | undefined, fallbackName: strin
     }
     const withoutExtension = trimmed.replace(/\.[^.\\\/]+$/, '');
     return `${withoutExtension || 'untitled-preset'}${vdspFileExtension}`;
+}
+
+function assertNoV3OnlyDataDrop(document: CircuitDocument, format: CircuitDocumentFileFormat): void {
+    if (isVdspOutputFormat(format)) {
+        return;
+    }
+    const droppedFields = v3OnlyDroppedFields(document);
+    if (droppedFields.length > 0) {
+        throw new Error(v3DropMessage(format, droppedFields));
+    }
+}
+
+function v3DropMessage(format: CircuitDocumentFileFormat, droppedFields: readonly string[]): string {
+    return `Converting to ${format} would drop v3-only fields: ${droppedFields.join(', ')}`;
+}
+
+function isVdspOutputFormat(format: CircuitDocumentFileFormat): boolean {
+    return format === 'vdsp' || format === 'yaml';
+}
+
+function v3OnlyDroppedFields(document: CircuitDocument): readonly string[] {
+    const fields: string[] = [];
+    if (document.mechanical !== undefined) {
+        fields.push('mechanical');
+    }
+    if (document.build !== undefined) {
+        fields.push('build');
+    }
+    if (document.bom !== undefined) {
+        fields.push('bom');
+    }
+    if (document.partProfiles !== undefined) {
+        fields.push('partProfiles');
+    }
+    if (document.footprints !== undefined) {
+        fields.push('footprints');
+    }
+    if (document.offBoardWiring !== undefined) {
+        fields.push('offBoardWiring');
+    }
+    if (document.panel?.faces.some((face) => face.geometry !== undefined) === true) {
+        fields.push('panel.faces[].geometry');
+    }
+    if (document.panel?.faces.some((face) => face.elements.some((element) => element.id !== undefined)) === true) {
+        fields.push('panel.faces[].elements[].id');
+    }
+    if (document.panel?.faces.some((face) => face.elements.some((element) => element.physical !== undefined)) === true) {
+        fields.push('panel.faces[].elements[].physical');
+    }
+    if (document.boards !== undefined) {
+        fields.push('boards');
+    }
+    return fields;
+}
+
+function stripV3OnlyData(document: CircuitDocument): CircuitDocument {
+    return {
+        metadata: document.metadata,
+        ...(document.source === undefined ? {} : { source: document.source }),
+        ...(document.device === undefined ? {} : { device: document.device }),
+        ...(document.controlGroups === undefined ? {} : { controlGroups: document.controlGroups }),
+        ...(document.controlContexts === undefined ? {} : { controlContexts: document.controlContexts }),
+        ...(document.deviceInterface === undefined ? {} : { deviceInterface: document.deviceInterface }),
+        ...(document.panel === undefined ? {} : {
+            panel: {
+                faces: document.panel.faces.map((face) => ({
+                    id: face.id,
+                    ...(face.label === undefined ? {} : { label: face.label }),
+                    layout: face.layout,
+                    elements: face.elements.map((element) => ({
+                        bind: element.bind,
+                        kind: element.kind,
+                        ...(element.label === undefined ? {} : { label: element.label }),
+                        ...(element.interfaceControlId === undefined
+                            ? {}
+                            : { interfaceControlId: element.interfaceControlId }),
+                        grid: element.grid,
+                    })),
+                })),
+            },
+        }),
+        ...(document.controlInterfaces === undefined ? {} : { controlInterfaces: document.controlInterfaces }),
+        ...(document.controlOutputs === undefined ? {} : { controlOutputs: document.controlOutputs }),
+        components: document.components,
+        wires: document.wires,
+        directives: document.directives,
+        warnings: document.warnings,
+        rawAttributes: document.rawAttributes,
+    };
 }
 
 function pathFromSchemaMessage(message: string): string | undefined {

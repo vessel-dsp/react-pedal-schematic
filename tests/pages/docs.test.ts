@@ -13,6 +13,7 @@ const CORE_CONVERSION_FUNCTIONS = [
     'parseCircuitDocumentFile',
     'serializeCircuitDocumentFile',
     'convertCircuitDocumentFile',
+    'convertCircuitDocumentFileWithReport',
     'serializeCircuitJsonDocument',
     'parseCircuitJsonDocument',
     'validateCircuitJsonDocument',
@@ -32,6 +33,9 @@ describe('GitHub Pages core conversion docs', () => {
         }
 
         expect(html).toContain('.vdsp');
+        expect(html).toContain('circuit-interchange/v3');
+        expect(html).toContain('drop-with-diagnostics');
+        expect(html).toContain('board realizations');
         expect(html).toContain('.asc');
         expect(html).toContain('.schx');
         expect(html).toContain('.circuit.json');
@@ -50,6 +54,7 @@ describe('GitHub Pages core conversion docs', () => {
             expect(html).toContain('<!doctype html>');
             expect(html).toContain('@vessel-dsp/core');
             expect(html).toContain('convertCircuitDocumentFile');
+            expect(html).toContain('convertCircuitDocumentFileWithReport');
             expect(html).not.toMatch(/<script\b/i);
         } finally {
             rmSync(outputDir, { recursive: true, force: true });
