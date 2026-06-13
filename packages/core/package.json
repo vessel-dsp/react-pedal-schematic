@@ -1,6 +1,6 @@
 {
     "name": "@vessel-dsp/core",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "description": "Headless Vessel DSP circuit, device, format conversion, and layout model APIs.",
     "keywords": [
         "guitar-pedal",
@@ -24,7 +24,7 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "bun": "./src/index.ts",
+            "bun": "./dist/index.js",
             "import": "./dist/index.js"
         },
         "./package.json": {
@@ -36,7 +36,6 @@
     "types": "./dist/index.d.ts",
     "files": [
         "dist",
-        "src",
         "README.md",
         "LICENSE.md"
     ],
@@ -44,6 +43,7 @@
         "build": "tsc -p tsconfig.build.json && bun run ../../scripts/fix-dist-imports.ts dist",
         "clean": "rm -rf dist",
         "pack:dry-run": "npm pack --dry-run",
+        "prepack": "bun run build",
         "typecheck": "tsc --noEmit -p tsconfig.json"
     },
     "dependencies": {

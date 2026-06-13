@@ -119,6 +119,16 @@ function expectNoReactRuntimeDependency(pkg: JsonRecord): void {
     expect(deps['react-dom']).toBeUndefined();
 }
 
+function collectExportTargets(value: unknown): readonly string[] {
+    if (typeof value === 'string') {
+        return [value];
+    }
+    if (!isRecord(value)) {
+        return [];
+    }
+    return Object.values(value).flatMap((target) => collectExportTargets(target));
+}
+
 describe('workspace package contract', () => {
     test('root manifest is a private Bun workspace for the core package only', async () => {
         const pkg = await readRootPackageJson();
@@ -244,6 +254,29 @@ describe('workspace package contract', () => {
         expect(pkg.files).toContain('README.md');
     });
 
+    test('core package publishes built dist artifacts without source fallback', async () => {
+        const pkg = await readPackageJson('core');
+        const files = Array.isArray(pkg.files) ? pkg.files : [];
+        const scripts = isRecord(pkg.scripts) ? pkg.scripts : {};
+        const entryTargets = [
+            pkg.main,
+            pkg.module,
+            pkg.types,
+            ...collectExportTargets(pkg.exports),
+        ].filter((target): target is string => typeof target === 'string');
+
+        expect(files).toContain('dist');
+        expect(files).not.toContain('src');
+        expect(scripts.prepack).toContain('bun run build');
+
+        for (const target of entryTargets) {
+            if (target === './package.json') {
+                continue;
+            }
+            expect(target).toStartWith('./dist/');
+        }
+    });
+
     test('publishes package homepage and GitHub repository metadata for npm package pages', async () => {
         const pkg = await readPackageJson('core');
 
@@ -324,9 +357,9 @@ describe('release metadata', () => {
         const core = await readPackageJson('core');
         const changelog = await readChangelog();
 
-        expect(core.version).toBe('0.6.0');
-        expect(VERSION).toBe('0.6.0');
-        expect(changelog).toStartWith('# Changelog\n\n## 0.6.0\n\n');
+        expect(core.version).toBe('0.6.1');
+        expect(VERSION).toBe('0.6.1');
+        expect(changelog).toStartWith('# Changelog\n\n## 0.6.1\n\n');
     });
 });
 
